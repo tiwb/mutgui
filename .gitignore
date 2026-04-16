@@ -68,3 +68,10 @@ Thumbs.db
 .venv/
 venv/
 env/
+
+# Node
+node_modules/
+
+# Frontend build artifacts (CI/release 时重新构建)
+src/mutgui/static/
+frontend/dist/
