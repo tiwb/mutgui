@@ -3,10 +3,11 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewSession, Transport, handler, bind
+from mutgui import View, ViewPort, Channel, handler, bind
+from mutgui._view_impl import ViewObservers
 
 
-class MockTransport(Transport):
+class MockChannel(Channel):
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
 
@@ -59,21 +60,21 @@ class ParentView(View):
 
 def test_nested_render_produces_view_and_child_messages() -> None:
     """嵌套 View render 产出父 + 子两条消息，父先子后。"""
-    transport = MockTransport()
+    channel = MockChannel()
     view = ParentView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    assert len(transport.messages) == 2
+    assert len(channel.messages) == 2
 
     # 父 View：viewId=[], tree 包含 $view 引用
-    parent_msg = transport.messages[0]
+    parent_msg = channel.messages[0]
     assert parent_msg["viewId"] == []
     assert parent_msg["tree"][0]["$component"] == "Text"
     assert parent_msg["tree"][1] == {"$view": "child"}
 
     # 子 View：viewId=["child"]
-    child_msg = transport.messages[1]
+    child_msg = channel.messages[1]
     assert child_msg["viewId"] == ["child"]
     assert child_msg["tree"][0]["$component"] == "InputNumber"
     assert child_msg["tree"][0]["value"] == 0
@@ -85,12 +86,12 @@ def test_nested_render_produces_view_and_child_messages() -> None:
 
 def test_event_routes_to_child_view() -> None:
     """事件 source 数组正确路由到子 View handler。"""
-    transport = MockTransport()
+    channel = MockChannel()
     view = ParentView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["child", "val"],
         "event": "onChange",
         "data": {"value": 42},
@@ -99,14 +100,14 @@ def test_event_routes_to_child_view() -> None:
     assert view.child.value == 42
 
     # flush 后子 View 重新 render
-    child_msgs = transport.messages_for(["child"])
+    child_msgs = channel.messages_for(["child"])
     assert len(child_msgs) == 2  # initial + after event
     assert child_msgs[-1]["tree"][0]["value"] == 42
 
 
 def test_event_to_parent_component() -> None:
     """事件路由到父 View 的组件。"""
-    transport = MockTransport()
+    channel = MockChannel()
 
     class ParentWithHandler(View):
         def __init__(self) -> None:
@@ -124,10 +125,10 @@ def test_event_to_parent_component() -> None:
             self.clicked = True
 
     view = ParentWithHandler()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["btn"],
         "event": "onClick",
         "data": {},
@@ -142,7 +143,7 @@ def test_event_to_parent_component() -> None:
 
 def test_deeply_nested_event_routing() -> None:
     """三层嵌套事件路由。"""
-    transport = MockTransport()
+    channel = MockChannel()
 
     class InnerView(View):
         id = "inner"
@@ -174,17 +175,17 @@ def test_deeply_nested_event_routing() -> None:
             return [self.middle]
 
     view = RootView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
     # 3 层 → 3 条消息
-    assert len(transport.messages) == 3
-    assert transport.messages[0]["viewId"] == []
-    assert transport.messages[1]["viewId"] == ["middle"]
-    assert transport.messages[2]["viewId"] == ["middle", "inner"]
+    assert len(channel.messages) == 3
+    assert channel.messages[0]["viewId"] == []
+    assert channel.messages[1]["viewId"] == ["middle"]
+    assert channel.messages[2]["viewId"] == ["middle", "inner"]
 
     # 事件路由到最内层
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["middle", "inner", "txt"],
         "event": "onChange",
         "data": {"value": "hello"},
@@ -199,36 +200,36 @@ def test_deeply_nested_event_routing() -> None:
 
 def test_invalidate_coalescing() -> None:
     """连续多次 invalidate → 只产生一次 render 推送。"""
-    transport = MockTransport()
+    channel = MockChannel()
     view = ChildView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    initial_count = len(transport.messages)
+    initial_count = len(channel.messages)
 
     view.invalidate()
     view.invalidate()
     view.invalidate()
 
-    run(session.flush())
-    assert len(transport.messages) == initial_count + 1
+    run(vp.flush())
+    assert len(channel.messages) == initial_count + 1
 
 
 def test_child_invalidate_no_parent_render() -> None:
     """子 View invalidate 不触发父 View render。"""
-    transport = MockTransport()
+    channel = MockChannel()
     view = ParentView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    initial_count = len(transport.messages)  # 2 (parent + child)
+    initial_count = len(channel.messages)  # 2 (parent + child)
 
     view.child.invalidate()
-    run(session.flush())
+    run(vp.flush())
 
     # 只有子 View 重新 render（1 条新消息）
-    assert len(transport.messages) == initial_count + 1
-    last_msg = transport.messages[-1]
+    assert len(channel.messages) == initial_count + 1
+    last_msg = channel.messages[-1]
     assert last_msg["viewId"] == ["child"]
 
 
@@ -238,7 +239,7 @@ def test_child_invalidate_no_parent_render() -> None:
 
 def test_view_inside_children() -> None:
     """View 实例出现在组件的 $children 中。"""
-    transport = MockTransport()
+    channel = MockChannel()
 
     class PanelView(View):
         id = "panel"
@@ -259,17 +260,17 @@ def test_view_inside_children() -> None:
             ]
 
     view = TabsView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
     # 父 View 的 tree 中 $children 包含 $view 引用
-    parent_tree = transport.messages[0]["tree"]
+    parent_tree = channel.messages[0]["tree"]
     tab_pane = parent_tree[0]["$children"][0]
     assert tab_pane["$children"] == [{"$view": "panel"}]
 
     # 子 View 独立推送
-    assert transport.messages[1]["viewId"] == ["panel"]
-    assert transport.messages[1]["tree"][0]["$component"] == "Text"
+    assert channel.messages[1]["viewId"] == ["panel"]
+    assert channel.messages[1]["tree"][0]["$component"] == "Text"
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +279,7 @@ def test_view_inside_children() -> None:
 
 def test_dynamic_view_add_remove() -> None:
     """父 View re-render 时子 View 出现/消失。"""
-    transport = MockTransport()
+    channel = MockChannel()
 
     class DynamicParent(View):
         def __init__(self) -> None:
@@ -294,21 +295,76 @@ def test_dynamic_view_add_remove() -> None:
             return items
 
     view = DynamicParent()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
     # 初始：parent + child = 2 消息
-    assert len(transport.messages) == 2
+    assert len(channel.messages) == 2
 
     # 隐藏 child → re-render parent
     view.show_child = False
     view.invalidate()
-    run(session.push())
+    run(vp.flush())
 
     # parent re-rendered, child 不在 tree 中
-    parent_msg = transport.messages[-1]
-    assert parent_msg["viewId"] == []
-    assert len(parent_msg["tree"]) == 1  # 只有 Text
+    parent_msgs = [m for m in channel.messages if m["viewId"] == []]
+    last_parent = parent_msgs[-1]
+    assert len(last_parent["tree"]) == 1  # 只有 Text
 
-    # child session 已解除
-    assert view.child._session is None
+    # child 的 ViewPort 已 detach（ViewObservers 中不再有该 ViewPort）
+    obs = ViewObservers.get(view.child)
+    if obs is not None:
+        assert len(obs._viewports) == 0
+
+
+# ---------------------------------------------------------------------------
+# 多客户端共享 View
+# ---------------------------------------------------------------------------
+
+def test_multi_client_invalidate_notifies_all() -> None:
+    """同一 View 被多个 ViewPort 观察，invalidate 通知所有。"""
+    ch_a = MockChannel()
+    ch_b = MockChannel()
+    view = ChildView()
+
+    vp_a = ViewPort(view, ch_a)
+    vp_b = ViewPort(view, ch_b)
+    run(vp_a.initialize())
+    run(vp_b.initialize())
+
+    assert len(ch_a.messages) == 1
+    assert len(ch_b.messages) == 1
+
+    # 通过 vp_a 修改状态
+    run(vp_a.handle_event({
+        "source": ["val"], "event": "onChange",
+        "data": {"value": 99},
+    }))
+    assert view.value == 99
+
+    # vp_a 已经 flush（handle_event 自动 flush）
+    assert len(ch_a.messages) == 2
+
+    # vp_b 被 invalidate 标脏，手动 flush
+    run(vp_b.flush())
+    assert len(ch_b.messages) == 2
+    assert ch_b.messages[-1]["tree"][0]["value"] == 99
+
+
+def test_detach_removes_observer() -> None:
+    """detach 后 invalidate 不再通知该 ViewPort。"""
+    ch_a = MockChannel()
+    ch_b = MockChannel()
+    view = ChildView()
+
+    vp_a = ViewPort(view, ch_a)
+    vp_b = ViewPort(view, ch_b)
+    run(vp_a.initialize())
+    run(vp_b.initialize())
+
+    vp_a.detach()
+
+    obs = ViewObservers.get(view)
+    assert obs is not None
+    assert len(obs._viewports) == 1
+    assert obs._viewports[0] is vp_b

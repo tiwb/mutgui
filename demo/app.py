@@ -24,14 +24,14 @@ from starlette.routing import Route, WebSocketRoute, Mount
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
-from mutgui import View, ViewSession, Transport, bind, handler
+from mutgui import View, ViewPort, Channel, bind, handler
 
 
 # ---------------------------------------------------------------------------
-# Transport 实现
+# Channel 实现
 # ---------------------------------------------------------------------------
 
-class WebSocketTransport(Transport):
+class WebSocketChannel(Channel):
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
 
@@ -187,33 +187,33 @@ class RootView(View):
 
 
 # ---------------------------------------------------------------------------
-# WebSocket handler — 所有连接共享同一 view，事件后广播
+# WebSocket handler — 所有连接共享同一 view，事件后自动通知
 # ---------------------------------------------------------------------------
 
 view = RootView()
-sessions: list[ViewSession] = []
+viewports: list[ViewPort] = []
 
 
 async def ws_handler(websocket: WebSocket) -> None:
     await websocket.accept()
-    session = ViewSession(view, WebSocketTransport(websocket))
-    sessions.append(session)
-    await session.initialize()
+    vp = ViewPort(view, WebSocketChannel(websocket))
+    viewports.append(vp)
+    await vp.initialize()
     try:
         while True:
             raw = await websocket.receive_text()
             event = json.loads(raw)
-            await session.handle_event(event)
-            for s in sessions:
-                if s is not session:
-                    try:
-                        await s.push()
-                    except Exception:
-                        pass
+            await vp.handle_event(event)
+            # invalidate() 自动通知所有 ViewPort，
+            # 但当前 flush 需要显式触发（异步调度待后续实现）
+            for other in viewports:
+                if other is not vp:
+                    await other.flush()
     except Exception:
         pass
     finally:
-        sessions.remove(session)
+        vp.detach()
+        viewports.remove(vp)
 
 
 # ---------------------------------------------------------------------------

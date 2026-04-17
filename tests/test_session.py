@@ -1,14 +1,14 @@
-"""ViewSession 的单元测试。"""
+"""ViewPort 的单元测试。"""
 
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewSession, Transport, bind, handler, notify
+from mutgui import View, ViewPort, Channel, bind, handler, notify
 from mutgui.events import TAG_KEY
 
 
-class MockTransport(Transport):
-    """记录所有发送消息的 mock transport。"""
+class MockChannel(Channel):
+    """记录所有发送消息的 mock channel。"""
 
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
@@ -41,12 +41,12 @@ class SimpleView(View):
 
 
 def test_initialize_sends_render() -> None:
-    transport = MockTransport()
-    session = ViewSession(SimpleView(), transport)
-    run(session.initialize())
+    channel = MockChannel()
+    vp = ViewPort(SimpleView(), channel)
+    run(vp.initialize())
 
-    assert len(transport.messages) == 1
-    msg = transport.last
+    assert len(channel.messages) == 1
+    msg = channel.last
     assert msg["type"] == "render"
     assert msg["viewId"] == []
     assert len(msg["tree"]) == 1
@@ -56,16 +56,16 @@ def test_initialize_sends_render() -> None:
 
 def test_plain_props_pass_through() -> None:
     """没有 $ 标签的 props 应原样传递。"""
-    transport = MockTransport()
+    channel = MockChannel()
 
     class StyledView(View):
         def render(self) -> list[dict[str, Any]]:
             return [{"$component": "Input", "$id": "x", "style": {"width": 200}, "placeholder": "hi"}]
 
-    session = ViewSession(StyledView(), transport)
-    run(session.initialize())
+    vp = ViewPort(StyledView(), channel)
+    run(vp.initialize())
 
-    node = transport.last_tree[0]
+    node = channel.last_tree[0]
     assert node["style"] == {"width": 200}
     assert node["placeholder"] == "hi"
 
@@ -88,21 +88,21 @@ class HandlerView(View):
 
 
 def test_handler_registered_and_dispatched() -> None:
-    transport = MockTransport()
+    channel = MockChannel()
     view = HandlerView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
     # wire 格式应该有 $ tag 但无 fn
-    node = transport.last_tree[0]
+    node = channel.last_tree[0]
     assert node["onClick"][TAG_KEY] == "handler"
     assert "fn" not in node["onClick"]
 
     # dispatch event（source 数组格式）
-    run(session.handle_event({"source": ["btn"], "event": "onClick", "data": {}}))
+    run(vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}}))
     assert view.clicked is True
     # re-render 后应多一条消息
-    assert len(transport.messages) == 2
+    assert len(channel.messages) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -125,11 +125,11 @@ class BindView(View):
 
 def test_bind_wire_format() -> None:
     """bind 应序列化为 handler + __bind_value__ 提取。"""
-    transport = MockTransport()
-    session = ViewSession(BindView(), transport)
-    run(session.initialize())
+    channel = MockChannel()
+    vp = ViewPort(BindView(), channel)
+    run(vp.initialize())
 
-    node = transport.last_tree[0]
+    node = channel.last_tree[0]
     on_change = node["onChange"]
     assert on_change[TAG_KEY] == "handler"
     assert on_change["extract"]["__bind_value__"] == "$0.target.value"
@@ -139,29 +139,29 @@ def test_bind_wire_format() -> None:
 
 def test_bind_setattr() -> None:
     """bind event 应写回对象属性。"""
-    transport = MockTransport()
+    channel = MockChannel()
     view = BindView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["name"], "event": "onChange",
         "data": {"__bind_value__": "Alice"},
     }))
     assert view.name == "Alice"
 
     # 验证 re-render 中值已更新
-    name_node = next(n for n in transport.last_tree if n.get("$id") == "name")
+    name_node = next(n for n in channel.last_tree if n.get("$id") == "name")
     assert name_node["value"] == "Alice"
 
 
 def test_bind_number() -> None:
-    transport = MockTransport()
+    channel = MockChannel()
     view = BindView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["age"], "event": "onChange",
         "data": {"__bind_value__": 25},
     }))
@@ -187,12 +187,12 @@ class NotifyView(View):
 
 
 def test_notify_falls_back_to_on_event() -> None:
-    transport = MockTransport()
+    channel = MockChannel()
     view = NotifyView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["x"], "event": "onChange",
         "data": {"value": "test"},
     }))
@@ -219,19 +219,19 @@ class ConditionalView(View):
 
 
 def test_conditional_rendering() -> None:
-    transport = MockTransport()
+    channel = MockChannel()
     view = ConditionalView()
-    session = ViewSession(view, transport)
-    run(session.initialize())
+    vp = ViewPort(view, channel)
+    run(vp.initialize())
 
-    assert len(transport.last_tree) == 1
+    assert len(channel.last_tree) == 1
 
-    run(session.handle_event({
+    run(vp.handle_event({
         "source": ["toggle"], "event": "onChange",
         "data": {"__bind_value__": True},
     }))
-    assert len(transport.last_tree) == 2
-    assert transport.last_tree[1]["$id"] == "extra"
+    assert len(channel.last_tree) == 2
+    assert channel.last_tree[1]["$id"] == "extra"
 
 
 # ---------------------------------------------------------------------------
@@ -245,12 +245,12 @@ class SingleRootView(View):
 
 def test_single_root_dict() -> None:
     """render() 返回 dict 应自动包装为 list。"""
-    transport = MockTransport()
-    session = ViewSession(SingleRootView(), transport)
-    run(session.initialize())
+    channel = MockChannel()
+    vp = ViewPort(SingleRootView(), channel)
+    run(vp.initialize())
 
-    assert len(transport.last_tree) == 1
-    assert transport.last_tree[0]["children"] == "OK"
+    assert len(channel.last_tree) == 1
+    assert channel.last_tree[0]["children"] == "OK"
 
 
 # ---------------------------------------------------------------------------
@@ -271,11 +271,11 @@ class NestedChildrenView(View):
 
 def test_nested_children() -> None:
     """$children 列表应被递归处理。"""
-    transport = MockTransport()
-    session = ViewSession(NestedChildrenView(), transport)
-    run(session.initialize())
+    channel = MockChannel()
+    vp = ViewPort(NestedChildrenView(), channel)
+    run(vp.initialize())
 
-    card = transport.last_tree[0]
+    card = channel.last_tree[0]
     assert card["$component"] == "Card"
     assert isinstance(card["$children"], list)
     inner = card["$children"][0]
