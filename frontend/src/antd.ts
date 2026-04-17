@@ -13,6 +13,11 @@ import {
   Radio,
   Form,
   Typography,
+  Card,
+  Row,
+  Col,
+  Space,
+  Divider,
 } from 'antd';
 import { register } from './registry';
 
@@ -40,4 +45,10 @@ export function registerAntd(): void {
   register('Typography.Text', Typography.Text);
   register('Typography.Title', Typography.Title);
   register('Typography.Paragraph', Typography.Paragraph);
+  // Layout
+  register('Card', Card);
+  register('Row', Row);
+  register('Col', Col);
+  register('Space', Space);
+  register('Divider', Divider);
 }

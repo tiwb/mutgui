@@ -9,37 +9,70 @@
 import { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerAntd } from './antd';
-import { MutguiRenderer } from './renderer';
-import type { ComponentSchema, WsLike } from './renderer';
+import { MutguiView } from './renderer';
+import {
+  ConnectionProvider,
+  type MutguiConnection,
+  type ViewPath,
+  type RenderCallback,
+} from './context';
 
 registerAntd();
 
+function createConnection(ws: WebSocket): MutguiConnection {
+  const subs = new Map<string, RenderCallback>();
+  const cache = new Map<string, unknown[]>();
+
+  ws.addEventListener('message', (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'render') {
+      const viewId: ViewPath = msg.viewId || [];
+      const key = JSON.stringify(viewId);
+      cache.set(key, msg.tree);
+      const cb = subs.get(key);
+      if (cb) cb(msg.tree);
+    }
+  });
+
+  return {
+    send: (data: string) => ws.send(data),
+    subscribe: (viewId: ViewPath, callback: RenderCallback) => {
+      const key = JSON.stringify(viewId);
+      subs.set(key, callback);
+      // 回放缓存：render 消息可能在 subscribe 之前到达
+      const cached = cache.get(key);
+      if (cached) callback(cached);
+      return () => subs.delete(key);
+    },
+  };
+}
+
 function App({ wsUrl }: { wsUrl: string }) {
-  const [tree, setTree] = useState<ComponentSchema[]>([]);
   const [status, setStatus] = useState('Connecting...');
-  const wsRef = useRef<WebSocket | null>(null);
+  const connRef = useRef<MutguiConnection | null>(null);
+  const [conn, setConn] = useState<MutguiConnection | null>(null);
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onopen = () => setStatus('Connected');
-    ws.onclose = () => setStatus('Disconnected');
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'render') setTree(msg.tree);
+    const connection = createConnection(ws);
+    connRef.current = connection;
+    ws.onopen = () => {
+      setStatus('Connected');
+      setConn(connection);
     };
+    ws.onclose = () => setStatus('Disconnected');
     return () => ws.close();
   }, [wsUrl]);
 
-  const wsLike: WsLike = {
-    send: (data: string) => wsRef.current?.send(data),
-  };
+  if (!conn) {
+    return <div style={{ color: '#999', fontSize: 12 }}>{status}</div>;
+  }
 
   return (
-    <>
+    <ConnectionProvider value={conn}>
       <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>{status}</div>
-      <MutguiRenderer tree={tree} ws={wsLike} />
-    </>
+      <MutguiView />
+    </ConnectionProvider>
   );
 }
 

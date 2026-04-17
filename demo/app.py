@@ -1,11 +1,14 @@
-"""mutgui demo — 纯 Python 单文件 demo。
+"""mutgui demo — View 嵌套演示。
+
+两个独立 View 并排显示，各自独立更新。
+每个 View 底部显示 render 次数，直观展示"改左边不影响右边"。
 
 启动::
 
     cd mutgui/demo
     python app.py
 
-然后打开 http://localhost:8765
+然后打开 http://localhost:8080
 """
 from __future__ import annotations
 
@@ -37,37 +40,61 @@ class WebSocketTransport(Transport):
 
 
 # ---------------------------------------------------------------------------
-# 示例 View
+# 子 View：基本信息
 # ---------------------------------------------------------------------------
 
-class SignupView(View):
+class ProfileView(View):
+    id = "profile"
+
     def __init__(self) -> None:
         self.name = ""
         self.age = 18
+        self._render_count = 0
+
+    def render(self) -> list[dict[str, Any]]:
+        self._render_count += 1
+        return [
+            {"$component": "Form", "$id": "form", "layout": "vertical",
+             "$children": [
+                 {"$component": "Form.Item", "$id": "fi-name", "label": "Name",
+                  "$children": [
+                      {"$component": "Input", "$id": "name", "value": self.name,
+                       "placeholder": "Your name",
+                       "onChange": bind(self, "name", "$0.target.value")},
+                  ]},
+                 {"$component": "Form.Item", "$id": "fi-age", "label": "Age",
+                  "$children": [
+                      {"$component": "InputNumber", "$id": "age",
+                       "value": self.age, "min": 0, "max": 150,
+                       "onChange": bind(self, "age", "$0")},
+                  ]},
+             ]},
+            {"$component": "Typography.Text", "$id": "counter",
+             "type": "secondary",
+             "children": f"render #{self._render_count}"},
+        ]
+
+
+# ---------------------------------------------------------------------------
+# 子 View：订阅信息
+# ---------------------------------------------------------------------------
+
+class SubscriptionView(View):
+    id = "subscription"
+
+    def __init__(self) -> None:
         self.subscribe = False
         self.email = ""
         self.plan = "free"
         self.message = ""
+        self._render_count = 0
 
     def render(self) -> list[dict[str, Any]]:
+        self._render_count += 1
         items: list[dict[str, Any]] = [
-            {"$component": "Form.Item", "id": "fi-name", "label": "Name",
-             "children": [
-                 {"$component": "Input", "id": "name", "value": self.name,
-                  "placeholder": "Name",
-                  "onChange": bind(self, "name", "$0.target.value")},
-             ]},
-
-            {"$component": "Form.Item", "id": "fi-age", "label": "Age",
-             "children": [
-                 {"$component": "InputNumber", "id": "age", "value": self.age,
-                  "min": 0, "max": 150,
-                  "onChange": bind(self, "age", "$0")},
-             ]},
-
-            {"$component": "Form.Item", "id": "fi-subscribe", "label": "Subscribe",
-             "children": [
-                 {"$component": "Checkbox", "id": "subscribe",
+            {"$component": "Form.Item", "$id": "fi-sub", "label": "Subscribe",
+             "$children": [
+                 {"$component": "Checkbox", "$id": "subscribe",
                   "checked": self.subscribe,
                   "onChange": bind(self, "subscribe", "$0.target.checked")},
              ]},
@@ -75,18 +102,18 @@ class SignupView(View):
 
         if self.subscribe:
             items.append(
-                {"$component": "Form.Item", "id": "fi-email", "label": "Email",
-                 "children": [
-                     {"$component": "Input", "id": "email", "value": self.email,
-                      "placeholder": "Email",
+                {"$component": "Form.Item", "$id": "fi-email", "label": "Email",
+                 "$children": [
+                     {"$component": "Input", "$id": "email",
+                      "value": self.email, "placeholder": "you@example.com",
                       "onChange": bind(self, "email", "$0.target.value")},
                  ]}
             )
 
         items.append(
-            {"$component": "Form.Item", "id": "fi-plan", "label": "Plan",
-             "children": [
-                 {"$component": "Select", "id": "plan", "value": self.plan,
+            {"$component": "Form.Item", "$id": "fi-plan", "label": "Plan",
+             "$children": [
+                 {"$component": "Select", "$id": "plan", "value": self.plan,
                   "style": {"width": 200},
                   "options": [
                       {"value": "free", "label": "Free"},
@@ -98,35 +125,72 @@ class SignupView(View):
         )
 
         items.append(
-            {"$component": "Form.Item", "id": "fi-submit",
-             "children": [
-                 {"$component": "Button", "id": "submit",
-                  "type": "primary",
-                  "children": "Submit",
+            {"$component": "Form.Item", "$id": "fi-submit",
+             "$children": [
+                 {"$component": "Button", "$id": "submit",
+                  "type": "primary", "children": "Submit",
                   "onClick": handler(self.on_submit)},
              ]}
         )
 
-        if self.message:
-            items.append(
-                {"$component": "Typography.Text", "id": "msg", "children": self.message}
-            )
-
-        return [
-            {"$component": "Form", "id": "form", "layout": "horizontal",
-             "labelCol": {"span": 6}, "wrapperCol": {"span": 18},
-             "children": items},
+        result: list[dict[str, Any]] = [
+            {"$component": "Form", "$id": "form", "layout": "vertical",
+             "$children": items},
         ]
 
+        if self.message:
+            result.append(
+                {"$component": "Typography.Text", "$id": "msg",
+                 "type": "success", "children": self.message}
+            )
+
+        result.append(
+            {"$component": "Typography.Text", "$id": "counter",
+             "type": "secondary",
+             "children": f"render #{self._render_count}"}
+        )
+        return result
+
     def on_submit(self, _data: dict[str, Any]) -> None:
-        self.message = f"Welcome {self.name} (age {self.age})! Plan: {self.plan}"
+        self.message = f"Plan: {self.plan}" + (
+            f", email: {self.email}" if self.subscribe else ""
+        )
+
+
+# ---------------------------------------------------------------------------
+# 根 View：两个子 View 并排
+# ---------------------------------------------------------------------------
+
+class RootView(View):
+    def __init__(self) -> None:
+        self.profile = ProfileView()
+        self.subscription = SubscriptionView()
+
+    def render(self) -> list[dict[str, Any]]:
+        return [
+            {"$component": "Row", "$id": "row", "gutter": 16,
+             "$children": [
+                 {"$component": "Col", "$id": "col-left", "span": 12,
+                  "$children": [
+                      {"$component": "Card", "$id": "card-profile",
+                       "title": "Profile",
+                       "$children": [self.profile]},
+                  ]},
+                 {"$component": "Col", "$id": "col-right", "span": 12,
+                  "$children": [
+                      {"$component": "Card", "$id": "card-sub",
+                       "title": "Subscription",
+                       "$children": [self.subscription]},
+                  ]},
+             ]},
+        ]
 
 
 # ---------------------------------------------------------------------------
 # WebSocket handler — 所有连接共享同一 view，事件后广播
 # ---------------------------------------------------------------------------
 
-view = SignupView()
+view = RootView()
 sessions: list[ViewSession] = []
 
 
@@ -153,18 +217,22 @@ async def ws_handler(websocket: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
-# HTML — 加载预构建 mutgui.js，Ant Design 真实渲染
+# HTML
 # ---------------------------------------------------------------------------
 
 INDEX_HTML = """<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>mutgui demo</title>
+  <title>mutgui demo — View Nesting</title>
 </head>
 <body>
-  <div style="max-width: 500px; margin: 40px auto; font-family: sans-serif;">
-    <h2>mutgui demo</h2>
+  <div style="max-width: 800px; margin: 40px auto; font-family: sans-serif;">
+    <h2>mutgui — View Nesting Demo</h2>
+    <p style="color: #888; font-size: 13px;">
+      Two independent Views side by side. Editing one only re-renders that View
+      (watch the render counters).
+    </p>
     <div id="app"></div>
   </div>
   <script src="/static/mutgui.js"></script>
