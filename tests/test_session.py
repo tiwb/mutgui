@@ -25,10 +25,6 @@ class MockChannel(Channel):
         return self.last["tree"]
 
 
-def run(coro: Any) -> Any:
-    return asyncio.run(coro)
-
-
 # ---------------------------------------------------------------------------
 # 基础 render
 # ---------------------------------------------------------------------------
@@ -41,33 +37,43 @@ class SimpleView(View):
 
 
 def test_initialize_sends_render() -> None:
-    channel = MockChannel()
-    vp = ViewPort(SimpleView(), channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = SimpleView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    assert len(channel.messages) == 1
-    msg = channel.last
-    assert msg["type"] == "render"
-    assert msg["viewId"] == []
-    assert len(msg["tree"]) == 1
-    assert msg["tree"][0]["$component"] == "Input"
-    assert msg["tree"][0]["value"] == "hello"
+        assert len(channel.messages) == 1
+        msg = channel.last
+        assert msg["type"] == "render"
+        assert msg["viewId"] == []
+        assert len(msg["tree"]) == 1
+        assert msg["tree"][0]["$component"] == "Input"
+        assert msg["tree"][0]["value"] == "hello"
+
+    asyncio.run(_test())
 
 
 def test_plain_props_pass_through() -> None:
     """没有 $ 标签的 props 应原样传递。"""
-    channel = MockChannel()
 
     class StyledView(View):
         def render(self) -> list[dict[str, Any]]:
             return [{"$component": "Input", "$id": "x", "style": {"width": 200}, "placeholder": "hi"}]
 
-    vp = ViewPort(StyledView(), channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = StyledView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    node = channel.last_tree[0]
-    assert node["style"] == {"width": 200}
-    assert node["placeholder"] == "hi"
+        node = channel.last_tree[0]
+        assert node["style"] == {"width": 200}
+        assert node["placeholder"] == "hi"
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -88,21 +94,26 @@ class HandlerView(View):
 
 
 def test_handler_registered_and_dispatched() -> None:
-    channel = MockChannel()
-    view = HandlerView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = HandlerView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    # wire 格式应该有 $ tag 但无 fn
-    node = channel.last_tree[0]
-    assert node["onClick"][TAG_KEY] == "handler"
-    assert "fn" not in node["onClick"]
+        # wire 格式应该有 $ tag 但无 fn
+        node = channel.last_tree[0]
+        assert node["onClick"][TAG_KEY] == "handler"
+        assert "fn" not in node["onClick"]
 
-    # dispatch event（source 数组格式）
-    run(vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}}))
-    assert view.clicked is True
-    # re-render 后应多一条消息
-    assert len(channel.messages) == 2
+        # dispatch event（source 数组格式）
+        await vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}})
+        await view.rendered()
+        assert view.clicked is True
+        # re-render 后应多一条消息
+        assert len(channel.messages) == 2
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -125,47 +136,62 @@ class BindView(View):
 
 def test_bind_wire_format() -> None:
     """bind 应序列化为 handler + __bind_value__ 提取。"""
-    channel = MockChannel()
-    vp = ViewPort(BindView(), channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = BindView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    node = channel.last_tree[0]
-    on_change = node["onChange"]
-    assert on_change[TAG_KEY] == "handler"
-    assert on_change["extract"]["__bind_value__"] == "$0.target.value"
-    assert "obj" not in on_change
-    assert "attr" not in on_change
+        node = channel.last_tree[0]
+        on_change = node["onChange"]
+        assert on_change[TAG_KEY] == "handler"
+        assert on_change["extract"]["__bind_value__"] == "$0.target.value"
+        assert "obj" not in on_change
+        assert "attr" not in on_change
+
+    asyncio.run(_test())
 
 
 def test_bind_setattr() -> None:
     """bind event 应写回对象属性。"""
-    channel = MockChannel()
-    view = BindView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = BindView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    run(vp.handle_event({
-        "source": ["name"], "event": "onChange",
-        "data": {"__bind_value__": "Alice"},
-    }))
-    assert view.name == "Alice"
+        await vp.handle_event({
+            "source": ["name"], "event": "onChange",
+            "data": {"__bind_value__": "Alice"},
+        })
+        await view.rendered()
+        assert view.name == "Alice"
 
-    # 验证 re-render 中值已更新
-    name_node = next(n for n in channel.last_tree if n.get("$id") == "name")
-    assert name_node["value"] == "Alice"
+        # 验证 re-render 中值已更新
+        name_node = next(n for n in channel.last_tree if n.get("$id") == "name")
+        assert name_node["value"] == "Alice"
+
+    asyncio.run(_test())
 
 
 def test_bind_number() -> None:
-    channel = MockChannel()
-    view = BindView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = BindView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    run(vp.handle_event({
-        "source": ["age"], "event": "onChange",
-        "data": {"__bind_value__": 25},
-    }))
-    assert view.age == 25
+        await vp.handle_event({
+            "source": ["age"], "event": "onChange",
+            "data": {"__bind_value__": 25},
+        })
+        await view.rendered()
+        assert view.age == 25
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -187,17 +213,22 @@ class NotifyView(View):
 
 
 def test_notify_falls_back_to_on_event() -> None:
-    channel = MockChannel()
-    view = NotifyView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = NotifyView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    run(vp.handle_event({
-        "source": ["x"], "event": "onChange",
-        "data": {"value": "test"},
-    }))
-    assert view.last_event is not None
-    assert view.last_event["source"] == ["x"]
+        await vp.handle_event({
+            "source": ["x"], "event": "onChange",
+            "data": {"value": "test"},
+        })
+        await view.rendered()
+        assert view.last_event is not None
+        assert view.last_event["source"] == ["x"]
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -219,19 +250,24 @@ class ConditionalView(View):
 
 
 def test_conditional_rendering() -> None:
-    channel = MockChannel()
-    view = ConditionalView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = ConditionalView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    assert len(channel.last_tree) == 1
+        assert len(channel.last_tree) == 1
 
-    run(vp.handle_event({
-        "source": ["toggle"], "event": "onChange",
-        "data": {"__bind_value__": True},
-    }))
-    assert len(channel.last_tree) == 2
-    assert channel.last_tree[1]["$id"] == "extra"
+        await vp.handle_event({
+            "source": ["toggle"], "event": "onChange",
+            "data": {"__bind_value__": True},
+        })
+        await view.rendered()
+        assert len(channel.last_tree) == 2
+        assert channel.last_tree[1]["$id"] == "extra"
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -245,12 +281,17 @@ class SingleRootView(View):
 
 def test_single_root_dict() -> None:
     """render() 返回 dict 应自动包装为 list。"""
-    channel = MockChannel()
-    vp = ViewPort(SingleRootView(), channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = SingleRootView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    assert len(channel.last_tree) == 1
-    assert channel.last_tree[0]["children"] == "OK"
+        assert len(channel.last_tree) == 1
+        assert channel.last_tree[0]["children"] == "OK"
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -271,15 +312,20 @@ class NestedChildrenView(View):
 
 def test_nested_children() -> None:
     """$children 列表应被递归处理。"""
-    channel = MockChannel()
-    vp = ViewPort(NestedChildrenView(), channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = NestedChildrenView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    card = channel.last_tree[0]
-    assert card["$component"] == "Card"
-    assert isinstance(card["$children"], list)
-    inner = card["$children"][0]
-    assert inner["$component"] == "Input"
-    assert inner["value"] == "nested"
-    assert inner["onChange"][TAG_KEY] == "handler"
-    assert "__bind_value__" in inner["onChange"]["extract"]
+        card = channel.last_tree[0]
+        assert card["$component"] == "Card"
+        assert isinstance(card["$children"], list)
+        inner = card["$children"][0]
+        assert inner["$component"] == "Input"
+        assert inner["value"] == "nested"
+        assert inner["onChange"][TAG_KEY] == "handler"
+        assert "__bind_value__" in inner["onChange"]["extract"]
+
+    asyncio.run(_test())

@@ -26,14 +26,7 @@ class ViewPort(mutobj.Declaration):
         ...
 
     async def handle_event(self, event: dict[str, Any]) -> None:
-        """处理前端事件 → 路由 → flush dirty views。"""
-        ...
-
-    async def flush(self) -> None:
-        """Flush 所有 dirty views。
-
-        配合 invalidate() 使用：invalidate 标脏，flush 推送。
-        """
+        """处理前端事件 → 转交 View.handle_event()。"""
         ...
 
     def detach(self) -> None:

@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewPort, Channel, handler, bind
+from mutgui import View, ViewPort, Channel, handler
 from mutgui._view_impl import ViewObservers
 
 
@@ -16,10 +16,6 @@ class MockChannel(Channel):
 
     def messages_for(self, view_id: list[str | int]) -> list[dict[str, Any]]:
         return [m for m in self.messages if m.get("viewId") == view_id]
-
-
-def run(coro: Any) -> Any:
-    return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -60,24 +56,28 @@ class ParentView(View):
 
 def test_nested_render_produces_view_and_child_messages() -> None:
     """嵌套 View render 产出父 + 子两条消息，父先子后。"""
-    channel = MockChannel()
-    view = ParentView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = ParentView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    assert len(channel.messages) == 2
+        assert len(channel.messages) == 2
 
-    # 父 View：viewId=[], tree 包含 $view 引用
-    parent_msg = channel.messages[0]
-    assert parent_msg["viewId"] == []
-    assert parent_msg["tree"][0]["$component"] == "Text"
-    assert parent_msg["tree"][1] == {"$view": "child"}
+        # 父 View：viewId=[], tree 包含 $view 引用
+        parent_msg = channel.messages[0]
+        assert parent_msg["viewId"] == []
+        assert parent_msg["tree"][0]["$component"] == "Text"
+        assert parent_msg["tree"][1] == {"$view": "child"}
 
-    # 子 View：viewId=["child"]
-    child_msg = channel.messages[1]
-    assert child_msg["viewId"] == ["child"]
-    assert child_msg["tree"][0]["$component"] == "InputNumber"
-    assert child_msg["tree"][0]["value"] == 0
+        # 子 View：viewId=["child"]
+        child_msg = channel.messages[1]
+        assert child_msg["viewId"] == ["child"]
+        assert child_msg["tree"][0]["$component"] == "InputNumber"
+        assert child_msg["tree"][0]["value"] == 0
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -86,55 +86,65 @@ def test_nested_render_produces_view_and_child_messages() -> None:
 
 def test_event_routes_to_child_view() -> None:
     """事件 source 数组正确路由到子 View handler。"""
-    channel = MockChannel()
-    view = ParentView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = ParentView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    run(vp.handle_event({
-        "source": ["child", "val"],
-        "event": "onChange",
-        "data": {"value": 42},
-    }))
+        await vp.handle_event({
+            "source": ["child", "val"],
+            "event": "onChange",
+            "data": {"value": 42},
+        })
+        await view.child.rendered()
 
-    assert view.child.value == 42
+        assert view.child.value == 42
 
-    # flush 后子 View 重新 render
-    child_msgs = channel.messages_for(["child"])
-    assert len(child_msgs) == 2  # initial + after event
-    assert child_msgs[-1]["tree"][0]["value"] == 42
+        # 子 View 重新 render
+        child_msgs = channel.messages_for(["child"])
+        assert len(child_msgs) == 2  # initial + after event
+        assert child_msgs[-1]["tree"][0]["value"] == 42
+
+    asyncio.run(_test())
 
 
 def test_event_to_parent_component() -> None:
     """事件路由到父 View 的组件。"""
-    channel = MockChannel()
+    async def _test() -> None:
+        channel = MockChannel()
 
-    class ParentWithHandler(View):
-        def __init__(self) -> None:
-            self.clicked = False
-            self.child = ChildView()
+        class ParentWithHandler(View):
+            def __init__(self) -> None:
+                self.clicked = False
+                self.child = ChildView()
 
-        def render(self) -> list[Any]:
-            return [
-                {"$component": "Button", "$id": "btn",
-                 "onClick": handler(self.on_click)},
-                self.child,
-            ]
+            def render(self) -> list[Any]:
+                return [
+                    {"$component": "Button", "$id": "btn",
+                     "onClick": handler(self.on_click)},
+                    self.child,
+                ]
 
-        def on_click(self, data: dict[str, Any]) -> None:
-            self.clicked = True
+            def on_click(self, data: dict[str, Any]) -> None:
+                self.clicked = True
 
-    view = ParentWithHandler()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+        view = ParentWithHandler()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    run(vp.handle_event({
-        "source": ["btn"],
-        "event": "onClick",
-        "data": {},
-    }))
+        await vp.handle_event({
+            "source": ["btn"],
+            "event": "onClick",
+            "data": {},
+        })
+        await view.rendered()
 
-    assert view.clicked is True
+        assert view.clicked is True
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -143,55 +153,60 @@ def test_event_to_parent_component() -> None:
 
 def test_deeply_nested_event_routing() -> None:
     """三层嵌套事件路由。"""
-    channel = MockChannel()
+    async def _test() -> None:
+        channel = MockChannel()
 
-    class InnerView(View):
-        id = "inner"
+        class InnerView(View):
+            id = "inner"
 
-        def __init__(self) -> None:
-            self.val = ""
+            def __init__(self) -> None:
+                self.val = ""
 
-        def render(self) -> list[dict[str, Any]]:
-            return [{"$component": "Input", "$id": "txt", "value": self.val,
-                     "onChange": handler(self.on_change, value="$0")}]
+            def render(self) -> list[dict[str, Any]]:
+                return [{"$component": "Input", "$id": "txt", "value": self.val,
+                         "onChange": handler(self.on_change, value="$0")}]
 
-        def on_change(self, data: dict[str, Any]) -> None:
-            self.val = data["value"]
+            def on_change(self, data: dict[str, Any]) -> None:
+                self.val = data["value"]
 
-    class MiddleView(View):
-        id = "middle"
+        class MiddleView(View):
+            id = "middle"
 
-        def __init__(self) -> None:
-            self.inner = InnerView()
+            def __init__(self) -> None:
+                self.inner = InnerView()
 
-        def render(self) -> list[Any]:
-            return [self.inner]
+            def render(self) -> list[Any]:
+                return [self.inner]
 
-    class RootView(View):
-        def __init__(self) -> None:
-            self.middle = MiddleView()
+        class RootView(View):
+            def __init__(self) -> None:
+                self.middle = MiddleView()
 
-        def render(self) -> list[Any]:
-            return [self.middle]
+            def render(self) -> list[Any]:
+                return [self.middle]
 
-    view = RootView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+        view = RootView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    # 3 层 → 3 条消息
-    assert len(channel.messages) == 3
-    assert channel.messages[0]["viewId"] == []
-    assert channel.messages[1]["viewId"] == ["middle"]
-    assert channel.messages[2]["viewId"] == ["middle", "inner"]
+        # 3 层 → 3 条消息
+        assert len(channel.messages) == 3
+        assert channel.messages[0]["viewId"] == []
+        assert channel.messages[1]["viewId"] == ["middle"]
+        assert channel.messages[2]["viewId"] == ["middle", "inner"]
 
-    # 事件路由到最内层
-    run(vp.handle_event({
-        "source": ["middle", "inner", "txt"],
-        "event": "onChange",
-        "data": {"value": "hello"},
-    }))
+        # 事件路由到最内层
+        await vp.handle_event({
+            "source": ["middle", "inner", "txt"],
+            "event": "onChange",
+            "data": {"value": "hello"},
+        })
+        await view.middle.inner.rendered()
 
-    assert view.middle.inner.val == "hello"
+        assert view.middle.inner.val == "hello"
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -200,37 +215,45 @@ def test_deeply_nested_event_routing() -> None:
 
 def test_invalidate_coalescing() -> None:
     """连续多次 invalidate → 只产生一次 render 推送。"""
-    channel = MockChannel()
-    view = ChildView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = ChildView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    initial_count = len(channel.messages)
+        initial_count = len(channel.messages)
 
-    view.invalidate()
-    view.invalidate()
-    view.invalidate()
+        view.invalidate()
+        view.invalidate()
+        view.invalidate()
 
-    run(vp.flush())
-    assert len(channel.messages) == initial_count + 1
+        await view.rendered()
+        assert len(channel.messages) == initial_count + 1
+
+    asyncio.run(_test())
 
 
 def test_child_invalidate_no_parent_render() -> None:
     """子 View invalidate 不触发父 View render。"""
-    channel = MockChannel()
-    view = ParentView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+    async def _test() -> None:
+        channel = MockChannel()
+        view = ParentView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    initial_count = len(channel.messages)  # 2 (parent + child)
+        initial_count = len(channel.messages)  # 2 (parent + child)
 
-    view.child.invalidate()
-    run(vp.flush())
+        view.child.invalidate()
+        await view.child.rendered()
 
-    # 只有子 View 重新 render（1 条新消息）
-    assert len(channel.messages) == initial_count + 1
-    last_msg = channel.messages[-1]
-    assert last_msg["viewId"] == ["child"]
+        # 只有子 View 重新 render（1 条新消息）
+        assert len(channel.messages) == initial_count + 1
+        last_msg = channel.messages[-1]
+        assert last_msg["viewId"] == ["child"]
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -239,38 +262,42 @@ def test_child_invalidate_no_parent_render() -> None:
 
 def test_view_inside_children() -> None:
     """View 实例出现在组件的 $children 中。"""
-    channel = MockChannel()
+    async def _test() -> None:
+        channel = MockChannel()
 
-    class PanelView(View):
-        id = "panel"
+        class PanelView(View):
+            id = "panel"
 
-        def render(self) -> list[dict[str, Any]]:
-            return [{"$component": "Text", "$id": "label", "children": "Panel"}]
+            def render(self) -> list[dict[str, Any]]:
+                return [{"$component": "Text", "$id": "label", "children": "Panel"}]
 
-    class TabsView(View):
-        def __init__(self) -> None:
-            self.panel = PanelView()
+        class TabsView(View):
+            def __init__(self) -> None:
+                self.panel = PanelView()
 
-        def render(self) -> list[Any]:
-            return [
-                {"$component": "Tabs", "$id": "tabs", "$children": [
-                    {"$component": "Tabs.TabPane", "$id": "tab1", "tab": "Tab 1",
-                     "$children": [self.panel]},
-                ]},
-            ]
+            def render(self) -> list[Any]:
+                return [
+                    {"$component": "Tabs", "$id": "tabs", "$children": [
+                        {"$component": "Tabs.TabPane", "$id": "tab1", "tab": "Tab 1",
+                         "$children": [self.panel]},
+                    ]},
+                ]
 
-    view = TabsView()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+        view = TabsView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    # 父 View 的 tree 中 $children 包含 $view 引用
-    parent_tree = channel.messages[0]["tree"]
-    tab_pane = parent_tree[0]["$children"][0]
-    assert tab_pane["$children"] == [{"$view": "panel"}]
+        # 父 View 的 tree 中 $children 包含 $view 引用
+        parent_tree = channel.messages[0]["tree"]
+        tab_pane = parent_tree[0]["$children"][0]
+        assert tab_pane["$children"] == [{"$view": "panel"}]
 
-    # 子 View 独立推送
-    assert channel.messages[1]["viewId"] == ["panel"]
-    assert channel.messages[1]["tree"][0]["$component"] == "Text"
+        # 子 View 独立推送
+        assert channel.messages[1]["viewId"] == ["panel"]
+        assert channel.messages[1]["tree"][0]["$component"] == "Text"
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -279,42 +306,46 @@ def test_view_inside_children() -> None:
 
 def test_dynamic_view_add_remove() -> None:
     """父 View re-render 时子 View 出现/消失。"""
-    channel = MockChannel()
+    async def _test() -> None:
+        channel = MockChannel()
 
-    class DynamicParent(View):
-        def __init__(self) -> None:
-            self.child = ChildView()
-            self.show_child = True
+        class DynamicParent(View):
+            def __init__(self) -> None:
+                self.child = ChildView()
+                self.show_child = True
 
-        def render(self) -> list[Any]:
-            items: list[Any] = [
-                {"$component": "Text", "$id": "title", "children": "Dynamic"},
-            ]
-            if self.show_child:
-                items.append(self.child)
-            return items
+            def render(self) -> list[Any]:
+                items: list[Any] = [
+                    {"$component": "Text", "$id": "title", "children": "Dynamic"},
+                ]
+                if self.show_child:
+                    items.append(self.child)
+                return items
 
-    view = DynamicParent()
-    vp = ViewPort(view, channel)
-    run(vp.initialize())
+        view = DynamicParent()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
 
-    # 初始：parent + child = 2 消息
-    assert len(channel.messages) == 2
+        # 初始：parent + child = 2 消息
+        assert len(channel.messages) == 2
 
-    # 隐藏 child → re-render parent
-    view.show_child = False
-    view.invalidate()
-    run(vp.flush())
+        # 隐藏 child → re-render parent
+        view.show_child = False
+        view.invalidate()
+        await view.rendered()
 
-    # parent re-rendered, child 不在 tree 中
-    parent_msgs = [m for m in channel.messages if m["viewId"] == []]
-    last_parent = parent_msgs[-1]
-    assert len(last_parent["tree"]) == 1  # 只有 Text
+        # parent re-rendered, child 不在 tree 中
+        parent_msgs = [m for m in channel.messages if m["viewId"] == []]
+        last_parent = parent_msgs[-1]
+        assert len(last_parent["tree"]) == 1  # 只有 Text
 
-    # child 的 ViewPort 已 detach（ViewObservers 中不再有该 ViewPort）
-    obs = ViewObservers.get(view.child)
-    if obs is not None:
-        assert len(obs._viewports) == 0
+        # child 的 ViewPort 已 detach（ViewObservers 中不再有该 ViewPort）
+        obs = ViewObservers.get(view.child)
+        if obs is not None:
+            assert len(obs._viewports) == 0
+
+    asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
@@ -322,49 +353,56 @@ def test_dynamic_view_add_remove() -> None:
 # ---------------------------------------------------------------------------
 
 def test_multi_client_invalidate_notifies_all() -> None:
-    """同一 View 被多个 ViewPort 观察，invalidate 通知所有。"""
-    ch_a = MockChannel()
-    ch_b = MockChannel()
-    view = ChildView()
+    """同一 View 被多个 ViewPort 观察，invalidate 自动 push 给所有。"""
+    async def _test() -> None:
+        ch_a = MockChannel()
+        ch_b = MockChannel()
+        view = ChildView()
 
-    vp_a = ViewPort(view, ch_a)
-    vp_b = ViewPort(view, ch_b)
-    run(vp_a.initialize())
-    run(vp_b.initialize())
+        vp_a = ViewPort(view, ch_a)
+        await vp_a.initialize()
+        await view.rendered()
+        assert len(ch_a.messages) == 1
 
-    assert len(ch_a.messages) == 1
-    assert len(ch_b.messages) == 1
+        vp_b = ViewPort(view, ch_b)
+        await vp_b.initialize()
+        # vp_b.initialize() 检测到 View 已 clean，直接推送缓存
+        assert len(ch_b.messages) == 1
 
-    # 通过 vp_a 修改状态
-    run(vp_a.handle_event({
-        "source": ["val"], "event": "onChange",
-        "data": {"value": 99},
-    }))
-    assert view.value == 99
+        # 通过 vp_a 修改状态 → 自动 push 给所有 ViewPort
+        await vp_a.handle_event({
+            "source": ["val"], "event": "onChange",
+            "data": {"value": 99},
+        })
+        await view.rendered()
+        assert view.value == 99
 
-    # vp_a 已经 flush（handle_event 自动 flush）
-    assert len(ch_a.messages) == 2
+        # 两个 channel 都收到更新，无需手动 flush
+        assert len(ch_a.messages) == 2
+        assert len(ch_b.messages) == 2
+        assert ch_b.messages[-1]["tree"][0]["value"] == 99
 
-    # vp_b 被 invalidate 标脏，手动 flush
-    run(vp_b.flush())
-    assert len(ch_b.messages) == 2
-    assert ch_b.messages[-1]["tree"][0]["value"] == 99
+    asyncio.run(_test())
 
 
 def test_detach_removes_observer() -> None:
     """detach 后 invalidate 不再通知该 ViewPort。"""
-    ch_a = MockChannel()
-    ch_b = MockChannel()
-    view = ChildView()
+    async def _test() -> None:
+        ch_a = MockChannel()
+        ch_b = MockChannel()
+        view = ChildView()
 
-    vp_a = ViewPort(view, ch_a)
-    vp_b = ViewPort(view, ch_b)
-    run(vp_a.initialize())
-    run(vp_b.initialize())
+        vp_a = ViewPort(view, ch_a)
+        vp_b = ViewPort(view, ch_b)
+        await vp_a.initialize()
+        await view.rendered()
+        await vp_b.initialize()
 
-    vp_a.detach()
+        vp_a.detach()
 
-    obs = ViewObservers.get(view)
-    assert obs is not None
-    assert len(obs._viewports) == 1
-    assert obs._viewports[0] is vp_b
+        obs = ViewObservers.get(view)
+        assert obs is not None
+        assert len(obs._viewports) == 1
+        assert obs._viewports[0] is vp_b
+
+    asyncio.run(_test())

@@ -86,7 +86,6 @@ class SubscriptionView(View):
         self.subscribe = False
         self.email = ""
         self.plan = "free"
-        self.message = ""
         self._render_count = 0
 
     def render(self) -> list[dict[str, Any]]:
@@ -124,37 +123,14 @@ class SubscriptionView(View):
              ]}
         )
 
-        items.append(
-            {"$component": "Form.Item", "$id": "fi-submit",
-             "$children": [
-                 {"$component": "Button", "$id": "submit",
-                  "type": "primary", "children": "Submit",
-                  "onClick": handler(self.on_submit)},
-             ]}
-        )
-
         result: list[dict[str, Any]] = [
             {"$component": "Form", "$id": "form", "layout": "vertical",
              "$children": items},
-        ]
-
-        if self.message:
-            result.append(
-                {"$component": "Typography.Text", "$id": "msg",
-                 "type": "success", "children": self.message}
-            )
-
-        result.append(
             {"$component": "Typography.Text", "$id": "counter",
              "type": "secondary",
-             "children": f"render #{self._render_count}"}
-        )
+             "children": f"render #{self._render_count}"},
+        ]
         return result
-
-    def on_submit(self, _data: dict[str, Any]) -> None:
-        self.message = f"Plan: {self.plan}" + (
-            f", email: {self.email}" if self.subscribe else ""
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -165,9 +141,12 @@ class RootView(View):
     def __init__(self) -> None:
         self.profile = ProfileView()
         self.subscription = SubscriptionView()
+        self.message = ""
+        self._render_count = 0
 
     def render(self) -> list[dict[str, Any]]:
-        return [
+        self._render_count += 1
+        items: list[dict[str, Any]] = [
             {"$component": "Row", "$id": "row", "gutter": 16,
              "$children": [
                  {"$component": "Col", "$id": "col-left", "span": 12,
@@ -183,7 +162,36 @@ class RootView(View):
                        "$children": [self.subscription]},
                   ]},
              ]},
+            {"$component": "Card", "$id": "card-summary",
+             "title": "Summary", "style": {"marginTop": 16},
+             "$children": [
+                 {"$component": "Button", "$id": "submit",
+                  "type": "primary", "children": "Submit",
+                  "onClick": handler(self.on_submit)},
+             ]},
         ]
+
+        if self.message:
+            items[-1]["$children"].append(
+                {"$component": "Typography.Text", "$id": "msg",
+                 "type": "success",
+                 "style": {"marginLeft": 12},
+                 "children": self.message},
+            )
+
+        items.append(
+            {"$component": "Typography.Text", "$id": "counter",
+             "type": "secondary",
+             "children": f"render #{self._render_count}"},
+        )
+        return items
+
+    def on_submit(self, _data: dict[str, Any]) -> None:
+        p = self.profile
+        s = self.subscription
+        self.message = f"Name: {p.name}, Age: {p.age}, Plan: {s.plan}" + (
+            f", Email: {s.email}" if s.subscribe else ""
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -199,16 +207,13 @@ async def ws_handler(websocket: WebSocket) -> None:
     vp = ViewPort(view, WebSocketChannel(websocket))
     viewports.append(vp)
     await vp.initialize()
+    await view.rendered()
     try:
         while True:
             raw = await websocket.receive_text()
             event = json.loads(raw)
             await vp.handle_event(event)
-            # invalidate() 自动通知所有 ViewPort，
-            # 但当前 flush 需要显式触发（异步调度待后续实现）
-            for other in viewports:
-                if other is not vp:
-                    await other.flush()
+            # invalidate() 自动 schedule render 并 push 给所有 ViewPort
     except Exception:
         pass
     finally:

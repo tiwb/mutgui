@@ -34,3 +34,14 @@ class View(mutobj.Declaration):
     def invalidate(self) -> None:
         """标记需要重新 render，合并到下一次推送。"""
         ...
+
+    async def handle_event(self, event: dict[str, Any]) -> None:
+        """处理前端事件 — 路由到 callback 或 fallback 到 on_event()。
+
+        callback 返回 coroutine 时自动 await，支持异步回调。
+        """
+        ...
+
+    async def rendered(self) -> None:
+        """等待 deferred render 完成。如果不 dirty，立即返回。"""
+        ...
