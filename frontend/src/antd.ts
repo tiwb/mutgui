@@ -20,6 +20,7 @@ import {
   Divider,
 } from 'antd';
 import { register } from './registry';
+import { VirtualList } from './virtual-list';
 
 /** 注册常用 Ant Design 组件。 */
 export function registerAntd(): void {
@@ -51,4 +52,6 @@ export function registerAntd(): void {
   register('Col', Col);
   register('Space', Space);
   register('Divider', Divider);
+  // mutgui 自定义组件
+  register('VirtualList', VirtualList);
 }
