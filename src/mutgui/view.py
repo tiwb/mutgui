@@ -59,3 +59,6 @@ class View(mutobj.Declaration):
     async def rendered(self) -> None:
         """等待 deferred render 完成。如果不 dirty，立即返回。"""
         ...
+
+
+from . import _view_impl as _view_impl  # noqa: F401, E402

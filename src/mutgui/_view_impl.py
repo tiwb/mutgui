@@ -41,6 +41,17 @@ class ViewRenderState(mutobj.Extension[View]):
     _render_event: asyncio.Event | None = None
 
 
+class ViewChildFilter(mutobj.Extension[View]):
+    """Per-VP child 过滤。只有需要的 View（如 VirtualList）才创建此 Extension。"""
+
+    _viewport_item_ids: dict = mutobj.field(default_factory=dict)  # dict[int, set[str]]
+
+    def get_children(self, channel_id: int) -> set[str] | None:
+        if not self._viewport_item_ids:
+            return None
+        return self._viewport_item_ids.get(channel_id, set())
+
+
 def _render_ext(view: View) -> ViewRenderState:
     return ViewRenderState.get_or_create(view)  # type: ignore[return-value]
 
@@ -88,9 +99,10 @@ async def _view_handle_event(self: View, event: dict[str, Any]) -> None:
     source = event.get("source", [])
     event_name = event.get("event", "")
     data = event.get("data", {})
+    viewport_id = event.get("_viewport_id")
     if isinstance(source, str):
         source = [source] if source else []
-    await _route_event(self, source, event_name, data)
+    await _route_event(self, source, event_name, data, viewport_id=viewport_id)
 
 
 @impl(View.rendered)
@@ -113,6 +125,8 @@ async def _route_event(
     source: list[str | int],
     event_name: str,
     data: dict[str, Any],
+    *,
+    viewport_id: int | None = None,
 ) -> None:
     """按 source 数组逐层路由事件。"""
     ext = _render_ext(view)
@@ -120,10 +134,11 @@ async def _route_event(
         child_id = source[0]
         child_view = ext._children.get(child_id)
         if child_view is not None:
-            await _route_event(child_view, source[1:], event_name, data)
+            await _route_event(child_view, source[1:], event_name, data,
+                               viewport_id=viewport_id)
     elif len(source) == 1:
         component_id = str(source[0])
-        event = Event(component_id, event_name, data)
+        event = Event(component_id, event_name, data, viewport_id=viewport_id)
 
         # Filter 链
         for f in ext._event_filters:
@@ -132,7 +147,7 @@ async def _route_event(
 
         await view.on_event(event)
     else:
-        event = Event("", event_name, data)
+        event = Event("", event_name, data, viewport_id=viewport_id)
         await view.on_event(event)
 
 

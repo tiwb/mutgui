@@ -1,7 +1,7 @@
-"""mutgui demo — View 嵌套 + VirtualList 演示。
+"""mutgui demo — View 嵌套 + VirtualList 多 ViewPort 演示。
 
 两个独立 View 并排（Profile + Subscription），
-底部 VirtualList 显示记录列表（预填充 3000 条，可追加）。
+底部两个 VirtualList 并排展示：独立滚动 + 同步滚动。
 
 启动::
 
@@ -36,6 +36,7 @@ from mutgui import (
 
 class WebSocketChannel(Channel):
     def __init__(self, ws: WebSocket) -> None:
+        super().__init__()
         self.ws = ws
 
     async def send(self, message: dict[str, Any]) -> None:
@@ -140,9 +141,9 @@ class SubscriptionView(View):
 class RecordItemView(View):
     """单条记录的 View — 分列显示 + Edit/Delete 按钮。"""
 
-    def __init__(self, index: int, name: str, age: int, plan: str,
+    def __init__(self, uid: int, name: str, age: int, plan: str,
                  on_edit: Any = None, on_delete: Any = None) -> None:
-        self.index = index
+        self.uid = uid
         self.name = name
         self.age = age
         self.plan = plan
@@ -158,7 +159,7 @@ class RecordItemView(View):
                 {"$component": "Col", "$id": "c-idx", "flex": "50px",
                  "$children": [
                      {"$component": "Typography.Text", "$id": "idx",
-                      "type": "secondary", "children": f"#{self.index}"},
+                      "type": "secondary", "children": f"#{self.uid}"},
                  ]},
                 {"$component": "Col", "$id": "c-name", "flex": "auto",
                  "$children": [
@@ -193,17 +194,18 @@ class RecordItemView(View):
 
     def _do_edit(self) -> None:
         if self.on_edit:
-            self.on_edit(self.index)
+            self.on_edit(self.uid)
 
     def _do_delete(self) -> None:
         if self.on_delete:
-            self.on_delete(self.index)
+            self.on_delete(self.uid)
 
 
 class RecordAdapter(VirtualListItemAdapter):
     """记录列表的 adapter。"""
 
     def __init__(self, on_edit: Any = None, on_delete: Any = None) -> None:
+        super().__init__()
         self.records: list[tuple[int, str, int, str]] = []  # (uid, name, age, plan)
         self.on_edit = on_edit
         self.on_delete = on_delete
@@ -227,24 +229,35 @@ class RecordAdapter(VirtualListItemAdapter):
     def create_item_view(self, index: int) -> View:
         uid, name, age, plan = self.records[index]
         return RecordItemView(
-            index, name, age, plan,
+            uid, name, age, plan,
             on_edit=self.on_edit, on_delete=self.on_delete,
         )
+
+    def _find_by_uid(self, uid: int) -> int | None:
+        for i, rec in enumerate(self.records):
+            if rec[0] == uid:
+                return i
+        return None
 
     def add_record(self, name: str, age: int, plan: str) -> None:
         self._add(name, age, plan)
         self.invalidate()
 
-    def update_record(self, index: int, name: str, age: int, plan: str) -> None:
-        uid = self.records[index][0]
+    def update_record(self, uid: int, name: str, age: int, plan: str) -> None:
+        index = self._find_by_uid(uid)
+        if index is None:
+            return
         self.records[index] = (uid, name, age, plan)
-        # 清除缓存的 View，下次 render 时用新数据重建
         item_id = self.item_id(index)
-        if self._virtual_list and item_id in self._virtual_list._item_views:
-            del self._virtual_list._item_views[item_id]
+        for vl in self._virtual_lists:
+            if item_id in vl._item_views:
+                del vl._item_views[item_id]
         self.invalidate()
 
-    def delete_record(self, index: int) -> None:
+    def delete_record(self, uid: int) -> None:
+        index = self._find_by_uid(uid)
+        if index is None:
+            return
         self.records.pop(index)
         self.invalidate()
 
@@ -264,25 +277,33 @@ class RootView(View):
             id="records",
             adapter=self.record_adapter,
         )
-        self.editing_index: int | None = None  # None=新增模式, int=编辑模式
+        self.record_list_synced = VirtualList(
+            id="records-sync",
+            adapter=self.record_adapter,
+            sync_scroll=True,
+        )
+        self.editing_uid: int | None = None
         self.message = ""
         self._render_count = 0
 
-    def on_edit(self, index: int) -> None:
+    def on_edit(self, uid: int) -> None:
         """Edit 按钮回调：加载记录到表单。"""
-        _uid, name, age, plan = self.record_adapter.records[index]
+        index = self.record_adapter._find_by_uid(uid)
+        if index is None:
+            return
+        _, name, age, plan = self.record_adapter.records[index]
         self.profile.name = name
         self.profile.age = age
         self.subscription.plan = plan
-        self.editing_index = index
-        self.message = f"Editing #{index}"
+        self.editing_uid = uid
+        self.message = f"Editing #{uid}"
         self.profile.invalidate()
         self.subscription.invalidate()
         self.invalidate()
 
     def render(self) -> ViewBlock:
         self._render_count += 1
-        is_editing = self.editing_index is not None
+        is_editing = self.editing_uid is not None
         btn_label = "Save" if is_editing else "Add"
 
         items: list[dict[str, Any]] = [
@@ -301,8 +322,10 @@ class RootView(View):
                        "$children": [self.subscription]},
                   ]},
              ]},
-            {"$component": "Card", "$id": "card-add",
-             "title": f"Records ({self.record_adapter.item_count})",
+        ]
+
+        ind_card = {"$component": "Card", "$id": "card-add",
+             "title": f"Independent Scroll ({self.record_adapter.item_count})",
              "style": {"marginTop": 16},
              "bodyStyle": {"height": 400, "display": "flex",
                            "flexDirection": "column"},
@@ -316,21 +339,32 @@ class RootView(View):
                  {"$component": "Divider", "$id": "div",
                   "style": {"margin": "12px 0"}},
                  self.record_list,
-             ]},
-        ]
+             ]}
 
         if is_editing:
-            items[-1]["$children"][0]["$children"].append(
+            ind_card["$children"][0]["$children"].append(
                 {"$component": "Button", "$id": "cancel",
                  "children": "Cancel",
                  "onClick": Callback(self.on_cancel)},
             )
 
         if self.message:
-            items[-1]["$children"][0]["$children"].append(
+            ind_card["$children"][0]["$children"].append(
                 {"$component": "Typography.Text", "$id": "msg",
                  "type": "success", "children": self.message},
             )
+
+        items.append(ind_card)
+        items.append(
+            {"$component": "Card", "$id": "card-sync",
+             "title": "Sync Scroll",
+             "style": {"marginTop": 16},
+             "bodyStyle": {"height": 400, "display": "flex",
+                           "flexDirection": "column"},
+             "$children": [
+                 self.record_list_synced,
+             ]},
+        )
 
         items.append(
             {"$component": "Typography.Text", "$id": "counter",
@@ -342,30 +376,28 @@ class RootView(View):
         p = self.profile
         s = self.subscription
         name = p.name or "Anonymous"
-        if self.editing_index is not None:
+        if self.editing_uid is not None:
             self.record_adapter.update_record(
-                self.editing_index, name, p.age, s.plan,
+                self.editing_uid, name, p.age, s.plan,
             )
-            self.message = f"Updated #{self.editing_index}"
-            self.editing_index = None
+            self.message = f"Updated #{self.editing_uid}"
+            self.editing_uid = None
         else:
             self.record_adapter.add_record(name, p.age, s.plan)
             self.message = f"Added: {name}, {p.age}, {s.plan}"
         self.invalidate()
 
     def on_cancel(self) -> None:
-        self.editing_index = None
+        self.editing_uid = None
         self.message = ""
         self.invalidate()
 
-    def on_delete(self, index: int) -> None:
+    def on_delete(self, uid: int) -> None:
         """Delete 按钮回调。"""
-        if self.editing_index == index:
-            self.editing_index = None
-        elif self.editing_index is not None and self.editing_index > index:
-            self.editing_index -= 1
-        self.record_adapter.delete_record(index)
-        self.message = f"Deleted #{index}"
+        if self.editing_uid == uid:
+            self.editing_uid = None
+        self.record_adapter.delete_record(uid)
+        self.message = f"Deleted #{uid}"
         self.invalidate()
 
 
@@ -408,10 +440,11 @@ INDEX_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <div style="max-width: 800px; margin: 40px auto; font-family: sans-serif;">
-    <h2>mutgui — View Nesting + VirtualList Demo</h2>
+    <h2>mutgui — Multi-ViewPort Demo</h2>
     <p style="color: #888; font-size: 13px;">
-      Two independent Views side by side + a VirtualList with 3000 records.
-      Click "Add" to append. Scroll the list to see virtual scrolling.
+      Two VirtualLists: Independent Scroll (each client scrolls freely)
+      and Sync Scroll (all clients follow the same position).
+      Open in two browser tabs to test.
     </p>
     <div id="app"></div>
   </div>

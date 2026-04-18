@@ -15,6 +15,8 @@ interface VirtualListProps {
   itemCount: number;
   children?: React.ReactNode;
   onViewport?: (info: { start: number; end: number }) => void;
+  onScroll?: (info: { scrollTop: number }) => void;
+  scrollTop?: number;
   overscan?: number;
   style?: React.CSSProperties;
 }
@@ -23,6 +25,8 @@ export function VirtualList({
   itemCount,
   children,
   onViewport,
+  onScroll: onScrollHandler,
+  scrollTop: scrollTopProp,
   overscan = DEFAULT_OVERSCAN,
   style,
 }: VirtualListProps) {
@@ -39,6 +43,9 @@ export function VirtualList({
 
   // item 起始 index
   const [viewportStart, setViewportStart] = useState(0);
+
+  // 防循环：programmatic scroll 时跳过 onScroll 回发
+  const isProgrammaticScrollRef = useRef(false);
 
   const estimatedTotalHeight = itemCount * DEFAULT_ITEM_HEIGHT;
 
@@ -79,7 +86,16 @@ export function VirtualList({
       lastFireRef.current = Date.now();
       calculateViewport();
     }, VIEWPORT_THROTTLE_MS);
-  }, [calculateViewport]);
+
+    // sync scroll: 回报滚动位置（仅用户主动滚动时）
+    if (onScrollHandler && !isProgrammaticScrollRef.current) {
+      const el = containerRef.current;
+      if (el) {
+        onScrollHandler({ scrollTop: el.scrollTop });
+      }
+    }
+    isProgrammaticScrollRef.current = false;
+  }, [calculateViewport, onScrollHandler]);
 
   // 初始 viewport 计算（组件挂载后）
   useEffect(() => {
@@ -91,6 +107,16 @@ export function VirtualList({
   useEffect(() => {
     calculateViewport();
   }, [itemCount, calculateViewport]);
+
+  // sync scroll: 收到后端 scrollTop 时 programmatically 滚动
+  useEffect(() => {
+    if (scrollTopProp == null) return;
+    const el = containerRef.current;
+    if (!el) return;
+    if (Math.abs(el.scrollTop - scrollTopProp) < 1) return;
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = scrollTopProp;
+  }, [scrollTopProp]);
 
   const offsetTop = viewportStart * DEFAULT_ITEM_HEIGHT;
 

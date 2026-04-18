@@ -9,6 +9,7 @@ from mutgui._view_impl import ViewObservers
 
 class MockChannel(Channel):
     def __init__(self) -> None:
+        super().__init__()
         self.messages: list[dict[str, Any]] = []
 
     async def send(self, message: dict[str, Any]) -> None:

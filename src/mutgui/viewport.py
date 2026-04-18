@@ -32,3 +32,6 @@ class ViewPort(mutobj.Declaration):
     def detach(self) -> None:
         """从 View 解除绑定，移除观察者注册。"""
         ...
+
+
+from . import _viewport_impl as _viewport_impl  # noqa: F401, E402

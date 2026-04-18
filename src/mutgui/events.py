@@ -16,12 +16,20 @@ if TYPE_CHECKING:
 class Event:
     """运行时事件 — 纯数据，不含处理逻辑。"""
 
-    __slots__ = ("component_id", "name", "data")
+    __slots__ = ("component_id", "name", "data", "viewport_id")
 
-    def __init__(self, component_id: str, name: str, data: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        component_id: str,
+        name: str,
+        data: dict[str, Any],
+        *,
+        viewport_id: int | None = None,
+    ) -> None:
         self.component_id = component_id
         self.name = name
         self.data = data
+        self.viewport_id = viewport_id
 
 
 class EventHandler:
@@ -53,13 +61,25 @@ class Callback(EventHandler):
     async def handle(self, view: View, event: Event) -> bool:
         args = event.data.get("$args", [])
         kwargs = {k: v for k, v in event.data.items() if k != "$args"}
+        # @-prefix: 后端注入（@event.xxx / @view）
+        inject_sources = {"event": event, "view": view}
+        for k, v in self.extract.items():
+            if isinstance(v, str) and v.startswith("@"):
+                parts = v[1:].split(".")
+                obj = inject_sources.get(parts[0])
+                for attr in parts[1:]:
+                    obj = getattr(obj, attr, None)
+                kwargs[k] = obj
         result = self.callback(*args, **kwargs)
         if inspect.isawaitable(result):
             await result
         return True
 
     def to_wire(self) -> dict[str, Any]:
-        wire: dict[str, str | list[str]] = dict(self.extract)
+        wire: dict[str, str | list[str]] = {
+            k: v for k, v in self.extract.items()
+            if not (isinstance(v, str) and v.startswith("@"))
+        }
         if self.args:
             wire["$args"] = list(self.args)
         return {"$handler": wire}

@@ -14,6 +14,13 @@ class Channel(mutobj.Declaration):
     由使用方子类实现。
     """
 
+    channel_id: int
+
+    def __init__(self) -> None: ...
+
     async def send(self, message: dict[str, Any]) -> None:
         """发送一条 JSON 消息到前端。"""
         ...
+
+
+from . import _channel_impl as _channel_impl  # noqa: F401, E402

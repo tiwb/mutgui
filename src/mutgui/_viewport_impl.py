@@ -11,7 +11,7 @@ from typing import Any
 import mutobj
 from mutobj import impl
 
-from ._view_impl import ViewObservers, ViewRenderState, _render_ext
+from ._view_impl import ViewObservers, ViewRenderState, ViewChildFilter, _render_ext
 from .channel import Channel
 from .view import View
 from .viewport import ViewPort
@@ -70,6 +70,7 @@ async def _viewport_initialize(self: ViewPort) -> None:
 async def _viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     ext = _ext(self)
     assert ext._view is not None
+    event["_viewport_id"] = ext._channel.channel_id  # type: ignore[union-attr]
     await ext._view.handle_event(event)
 
 
@@ -104,18 +105,29 @@ async def _vp_push_render(vp: ViewPort) -> None:
     if render_state is None:
         return
 
-    # 发送本层 wire_tree
+    # Per-VP child 过滤（ViewChildFilter Extension）
+    filt = ViewChildFilter.get(view)
+    allowed = filt.get_children(ext._channel.channel_id) if filt is not None else None
+
+    # 发送本层 wire_tree（可能过滤 $children）
+    wire_tree = render_state._wire_tree
+    if allowed is not None:
+        wire_tree = _filter_children_in_tree(wire_tree, allowed)
     await ext._channel.send({
         "type": "render",
         "viewId": ext._path,
-        "tree": render_state._wire_tree,
+        "tree": wire_tree,
     })
 
-    # 子 ViewPort reconciliation
+    # 子 ViewPort reconciliation（同样过滤）
+    children = render_state._children
+    if allowed is not None:
+        children = {k: v for k, v in children.items() if k in allowed}
+
     old_child_vps = ext._child_viewports
     ext._child_viewports = {}
 
-    for child_id, child_view in render_state._children.items():
+    for child_id, child_view in children.items():
         # 复用已有子 ViewPort（同一 View 实例）或新建
         if child_id in old_child_vps and _ext(old_child_vps[child_id])._view is child_view:
             child_vp = old_child_vps.pop(child_id)
@@ -130,6 +142,22 @@ async def _vp_push_render(vp: ViewPort) -> None:
     # detach 被移除的子 ViewPort
     for old_vp in old_child_vps.values():
         old_vp.detach()
+
+
+def _filter_children_in_tree(
+    tree: list[dict[str, Any]], allowed: set[str],
+) -> list[dict[str, Any]]:
+    """浅拷贝 tree，只保留 $children 中 ID 在 allowed 集合内的 $view 节点。"""
+    result: list[dict[str, Any]] = []
+    for node in tree:
+        if "$children" in node:
+            filtered = [
+                c for c in node["$children"]
+                if not isinstance(c, dict) or c.get("$view") in allowed
+            ]
+            node = {**node, "$children": filtered}
+        result.append(node)
+    return result
 
 
 # 挂到 ViewPort 实例上供 _view_impl._deferred_render 调用

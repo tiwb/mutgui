@@ -11,6 +11,7 @@ class MockChannel(Channel):
     """记录所有发送消息的 mock channel。"""
 
     def __init__(self) -> None:
+        super().__init__()
         self.messages: list[dict[str, Any]] = []
 
     async def send(self, message: dict[str, Any]) -> None:
