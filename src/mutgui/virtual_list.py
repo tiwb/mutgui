@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from .events import Callback
-from .view import View
+from .view import View, ViewBlock
 
 
 class VirtualListItemAdapter:
@@ -66,11 +66,11 @@ class VirtualList(View):
         self._viewport: tuple[int, int] = (0, 0)
         self._visible_ids: list[str] = []
 
-    def render(self) -> dict[str, Any]:
+    def render(self) -> ViewBlock:
         """返回 VirtualList 容器 + 当前 viewport 内的 item View。"""
         self._refresh_visible()
         visible_items = [self._item_views[vid] for vid in self._visible_ids]
-        return {
+        return ViewBlock([{
             "$component": "VirtualList",
             "$id": "list",
             "itemCount": self.adapter.item_count,
@@ -78,7 +78,7 @@ class VirtualList(View):
                 self._on_viewport, start="$0.start", end="$0.end",
             ),
             "$children": visible_items,
-        }
+        }])
 
     def _on_viewport(self, *, start: int, end: int) -> None:
         """Callback 回调：前端 viewport 变化时更新 viewport range。"""

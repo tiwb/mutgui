@@ -10,6 +10,14 @@ if TYPE_CHECKING:
     from .events import Event, EventFilter
 
 
+class ViewBlock:
+    """View.render() 的返回类型 — 一个 View 的完整 UI 块。"""
+    __slots__ = ("items",)
+
+    def __init__(self, items: list[dict[str, Any] | View]):
+        self.items = items
+
+
 class View(mutobj.Declaration):
     """mutgui 视图基类。
 
@@ -19,10 +27,10 @@ class View(mutobj.Declaration):
 
     id: str | int = ""
 
-    def render(self) -> list[Any] | dict[str, Any]:
+    def render(self) -> ViewBlock:
         """声明当前 UI 应该长什么样。
 
-        返回组件列表 (list[dict | View]) 或单根组件 (dict)。
+        返回 ViewBlock，包含组件列表 (dict | View)。
         列表中可包含子 View 实例，框架自动转换为 $view 协议节点。
         """
         ...

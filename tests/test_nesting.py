@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewPort, Channel, Callback
+from mutgui import View, ViewBlock, ViewPort, Channel, Callback
 from mutgui._view_impl import ViewObservers
 
 
@@ -28,11 +28,11 @@ class ChildView(View):
     def __init__(self) -> None:
         self.value = 0
 
-    def render(self) -> list[dict[str, Any]]:
-        return [
+    def render(self) -> ViewBlock:
+        return ViewBlock([
             {"$component": "InputNumber", "$id": "val", "value": self.value,
              "onChange": Callback(self.on_change, "$0")},
-        ]
+        ])
 
     def on_change(self, value: Any) -> None:
         self.value = value
@@ -44,11 +44,11 @@ class ParentView(View):
         self.child = ChildView()
         self.title = "Parent"
 
-    def render(self) -> list[Any]:
-        return [
+    def render(self) -> ViewBlock:
+        return ViewBlock([
             {"$component": "Text", "$id": "title", "children": self.title},
             self.child,
-        ]
+        ])
 
 
 # ---------------------------------------------------------------------------
@@ -121,12 +121,12 @@ def test_event_to_parent_component() -> None:
                 self.clicked = False
                 self.child = ChildView()
 
-            def render(self) -> list[Any]:
-                return [
+            def render(self) -> ViewBlock:
+                return ViewBlock([
                     {"$component": "Button", "$id": "btn",
                      "onClick": Callback(self.on_click)},
                     self.child,
-                ]
+                ])
 
             def on_click(self) -> None:
                 self.clicked = True
@@ -163,9 +163,9 @@ def test_deeply_nested_event_routing() -> None:
             def __init__(self) -> None:
                 self.val = ""
 
-            def render(self) -> list[dict[str, Any]]:
-                return [{"$component": "Input", "$id": "txt", "value": self.val,
-                         "onChange": Callback(self.on_change, "$0")}]
+            def render(self) -> ViewBlock:
+                return ViewBlock([{"$component": "Input", "$id": "txt", "value": self.val,
+                         "onChange": Callback(self.on_change, "$0")}])
 
             def on_change(self, value: Any) -> None:
                 self.val = value
@@ -176,15 +176,15 @@ def test_deeply_nested_event_routing() -> None:
             def __init__(self) -> None:
                 self.inner = InnerView()
 
-            def render(self) -> list[Any]:
-                return [self.inner]
+            def render(self) -> ViewBlock:
+                return ViewBlock([self.inner])
 
         class RootView(View):
             def __init__(self) -> None:
                 self.middle = MiddleView()
 
-            def render(self) -> list[Any]:
-                return [self.middle]
+            def render(self) -> ViewBlock:
+                return ViewBlock([self.middle])
 
         view = RootView()
         vp = ViewPort(view, channel)
@@ -269,20 +269,20 @@ def test_view_inside_children() -> None:
         class PanelView(View):
             id = "panel"
 
-            def render(self) -> list[dict[str, Any]]:
-                return [{"$component": "Text", "$id": "label", "children": "Panel"}]
+            def render(self) -> ViewBlock:
+                return ViewBlock([{"$component": "Text", "$id": "label", "children": "Panel"}])
 
         class TabsView(View):
             def __init__(self) -> None:
                 self.panel = PanelView()
 
-            def render(self) -> list[Any]:
-                return [
+            def render(self) -> ViewBlock:
+                return ViewBlock([
                     {"$component": "Tabs", "$id": "tabs", "$children": [
                         {"$component": "Tabs.TabPane", "$id": "tab1", "tab": "Tab 1",
                          "$children": [self.panel]},
                     ]},
-                ]
+                ])
 
         view = TabsView()
         vp = ViewPort(view, channel)
@@ -315,13 +315,13 @@ def test_dynamic_view_add_remove() -> None:
                 self.child = ChildView()
                 self.show_child = True
 
-            def render(self) -> list[Any]:
+            def render(self) -> ViewBlock:
                 items: list[Any] = [
                     {"$component": "Text", "$id": "title", "children": "Dynamic"},
                 ]
                 if self.show_child:
                     items.append(self.child)
-                return items
+                return ViewBlock(items)
 
         view = DynamicParent()
         vp = ViewPort(view, channel)

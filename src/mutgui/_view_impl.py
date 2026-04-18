@@ -13,7 +13,7 @@ import mutobj
 from mutobj import impl
 
 from .events import Event, EventFilter, EventHandler
-from .view import View
+from .view import View, ViewBlock
 
 if TYPE_CHECKING:
     from .viewport import ViewPort
@@ -50,8 +50,8 @@ def _render_ext(view: View) -> ViewRenderState:
 # ---------------------------------------------------------------------------
 
 @impl(View.render)
-def _default_render(self: View) -> list[Any]:
-    return []
+def _default_render(self: View) -> ViewBlock:
+    return ViewBlock([])
 
 
 @impl(View.on_event)
@@ -143,15 +143,12 @@ async def _route_event(
 def _render_and_cache(view: View) -> None:
     """render -> serialize -> 缓存 wire_tree + handlers + children。"""
     ext = _render_ext(view)
-    raw_tree = view.render()
-    if isinstance(raw_tree, dict):
-        items: list[Any] = [raw_tree]
-    else:
-        items = list(raw_tree)
+    block = view.render()
 
     ext._handlers.clear()
     ext._children = {}
-    ext._wire_tree = _process_items(view, items)
+    ext._view_block = block
+    ext._wire_tree = _process_items(view, block.items)
 
     # 递归 render dirty 子 View
     for child_view in ext._children.values():

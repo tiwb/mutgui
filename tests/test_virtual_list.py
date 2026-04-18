@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewPort, Channel, VirtualList, VirtualListItemAdapter
+from mutgui import View, ViewBlock, ViewPort, Channel, VirtualList, VirtualListItemAdapter
 from mutgui._view_impl import ViewRenderState
 
 
@@ -26,8 +26,8 @@ class SimpleItemView(View):
     def __init__(self, text: str) -> None:
         self.text = text
 
-    def render(self) -> dict[str, Any]:
-        return {"$component": "Text", "$id": "t", "children": self.text}
+    def render(self) -> ViewBlock:
+        return ViewBlock([{"$component": "Text", "$id": "t", "children": self.text}])
 
 
 class SimpleAdapter(VirtualListItemAdapter):
@@ -55,9 +55,9 @@ def test_virtual_list_initial_render_empty_viewport() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     tree = vl.render()
-    assert tree["$component"] == "VirtualList"
-    assert tree["itemCount"] == 100
-    assert tree["$children"] == []
+    assert tree.items[0]["$component"] == "VirtualList"
+    assert tree.items[0]["itemCount"] == 100
+    assert tree.items[0]["$children"] == []
 
 
 def test_virtual_list_on_viewport_creates_views() -> None:
@@ -68,7 +68,7 @@ def test_virtual_list_on_viewport_creates_views() -> None:
     vl._on_viewport(start=0, end=3)
     tree = vl.render()
 
-    children = tree["$children"]
+    children = tree.items[0]["$children"]
     assert len(children) == 3
     # children 是 View 实例
     assert all(isinstance(c, View) for c in children)
@@ -167,8 +167,8 @@ def test_virtual_list_end_to_end_render() -> None:
             def __init__(self) -> None:
                 self.vlist = vl
 
-            def render(self) -> list[Any]:
-                return [self.vlist]
+            def render(self) -> ViewBlock:
+                return ViewBlock([self.vlist])
 
         root = RootView()
         ch = MockChannel()

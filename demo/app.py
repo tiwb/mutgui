@@ -25,7 +25,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
 from mutgui import (
-    View, ViewPort, Channel, Bind, Callback,
+    View, ViewBlock, ViewPort, Channel, Bind, Callback,
     VirtualList, VirtualListItemAdapter,
 )
 
@@ -54,9 +54,9 @@ class ProfileView(View):
         self.age = 18
         self._render_count = 0
 
-    def render(self) -> list[dict[str, Any]]:
+    def render(self) -> ViewBlock:
         self._render_count += 1
-        return [
+        return ViewBlock([
             {"$component": "Form", "$id": "form", "layout": "vertical",
              "$children": [
                  {"$component": "Form.Item", "$id": "fi-name", "label": "Name",
@@ -75,9 +75,7 @@ class ProfileView(View):
             {"$component": "Typography.Text", "$id": "counter",
              "type": "secondary",
              "children": f"render #{self._render_count}"},
-        ]
-
-
+        ])
 # ---------------------------------------------------------------------------
 # 子 View：订阅信息
 # ---------------------------------------------------------------------------
@@ -91,7 +89,7 @@ class SubscriptionView(View):
         self.plan = "free"
         self._render_count = 0
 
-    def render(self) -> list[dict[str, Any]]:
+    def render(self) -> ViewBlock:
         self._render_count += 1
         items: list[dict[str, Any]] = [
             {"$component": "Form.Item", "$id": "fi-sub", "label": "Subscribe",
@@ -126,14 +124,13 @@ class SubscriptionView(View):
              ]}
         )
 
-        result: list[dict[str, Any]] = [
+        return ViewBlock([
             {"$component": "Form", "$id": "form", "layout": "vertical",
              "$children": items},
             {"$component": "Typography.Text", "$id": "counter",
              "type": "secondary",
              "children": f"render #{self._render_count}"},
-        ]
-        return result
+        ])
 
 
 # ---------------------------------------------------------------------------
@@ -152,8 +149,8 @@ class RecordItemView(View):
         self.on_edit = on_edit
         self.on_delete = on_delete
 
-    def render(self) -> dict[str, Any]:
-        return {
+    def render(self) -> ViewBlock:
+        return ViewBlock([{
             "$component": "Row", "$id": "row",
             "wrap": False,
             "style": {"lineHeight": "32px", "flexWrap": "nowrap"},
@@ -192,7 +189,7 @@ class RecordItemView(View):
                       ]},
                  ]},
             ],
-        }
+        }])
 
     def _do_edit(self) -> None:
         if self.on_edit:
@@ -283,7 +280,7 @@ class RootView(View):
         self.subscription.invalidate()
         self.invalidate()
 
-    def render(self) -> list[dict[str, Any]]:
+    def render(self) -> ViewBlock:
         self._render_count += 1
         is_editing = self.editing_index is not None
         btn_label = "Save" if is_editing else "Add"
@@ -340,8 +337,7 @@ class RootView(View):
              "type": "secondary",
              "children": f"render #{self._render_count}"},
         )
-        return items
-
+        return ViewBlock(items)
     def on_save(self) -> None:
         p = self.profile
         s = self.subscription
