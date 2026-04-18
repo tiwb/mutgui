@@ -27,8 +27,6 @@ export function VirtualList({
   style,
 }: VirtualListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const heightCacheRef = useRef<Map<number, number>>(new Map());
-
   // throttle 状态
   const lastFireRef = useRef(0);
   const trailingRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -1,45 +1,180 @@
-"""事件 helpers 的单元测试。"""
+"""事件系统的单元测试。"""
 
-from mutgui.events import TAG_KEY, bind, handler, notify
+import asyncio
+from typing import Any
 
-
-def test_notify_basic() -> None:
-    result = notify(value="$0.target.value")
-    assert result[TAG_KEY] == "handler"
-    assert result["extract"] == {"value": "$0.target.value"}
-    assert "fn" not in result
+from mutgui.events import Event, EventHandler, Callback, Bind, EventFilter
 
 
-def test_notify_multiple_extract() -> None:
-    result = notify(x="$0", y="$1")
-    assert result["extract"] == {"x": "$0", "y": "$1"}
+# ---------------------------------------------------------------------------
+# Event
+# ---------------------------------------------------------------------------
+
+def test_event_fields() -> None:
+    e = Event("btn", "onClick", {"x": 1})
+    assert e.component_id == "btn"
+    assert e.name == "onClick"
+    assert e.data == {"x": 1}
 
 
-def test_handler_no_extract() -> None:
-    fn = lambda data: None
-    result = handler(fn)
-    assert result[TAG_KEY] == "handler"
-    assert result["fn"] is fn
-    assert result["extract"] == {}
+# ---------------------------------------------------------------------------
+# EventHandler（基类，只提取不消费）
+# ---------------------------------------------------------------------------
+
+def test_event_handler_to_wire() -> None:
+    h = EventHandler(value="$0.target.value")
+    assert h.to_wire() == {"$handler": {"value": "$0.target.value"}}
 
 
-def test_handler_with_extract() -> None:
-    fn = lambda data: None
-    result = handler(fn, name="$0.target.value")
-    assert result["fn"] is fn
-    assert result["extract"] == {"name": "$0.target.value"}
+def test_event_handler_to_wire_empty() -> None:
+    h = EventHandler()
+    assert h.to_wire() == {"$handler": {}}
 
 
-def test_bind_default_path() -> None:
-    obj = type("Obj", (), {"x": 0})()
-    result = bind(obj, "x")
-    assert result[TAG_KEY] == "bind"
-    assert result["obj"] is obj
-    assert result["attr"] == "x"
-    assert result["path"] == "$0"
+def test_event_handler_does_not_consume() -> None:
+    async def _test() -> None:
+        h = EventHandler(value="$0.target.value")
+        e = Event("x", "onChange", {"value": "test"})
+        result = await h.handle(None, e)  # type: ignore[arg-type]
+        assert result is False
+
+    asyncio.run(_test())
 
 
-def test_bind_custom_path() -> None:
+# ---------------------------------------------------------------------------
+# Callback
+# ---------------------------------------------------------------------------
+
+def test_callback_to_wire_no_args() -> None:
+    cb = Callback(lambda: None)
+    assert cb.to_wire() == {"$handler": {}}
+
+
+def test_callback_to_wire_positional() -> None:
+    cb = Callback(lambda x: None, "$0.target.value")
+    assert cb.to_wire() == {"$handler": {"$args": ["$0.target.value"]}}
+
+
+def test_callback_to_wire_keyword() -> None:
+    cb = Callback(lambda start, end: None, start="$0.start", end="$0.end")
+    wire = cb.to_wire()
+    assert "$handler" in wire
+    inner = wire["$handler"]
+    assert inner["start"] == "$0.start"
+    assert inner["end"] == "$0.end"
+
+
+def test_callback_to_wire_mixed() -> None:
+    cb = Callback(lambda x, y, shift: None, "$0.x", "$0.y", shift="$0.shiftKey")
+    wire = cb.to_wire()
+    inner = wire["$handler"]
+    assert inner["$args"] == ["$0.x", "$0.y"]
+    assert inner["shift"] == "$0.shiftKey"
+
+
+def test_callback_handle_positional() -> None:
+    received: list[Any] = []
+
+    def fn(*args: Any) -> None:
+        received.extend(args)
+
+    async def _test() -> None:
+        cb = Callback(fn, "$0.target.value")
+        e = Event("x", "onChange", {"$args": ["hello"]})
+        result = await cb.handle(None, e)  # type: ignore[arg-type]
+        assert result is True
+        assert received == ["hello"]
+
+    asyncio.run(_test())
+
+
+def test_callback_handle_keyword() -> None:
+    received: dict[str, Any] = {}
+
+    def fn(**kwargs: Any) -> None:
+        received.update(kwargs)
+
+    async def _test() -> None:
+        cb = Callback(fn, start="$0.start", end="$0.end")
+        e = Event("x", "onViewport", {"start": 0, "end": 10})
+        await cb.handle(None, e)  # type: ignore[arg-type]
+        assert received == {"start": 0, "end": 10}
+
+    asyncio.run(_test())
+
+
+def test_callback_handle_no_args() -> None:
+    called = [False]
+
+    def fn() -> None:
+        called[0] = True
+
+    async def _test() -> None:
+        cb = Callback(fn)
+        e = Event("btn", "onClick", {})
+        await cb.handle(None, e)  # type: ignore[arg-type]
+        assert called[0] is True
+
+    asyncio.run(_test())
+
+
+def test_callback_handle_async() -> None:
+    called = [False]
+
+    async def fn() -> None:
+        called[0] = True
+
+    async def _test() -> None:
+        cb = Callback(fn)
+        e = Event("btn", "onClick", {})
+        await cb.handle(None, e)  # type: ignore[arg-type]
+        assert called[0] is True
+
+    asyncio.run(_test())
+
+
+# ---------------------------------------------------------------------------
+# Bind
+# ---------------------------------------------------------------------------
+
+def test_bind_to_wire() -> None:
     obj = type("Obj", (), {"name": ""})()
-    result = bind(obj, "name", "$0.target.value")
-    assert result["path"] == "$0.target.value"
+    b = Bind(obj, "name", "$0.target.value")
+    assert b.to_wire() == {"$handler": {"$args": ["$0.target.value"]}}
+
+
+def test_bind_to_wire_default_path() -> None:
+    obj = type("Obj", (), {"x": 0})()
+    b = Bind(obj, "x")
+    assert b.to_wire() == {"$handler": {"$args": ["$0"]}}
+
+
+def test_bind_handle_setattr() -> None:
+    obj = type("Obj", (), {"name": ""})()
+
+    class FakeView:
+        def invalidate(self) -> None:
+            pass
+
+    async def _test() -> None:
+        b = Bind(obj, "name", "$0.target.value")
+        e = Event("x", "onChange", {"$args": ["Alice"]})
+        result = await b.handle(FakeView(), e)  # type: ignore[arg-type]
+        assert result is True
+        assert obj.name == "Alice"
+
+    asyncio.run(_test())
+
+
+# ---------------------------------------------------------------------------
+# EventFilter
+# ---------------------------------------------------------------------------
+
+def test_event_filter_default_does_not_consume() -> None:
+    async def _test() -> None:
+        f = EventFilter()
+        e = Event("x", "onClick", {})
+        result = await f.on_event_filter(None, e)  # type: ignore[arg-type]
+        assert result is False
+
+    asyncio.run(_test())

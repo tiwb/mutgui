@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import mutobj
+
+if TYPE_CHECKING:
+    from .events import Event, EventFilter
 
 
 class View(mutobj.Declaration):
     """mutgui 视图基类。
 
     应用开发者继承此类，覆盖 render() 描述 UI 应该长什么样。
-    框架负责 render → serialize → send 循环。
+    框架负责 render -> serialize -> send 循环。
     """
 
     id: str | int = ""
@@ -24,10 +27,12 @@ class View(mutobj.Declaration):
         """
         ...
 
-    def on_event(self, event: dict[str, Any]) -> None:
-        """处理前端事件（fallback）。
+    async def on_event(self, event: Event) -> bool:
+        """统一事件入口。
 
-        未被 handler/bind 捕获的事件会到达这里。
+        默认实现：查找 render 中注册的 EventHandler，调用 handle()。
+        子类重写可拦截、预处理、后处理，再 super() 走默认分派。
+        返回 True 表示事件已消费。
         """
         ...
 
@@ -35,11 +40,12 @@ class View(mutobj.Declaration):
         """标记需要重新 render，合并到下一次推送。"""
         ...
 
-    async def handle_event(self, event: dict[str, Any]) -> None:
-        """处理前端事件 — 路由到 callback 或 fallback 到 on_event()。
+    def install_event_filter(self, filter: EventFilter) -> None:
+        """注册 event filter。filter 在 on_event 之前看到事件。"""
+        ...
 
-        callback 返回 coroutine 时自动 await，支持异步回调。
-        """
+    async def handle_event(self, event: dict[str, Any]) -> None:
+        """处理前端事件 — 解析 WebSocket 消息，路由到目标 View。"""
         ...
 
     async def rendered(self) -> None:

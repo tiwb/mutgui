@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewPort, Channel, handler
+from mutgui import View, ViewPort, Channel, Callback
 from mutgui._view_impl import ViewObservers
 
 
@@ -31,11 +31,12 @@ class ChildView(View):
     def render(self) -> list[dict[str, Any]]:
         return [
             {"$component": "InputNumber", "$id": "val", "value": self.value,
-             "onChange": handler(self.on_change, value="$0")},
+             "onChange": Callback(self.on_change, "$0")},
         ]
 
-    def on_change(self, data: dict[str, Any]) -> None:
-        self.value = data["value"]
+    def on_change(self, value: Any) -> None:
+        self.value = value
+        self.invalidate()
 
 
 class ParentView(View):
@@ -96,7 +97,7 @@ def test_event_routes_to_child_view() -> None:
         await vp.handle_event({
             "source": ["child", "val"],
             "event": "onChange",
-            "data": {"value": 42},
+            "data": {"$args": [42]},
         })
         await view.child.rendered()
 
@@ -123,11 +124,11 @@ def test_event_to_parent_component() -> None:
             def render(self) -> list[Any]:
                 return [
                     {"$component": "Button", "$id": "btn",
-                     "onClick": handler(self.on_click)},
+                     "onClick": Callback(self.on_click)},
                     self.child,
                 ]
 
-            def on_click(self, data: dict[str, Any]) -> None:
+            def on_click(self) -> None:
                 self.clicked = True
 
         view = ParentWithHandler()
@@ -164,10 +165,10 @@ def test_deeply_nested_event_routing() -> None:
 
             def render(self) -> list[dict[str, Any]]:
                 return [{"$component": "Input", "$id": "txt", "value": self.val,
-                         "onChange": handler(self.on_change, value="$0")}]
+                         "onChange": Callback(self.on_change, "$0")}]
 
-            def on_change(self, data: dict[str, Any]) -> None:
-                self.val = data["value"]
+            def on_change(self, value: Any) -> None:
+                self.val = value
 
         class MiddleView(View):
             id = "middle"
@@ -200,7 +201,7 @@ def test_deeply_nested_event_routing() -> None:
         await vp.handle_event({
             "source": ["middle", "inner", "txt"],
             "event": "onChange",
-            "data": {"value": "hello"},
+            "data": {"$args": ["hello"]},
         })
         await view.middle.inner.rendered()
 
@@ -372,7 +373,7 @@ def test_multi_client_invalidate_notifies_all() -> None:
         # 通过 vp_a 修改状态 → 自动 push 给所有 ViewPort
         await vp_a.handle_event({
             "source": ["val"], "event": "onChange",
-            "data": {"value": 99},
+            "data": {"$args": [99]},
         })
         await view.rendered()
         assert view.value == 99

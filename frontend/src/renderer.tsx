@@ -160,14 +160,22 @@ function MutguiComponent({ schema }: { schema: ComponentSchema }) {
             if (
               spec &&
               typeof spec === 'object' &&
-              '$' in (spec as Record<string, unknown>)
+              '$handler' in (spec as Record<string, unknown>)
             ) {
-              const extract = (
-                (spec as Record<string, unknown>).extract || {}
-              ) as Record<string, string>;
+              const inner = (
+                (spec as Record<string, unknown>).$handler || {}
+              ) as Record<string, unknown>;
+              const argPaths = (inner.$args || []) as string[];
+              const kwargPaths: Record<string, string> = {};
+              for (const [k, v] of Object.entries(inner)) {
+                if (k !== '$args') kwargPaths[k] = v as string;
+              }
               const data: Record<string, unknown> = {};
-              for (const key of Object.keys(extract)) {
-                data[key] = finalVal;
+              for (const k of Object.keys(kwargPaths)) {
+                data[k] = finalVal;
+              }
+              if (argPaths.length > 0) {
+                data.$args = argPaths.map(() => finalVal);
               }
               conn.send(
                 JSON.stringify({
@@ -211,9 +219,9 @@ function processProps(
       val != null &&
       typeof val === 'object' &&
       !Array.isArray(val) &&
-      '$' in (val as Record<string, unknown>)
+      '$handler' in (val as Record<string, unknown>)
     ) {
-      // $ 标签 → 生成事件处理函数
+      // $handler 标签 → 生成事件处理函数
       props[key] = createHandler(
         val as Record<string, unknown>,
         scope,
@@ -230,7 +238,7 @@ function processProps(
 }
 
 // ---------------------------------------------------------------------------
-// createHandler — 从 $ 标签生成事件转发函数
+// createHandler — 从 $handler 标签生成事件转发函数
 // ---------------------------------------------------------------------------
 
 function createHandler(
@@ -240,12 +248,22 @@ function createHandler(
   eventName: string,
   conn: MutguiConnection,
 ) {
-  const extract = (spec.extract || {}) as Record<string, string>;
+  const inner = (spec.$handler || {}) as Record<string, unknown>;
+  const argPaths = (inner.$args || []) as string[];
+  const kwargPaths: Record<string, string> = {};
+  for (const [k, v] of Object.entries(inner)) {
+    if (k !== '$args') kwargPaths[k] = v as string;
+  }
   const source = [...scope, componentId];
   return (...args: unknown[]) => {
-    const data: Record<string, unknown> = {};
-    for (const [key, path] of Object.entries(extract)) {
-      data[key] = resolvePath(args, path);
+    const extractedArgs = argPaths.map(p => resolvePath(args, p));
+    const extractedKwargs: Record<string, unknown> = {};
+    for (const [k, path] of Object.entries(kwargPaths)) {
+      extractedKwargs[k] = resolvePath(args, path);
+    }
+    const data: Record<string, unknown> = { ...extractedKwargs };
+    if (extractedArgs.length > 0) {
+      data.$args = extractedArgs;
     }
     conn.send(JSON.stringify({ source, event: eventName, data }));
   };

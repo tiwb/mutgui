@@ -3,8 +3,8 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewPort, Channel, bind, handler, notify
-from mutgui.events import TAG_KEY
+from mutgui import View, ViewPort, Channel, Callback, Bind, EventHandler
+from mutgui.events import Event
 
 
 class MockChannel(Channel):
@@ -56,7 +56,7 @@ def test_initialize_sends_render() -> None:
 
 
 def test_plain_props_pass_through() -> None:
-    """没有 $ 标签的 props 应原样传递。"""
+    """没有 $handler 标签的 props 应原样传递。"""
 
     class StyledView(View):
         def render(self) -> list[dict[str, Any]]:
@@ -77,47 +77,45 @@ def test_plain_props_pass_through() -> None:
 
 
 # ---------------------------------------------------------------------------
-# handler
+# Callback
 # ---------------------------------------------------------------------------
 
-class HandlerView(View):
+class CallbackView(View):
     def __init__(self) -> None:
         self.clicked = False
 
     def render(self) -> list[dict[str, Any]]:
         return [
-            {"$component": "Button", "$id": "btn", "onClick": handler(self.on_click)},
+            {"$component": "Button", "$id": "btn", "onClick": Callback(self.on_click)},
         ]
 
-    def on_click(self, data: dict[str, Any]) -> None:
+    def on_click(self) -> None:
         self.clicked = True
 
 
-def test_handler_registered_and_dispatched() -> None:
+def test_callback_registered_and_dispatched() -> None:
     async def _test() -> None:
         channel = MockChannel()
-        view = HandlerView()
+        view = CallbackView()
         vp = ViewPort(view, channel)
         await vp.initialize()
         await view.rendered()
 
-        # wire 格式应该有 $ tag 但无 fn
+        # wire 格式应该有 $handler
         node = channel.last_tree[0]
-        assert node["onClick"][TAG_KEY] == "handler"
-        assert "fn" not in node["onClick"]
+        assert "$handler" in node["onClick"]
+        assert node["onClick"] == {"$handler": {}}
 
-        # dispatch event（source 数组格式）
+        # dispatch event
         await vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}})
         await view.rendered()
         assert view.clicked is True
-        # re-render 后应多一条消息
-        assert len(channel.messages) == 2
 
     asyncio.run(_test())
 
 
 # ---------------------------------------------------------------------------
-# bind
+# Bind
 # ---------------------------------------------------------------------------
 
 class BindView(View):
@@ -128,14 +126,14 @@ class BindView(View):
     def render(self) -> list[dict[str, Any]]:
         return [
             {"$component": "Input", "$id": "name", "value": self.name,
-             "onChange": bind(self, "name", "$0.target.value")},
+             "onChange": Bind(self, "name", "$0.target.value")},
             {"$component": "InputNumber", "$id": "age", "value": self.age,
-             "onChange": bind(self, "age", "$0")},
+             "onChange": Bind(self, "age", "$0")},
         ]
 
 
 def test_bind_wire_format() -> None:
-    """bind 应序列化为 handler + __bind_value__ 提取。"""
+    """Bind 应序列化为 $handler + $args 格式。"""
     async def _test() -> None:
         channel = MockChannel()
         view = BindView()
@@ -145,8 +143,8 @@ def test_bind_wire_format() -> None:
 
         node = channel.last_tree[0]
         on_change = node["onChange"]
-        assert on_change[TAG_KEY] == "handler"
-        assert on_change["extract"]["__bind_value__"] == "$0.target.value"
+        assert "$handler" in on_change
+        assert on_change["$handler"]["$args"] == ["$0.target.value"]
         assert "obj" not in on_change
         assert "attr" not in on_change
 
@@ -164,7 +162,7 @@ def test_bind_setattr() -> None:
 
         await vp.handle_event({
             "source": ["name"], "event": "onChange",
-            "data": {"__bind_value__": "Alice"},
+            "data": {"$args": ["Alice"]},
         })
         await view.rendered()
         assert view.name == "Alice"
@@ -186,7 +184,7 @@ def test_bind_number() -> None:
 
         await vp.handle_event({
             "source": ["age"], "event": "onChange",
-            "data": {"__bind_value__": 25},
+            "data": {"$args": [25]},
         })
         await view.rendered()
         assert view.age == 25
@@ -195,27 +193,31 @@ def test_bind_number() -> None:
 
 
 # ---------------------------------------------------------------------------
-# notify (fallback to on_event)
+# EventHandler (只提取，不消费，落到 on_event)
 # ---------------------------------------------------------------------------
 
-class NotifyView(View):
+class EventHandlerView(View):
     def __init__(self) -> None:
-        self.last_event: dict[str, Any] | None = None
+        self.last_event: Event | None = None
 
     def render(self) -> list[dict[str, Any]]:
         return [
             {"$component": "Input", "$id": "x",
-             "onChange": notify(value="$0.target.value")},
+             "onChange": EventHandler(value="$0.target.value")},
         ]
 
-    def on_event(self, event: dict[str, Any]) -> None:
-        self.last_event = event
+    async def on_event(self, event: Event) -> bool:
+        handled = await super().on_event(event)
+        if not handled:
+            self.last_event = event
+            return True
+        return handled
 
 
-def test_notify_falls_back_to_on_event() -> None:
+def test_event_handler_falls_through_to_on_event() -> None:
     async def _test() -> None:
         channel = MockChannel()
-        view = NotifyView()
+        view = EventHandlerView()
         vp = ViewPort(view, channel)
         await vp.initialize()
         await view.rendered()
@@ -224,9 +226,10 @@ def test_notify_falls_back_to_on_event() -> None:
             "source": ["x"], "event": "onChange",
             "data": {"value": "test"},
         })
-        await view.rendered()
         assert view.last_event is not None
-        assert view.last_event["source"] == ["x"]
+        assert view.last_event.component_id == "x"
+        assert view.last_event.name == "onChange"
+        assert view.last_event.data == {"value": "test"}
 
     asyncio.run(_test())
 
@@ -242,7 +245,7 @@ class ConditionalView(View):
     def render(self) -> list[dict[str, Any]]:
         tree: list[dict[str, Any]] = [
             {"$component": "Checkbox", "$id": "toggle", "checked": self.show_extra,
-             "onChange": bind(self, "show_extra", "$0.target.checked")},
+             "onChange": Bind(self, "show_extra", "$0.target.checked")},
         ]
         if self.show_extra:
             tree.append({"$component": "Input", "$id": "extra", "value": ""})
@@ -261,7 +264,7 @@ def test_conditional_rendering() -> None:
 
         await vp.handle_event({
             "source": ["toggle"], "event": "onChange",
-            "data": {"__bind_value__": True},
+            "data": {"$args": [True]},
         })
         await view.rendered()
         assert len(channel.last_tree) == 2
@@ -303,7 +306,7 @@ class NestedChildrenView(View):
         return [
             {"$component": "Card", "$id": "card", "$children": [
                 {"$component": "Input", "$id": "inner", "value": "nested",
-                 "onChange": bind(self, "_dummy", "$0")},
+                 "onChange": Bind(self, "_dummy", "$0")},
             ]},
         ]
 
@@ -325,7 +328,72 @@ def test_nested_children() -> None:
         inner = card["$children"][0]
         assert inner["$component"] == "Input"
         assert inner["value"] == "nested"
-        assert inner["onChange"][TAG_KEY] == "handler"
-        assert "__bind_value__" in inner["onChange"]["extract"]
+        assert "$handler" in inner["onChange"]
+        assert inner["onChange"]["$handler"]["$args"] == ["$0"]
+
+    asyncio.run(_test())
+
+
+# ---------------------------------------------------------------------------
+# Callback 不自动 invalidate
+# ---------------------------------------------------------------------------
+
+def test_callback_does_not_auto_invalidate() -> None:
+    """Callback 事件不应自动 invalidate（与旧行为不同）。"""
+
+    class CountView(View):
+        def __init__(self) -> None:
+            self.count = 0
+
+        def render(self) -> list[dict[str, Any]]:
+            return [
+                {"$component": "Button", "$id": "btn",
+                 "onClick": Callback(self.on_click), "label": str(self.count)},
+            ]
+
+        def on_click(self) -> None:
+            self.count += 1
+
+    async def _test() -> None:
+        channel = MockChannel()
+        view = CountView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
+
+        initial_count = len(channel.messages)
+
+        await vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}})
+        # Callback 不自动 invalidate，不应产生新 render
+        await asyncio.sleep(0.05)
+        assert len(channel.messages) == initial_count
+        assert view.count == 1
+
+    asyncio.run(_test())
+
+
+# ---------------------------------------------------------------------------
+# Bind 自动 invalidate
+# ---------------------------------------------------------------------------
+
+def test_bind_auto_invalidates() -> None:
+    """Bind 事件应自动 invalidate 并 re-render。"""
+    async def _test() -> None:
+        channel = MockChannel()
+        view = BindView()
+        vp = ViewPort(view, channel)
+        await vp.initialize()
+        await view.rendered()
+
+        initial_count = len(channel.messages)
+
+        await vp.handle_event({
+            "source": ["name"], "event": "onChange",
+            "data": {"$args": ["Bob"]},
+        })
+        await view.rendered()
+
+        assert len(channel.messages) > initial_count
+        assert view.name == "Bob"
 
     asyncio.run(_test())

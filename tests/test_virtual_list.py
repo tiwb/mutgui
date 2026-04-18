@@ -65,7 +65,7 @@ def test_virtual_list_on_viewport_creates_views() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport({"start": 0, "end": 3})
+    vl._on_viewport(start=0, end=3)
     tree = vl.render()
 
     children = tree["$children"]
@@ -83,13 +83,13 @@ def test_virtual_list_view_reuse() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport({"start": 0, "end": 3})
+    vl._on_viewport(start=0, end=3)
     vl.render()
     view_0 = vl._item_views["item-0"]
     view_2 = vl._item_views["item-2"]
 
     # 滚动：viewport 从 [0,3) 变为 [1,4)
-    vl._on_viewport({"start": 1, "end": 4})
+    vl._on_viewport(start=1, end=4)
     vl.render()
 
     # item-1 和 item-2 复用，item-0 被清理，item-3 新建
@@ -103,11 +103,11 @@ def test_virtual_list_cleanup_old_views() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport({"start": 0, "end": 5})
+    vl._on_viewport(start=0, end=5)
     vl.render()
     assert len(vl._item_views) == 5
 
-    vl._on_viewport({"start": 50, "end": 53})
+    vl._on_viewport(start=50, end=53)
     vl.render()
     assert len(vl._item_views) == 3
     assert all(k.startswith("item-5") for k in vl._item_views)
@@ -131,7 +131,7 @@ def test_adapter_invalidate_refreshes_data() -> None:
     adapter = SimpleAdapter(items)
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport({"start": 0, "end": 3})
+    vl._on_viewport(start=0, end=3)
     vl.render()
     assert vl._item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
 
@@ -148,7 +148,7 @@ def test_virtual_list_item_view_id_assignment() -> None:
     adapter = SimpleAdapter(["a", "b", "c"])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport({"start": 0, "end": 3})
+    vl._on_viewport(start=0, end=3)
     vl.render()
 
     for i in range(3):

@@ -25,7 +25,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
 from mutgui import (
-    View, ViewPort, Channel, bind, handler,
+    View, ViewPort, Channel, Bind, Callback,
     VirtualList, VirtualListItemAdapter,
 )
 
@@ -63,13 +63,13 @@ class ProfileView(View):
                   "$children": [
                       {"$component": "Input", "$id": "name", "value": self.name,
                        "placeholder": "Your name",
-                       "onChange": bind(self, "name", "$0.target.value")},
+                       "onChange": Bind(self, "name", "$0.target.value")},
                   ]},
                  {"$component": "Form.Item", "$id": "fi-age", "label": "Age",
                   "$children": [
                       {"$component": "InputNumber", "$id": "age",
                        "value": self.age, "min": 0, "max": 150,
-                       "onChange": bind(self, "age", "$0")},
+                       "onChange": Bind(self, "age", "$0")},
                   ]},
              ]},
             {"$component": "Typography.Text", "$id": "counter",
@@ -98,7 +98,7 @@ class SubscriptionView(View):
              "$children": [
                  {"$component": "Checkbox", "$id": "subscribe",
                   "checked": self.subscribe,
-                  "onChange": bind(self, "subscribe", "$0.target.checked")},
+                  "onChange": Bind(self, "subscribe", "$0.target.checked")},
              ]},
         ]
 
@@ -108,7 +108,7 @@ class SubscriptionView(View):
                  "$children": [
                      {"$component": "Input", "$id": "email",
                       "value": self.email, "placeholder": "you@example.com",
-                      "onChange": bind(self, "email", "$0.target.value")},
+                      "onChange": Bind(self, "email", "$0.target.value")},
                  ]}
             )
 
@@ -122,7 +122,7 @@ class SubscriptionView(View):
                       {"value": "pro", "label": "Pro"},
                       {"value": "enterprise", "label": "Enterprise"},
                   ],
-                  "onChange": bind(self, "plan", "$0")},
+                  "onChange": Bind(self, "plan", "$0")},
              ]}
         )
 
@@ -184,21 +184,21 @@ class RecordItemView(View):
                       "$children": [
                           {"$component": "Button", "$id": "edit",
                            "size": "small", "children": "Edit",
-                           "onClick": handler(self._do_edit)},
+                           "onClick": Callback(self._do_edit)},
                           {"$component": "Button", "$id": "del",
                            "size": "small", "danger": True,
                            "children": "Del",
-                           "onClick": handler(self._do_delete)},
+                           "onClick": Callback(self._do_delete)},
                       ]},
                  ]},
             ],
         }
 
-    def _do_edit(self, _data: dict[str, Any]) -> None:
+    def _do_edit(self) -> None:
         if self.on_edit:
             self.on_edit(self.index)
 
-    def _do_delete(self, _data: dict[str, Any]) -> None:
+    def _do_delete(self) -> None:
         if self.on_delete:
             self.on_delete(self.index)
 
@@ -314,7 +314,7 @@ class RootView(View):
                   "$children": [
                       {"$component": "Button", "$id": "add",
                        "type": "primary", "children": btn_label,
-                       "onClick": handler(self.on_save)},
+                       "onClick": Callback(self.on_save)},
                   ]},
                  {"$component": "Divider", "$id": "div",
                   "style": {"margin": "12px 0"}},
@@ -326,7 +326,7 @@ class RootView(View):
             items[-1]["$children"][0]["$children"].append(
                 {"$component": "Button", "$id": "cancel",
                  "children": "Cancel",
-                 "onClick": handler(self.on_cancel)},
+                 "onClick": Callback(self.on_cancel)},
             )
 
         if self.message:
@@ -342,7 +342,7 @@ class RootView(View):
         )
         return items
 
-    def on_save(self, _data: dict[str, Any]) -> None:
+    def on_save(self) -> None:
         p = self.profile
         s = self.subscription
         name = p.name or "Anonymous"
@@ -355,10 +355,12 @@ class RootView(View):
         else:
             self.record_adapter.add_record(name, p.age, s.plan)
             self.message = f"Added: {name}, {p.age}, {s.plan}"
+        self.invalidate()
 
-    def on_cancel(self, _data: dict[str, Any]) -> None:
+    def on_cancel(self) -> None:
         self.editing_index = None
         self.message = ""
+        self.invalidate()
 
     def on_delete(self, index: int) -> None:
         """Delete 按钮回调。"""

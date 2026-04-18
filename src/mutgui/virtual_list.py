@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .events import handler
+from .events import Callback
 from .view import View
 
 
@@ -74,16 +74,16 @@ class VirtualList(View):
             "$component": "VirtualList",
             "$id": "list",
             "itemCount": self.adapter.item_count,
-            "onViewport": handler(
+            "onViewport": Callback(
                 self._on_viewport, start="$0.start", end="$0.end",
             ),
             "$children": visible_items,
         }
 
-    def _on_viewport(self, data: dict[str, Any]) -> None:
-        """handler 回调：前端 viewport 变化时更新 viewport range。"""
-        self._viewport = (data["start"], data["end"])
-        # handler 调用后框架自动 invalidate → re-render → push
+    def _on_viewport(self, *, start: int, end: int) -> None:
+        """Callback 回调：前端 viewport 变化时更新 viewport range。"""
+        self._viewport = (start, end)
+        self.invalidate()
 
     def _refresh_visible(self) -> None:
         """根据当前 viewport range 重新查询 adapter，更新 visible items。"""

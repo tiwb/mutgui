@@ -2,7 +2,7 @@
 
 __version__ = "0.1.999"
 
-from .events import bind, handler, notify
+from .events import Event, EventHandler, Callback, Bind, EventFilter
 from .view import View
 from .channel import Channel
 from .viewport import ViewPort
@@ -18,7 +18,9 @@ __all__ = [
     "ViewPort",
     "VirtualList",
     "VirtualListItemAdapter",
-    "notify",
-    "handler",
-    "bind",
+    "Event",
+    "EventHandler",
+    "Callback",
+    "Bind",
+    "EventFilter",
 ]
