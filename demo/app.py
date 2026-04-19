@@ -449,6 +449,7 @@ INDEX_HTML = """<!DOCTYPE html>
     <div id="app"></div>
   </div>
   <script src="/static/mutgui.js"></script>
+  <script src="/static/libs/antd.js"></script>
   <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}/ws`)</script>
 </body>
 </html>

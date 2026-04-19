@@ -83,15 +83,6 @@ export function renderTree(tree: ComponentSchema[]): React.ReactNode[] {
 // MutguiComponent — 渲染单个组件节点
 // ---------------------------------------------------------------------------
 
-/** 未知组件的降级显示。 */
-function UnknownComponent({ $component }: { $component: string }) {
-  return (
-    <div style={{ color: 'red', border: '1px solid red', padding: 4 }}>
-      Unknown: {$component}
-    </div>
-  );
-}
-
 function MutguiComponent({ schema }: { schema: ComponentSchema }) {
   const conn = useConnection();
   const scope = useScope();
@@ -101,10 +92,13 @@ function MutguiComponent({ schema }: { schema: ComponentSchema }) {
   const imeValueRef = useRef<string | null>(null);
   const [imeValue, setImeValue] = useState<string | null>(null);
 
-  const Component = schema.$component ? resolve(schema.$component) : null;
-  if (!Component) {
-    return <UnknownComponent $component={schema.$component || '(none)'} />;
+  const resolved = schema.$component ? resolve(schema.$component) : null;
+  if (!resolved) {
+    return null;
   }
+
+  // resolve 返回字符串（原生 HTML 元素）或 React 组件引用
+  const Component = resolved as any;
 
   const props = processProps(schema, conn, scope);
 

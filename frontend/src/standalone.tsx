@@ -1,15 +1,22 @@
 /**
- * mutgui 独立入口 — 全量打包，暴露 MutguiApp.mount()。
+ * mutgui 独立入口 — 核心渲染器 + React，不含组件库。
  *
  * 用法（纯 HTML）：
  *   <div id="app"></div>
  *   <script src="/static/mutgui.js"></script>
+ *   <script src="/static/libs/antd.js"></script>
  *   <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}/ws`)</script>
+ *
+ * 组件库通过额外的 <script> 标签加载，加载后自动调用
+ * MutguiApp.registerComponents() 注册。
  */
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { registerAntd } from './antd';
+import * as jsxRuntime from 'react/jsx-runtime';
+import { registerComponents } from './registry';
 import { MutguiView } from './renderer';
+import { VirtualList } from './virtual-list';
 import {
   ConnectionProvider,
   type MutguiConnection,
@@ -17,7 +24,8 @@ import {
   type RenderCallback,
 } from './context';
 
-registerAntd();
+// 注册框架内置组件
+registerComponents({ VirtualList });
 
 function createConnection(ws: WebSocket): MutguiConnection {
   const subs = new Map<string, RenderCallback>();
@@ -80,5 +88,11 @@ function mount(el: HTMLElement, wsUrl: string) {
   createRoot(el).render(<App wsUrl={wsUrl} />);
 }
 
-// 暴露到全局
-(window as unknown as Record<string, unknown>).MutguiApp = { mount };
+// 暴露到全局：核心 API + React 供组件库 JS 共享
+(window as unknown as Record<string, unknown>).MutguiApp = {
+  mount,
+  registerComponents,
+  React,
+  ReactDOM,
+  jsxRuntime,
+};

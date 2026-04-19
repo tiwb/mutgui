@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:standalone": "vite build --config vite.standalone.ts",
+    "build:antd": "vite build --config vite.antd.ts",
     "preview": "vite preview"
   },
   "dependencies": {

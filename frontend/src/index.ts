@@ -1,4 +1,4 @@
-export { register, resolve, registerAll } from './registry';
+export { registerComponents, resolve } from './registry';
 export { MutguiView, renderTree } from './renderer';
 export type { ComponentSchema } from './renderer';
 export {
@@ -10,4 +10,4 @@ export {
 } from './context';
 export type { ViewPath, MutguiConnection, RenderCallback } from './context';
 export { resolvePath } from './resolve-path';
-export { registerAntd } from './antd';
+export { VirtualList } from './virtual-list';
