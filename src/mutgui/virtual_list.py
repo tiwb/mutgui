@@ -13,6 +13,7 @@ from typing import Any
 
 from .events import Callback
 from .view import View, ViewBlock
+from ._viewport_impl import _filter_children_in_tree
 
 
 class VirtualListItemAdapter:
@@ -78,6 +79,7 @@ class VirtualList(View):
         adapter._virtual_lists.append(self)
         self._item_views: dict[str, View] = {}
         self._viewports: dict[int, tuple[int, int]] = {}  # channel_id → (start, end)
+        self._viewport_item_ids: dict[int, set[str]] = {}  # channel_id → visible item IDs
         self._visible_ids: list[str] = []
         self.sync_scroll = sync_scroll
         self._scroll_top: float = 0
@@ -103,6 +105,12 @@ class VirtualList(View):
             )
         return ViewBlock([props])
 
+    def render_viewport(
+        self, wire_tree: list[dict[str, Any]], channel_id: int,
+    ) -> list[dict[str, Any]]:
+        allowed = self._viewport_item_ids.get(channel_id, set())
+        return _filter_children_in_tree(wire_tree, allowed)
+
     def _on_viewport(self, *, start: int, end: int, viewport_id: int) -> None:
         """Callback 回调：前端 viewport 变化时更新 per-VP viewport range。"""
         self._viewports[viewport_id] = (start, end)
@@ -115,7 +123,7 @@ class VirtualList(View):
 
     def _refresh_visible(self) -> None:
         """根据所有 VP viewport 的并集重新查询 adapter，更新 visible items。"""
-        from ._view_impl import ViewChildFilter, ViewObservers
+        from ._view_impl import ViewObservers
         from ._viewport_impl import ViewPortRuntime
 
         # 清理已断开 VP 的 viewport 条目
@@ -132,9 +140,7 @@ class VirtualList(View):
         if not self._viewports:
             self._visible_ids = []
             self._item_views.clear()
-            filt = ViewChildFilter.get(self)
-            if filt is not None:
-                filt._viewport_item_ids = {}
+            self._viewport_item_ids = {}
             return
 
         # 计算并集
@@ -160,12 +166,11 @@ class VirtualList(View):
                 del self._item_views[old_id]
         self._visible_ids = new_ids
 
-        # 预计算 per-VP 的 item ID 集合，填充 ViewChildFilter Extension
+        # 预计算 per-VP 的 item ID 集合
         viewport_item_ids: dict[int, set[str]] = {}
         for vp_id, (s, e) in self._viewports.items():
             s, e = min(s, count), min(e, count)
             viewport_item_ids[vp_id] = {
                 self.adapter.item_id(i) for i in range(s, e)
             }
-        filt = ViewChildFilter.get_or_create(self)  # type: ignore[assignment]
-        filt._viewport_item_ids = viewport_item_ids
+        self._viewport_item_ids = viewport_item_ids

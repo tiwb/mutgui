@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from mutgui import View, ViewBlock, ViewPort, Channel, VirtualList, VirtualListItemAdapter
-from mutgui._view_impl import ViewRenderState, ViewChildFilter
+from mutgui._view_impl import ViewRenderState
 
 
 class MockChannel(Channel):
@@ -283,11 +283,11 @@ def test_viewport_update_replaces_old_range() -> None:
 
 
 # ---------------------------------------------------------------------------
-# ViewChildFilter Extension 过滤
+# render_viewport per-VP 过滤
 # ---------------------------------------------------------------------------
 
-def test_view_child_filter_per_vp() -> None:
-    """ViewChildFilter 为每个 VP 提供正确的 child ID 集合。"""
+def test_render_viewport_per_vp() -> None:
+    """render_viewport 为每个 VP 返回正确过滤后的 wire tree。"""
     from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
@@ -297,17 +297,8 @@ def test_view_child_filter_per_vp() -> None:
     vl._on_viewport(start=5, end=8, viewport_id=2)
     vl.render()
 
-    filt = ViewChildFilter.get(vl)
-    assert filt is not None
-
-    vp1_ids = filt.get_children(1)
-    assert vp1_ids == {"item-0", "item-1", "item-2"}
-
-    vp2_ids = filt.get_children(2)
-    assert vp2_ids == {"item-5", "item-6", "item-7"}
-
-    # 未知 VP 返回空集
-    assert filt.get_children(999) == set()
+    assert vl._viewport_item_ids[1] == {"item-0", "item-1", "item-2"}
+    assert vl._viewport_item_ids[2] == {"item-5", "item-6", "item-7"}
 
 
 def test_per_vp_push_filtering_e2e() -> None:
@@ -468,7 +459,7 @@ def test_sync_scroll_state_update() -> None:
 
 
 def test_no_viewports_clears_filter() -> None:
-    """所有 viewport 移除后，ViewChildFilter 被清空。"""
+    """所有 viewport 移除后，_viewport_item_ids 被清空。"""
     from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
@@ -483,7 +474,4 @@ def test_no_viewports_clears_filter() -> None:
     vl.render()
     assert vl._visible_ids == []
     assert len(vl._item_views) == 0
-
-    filt = ViewChildFilter.get(vl)
-    assert filt is not None
-    assert filt._viewport_item_ids == {}
+    assert vl._viewport_item_ids == {}

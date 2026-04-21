@@ -56,6 +56,15 @@ class View(mutobj.Declaration):
         """处理前端事件 — 解析 WebSocket 消息，路由到目标 View。"""
         ...
 
+    def render_viewport(self, wire_tree: list[dict[str, Any]], channel_id: int) -> list[dict[str, Any]]:
+        """为指定 viewport 特化 wire tree。
+
+        render() 产出模板树（一次），render_viewport() 在每次 push 时
+        为每个 viewport 调用，返回该 viewport 应收到的 wire tree。
+        默认原样返回。子类覆写可实现 per-viewport 差异化。
+        """
+        ...
+
     async def rendered(self) -> None:
         """等待 deferred render 完成。如果不 dirty，立即返回。"""
         ...

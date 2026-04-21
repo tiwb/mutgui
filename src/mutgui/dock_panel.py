@@ -186,10 +186,9 @@ class DockPanel(View):
         self._layout = layout
         self._default_collapse_below = default_collapse_below
         self._id_counter = 0
-        self._container_size: tuple[int, int] | None = None
-        self._collapsed_active: dict[str, str] = {}
-        self._collapsed_orders: dict[str, list[str]] = {}
-        self._collapsed_node_ids: set[str] = set()
+        self._viewport_sizes: dict[int, tuple[int, int]] = {}
+        self._viewport_collapsed_active: dict[int, dict[str, str]] = {}
+        self._viewport_collapsed_orders: dict[int, dict[str, list[str]]] = {}
         self._assign_ids(layout)
 
     def _next_id(self, prefix: str) -> str:
@@ -215,12 +214,7 @@ class DockPanel(View):
     # -- Render --
 
     def render(self) -> ViewBlock:
-        self._collapsed_node_ids = set()
-        if self._container_size:
-            render_tree = self._compute_layout(
-                self._layout, *self._container_size)
-        else:
-            render_tree = self._layout
+        self._cleanup_viewports()
 
         panels_data: dict[str, Any] = {}
         for p in self._panels.values():
@@ -230,6 +224,8 @@ class DockPanel(View):
                 "minWidth": p.min_width,
                 "minHeight": p.min_height,
             }
+
+        all_views = list(self._panel_views.values())
 
         return ViewBlock([{
             "$component": "mutgui.DockPanel",
@@ -243,10 +239,12 @@ class DockPanel(View):
             "onTabSwitch": Callback(
                 self._on_tab_switch,
                 tabsetId="$0.tabsetId", panelId="$0.panelId",
+                viewport_id="@event.viewport_id",
             ),
             "onTabReorder": Callback(
                 self._on_tab_reorder,
                 tabsetId="$0.tabsetId", panelIds="$0.panelIds",
+                viewport_id="@event.viewport_id",
             ),
             "onTabMove": Callback(
                 self._on_tab_move,
@@ -271,15 +269,17 @@ class DockPanel(View):
                 fromTabset="$0.fromTabset", panelId="$0.panelId",
                 edge="$0.edge",
             ),
-            "$children": [self._build_wire_node(render_tree)],
+            "$children": all_views,
         }])
 
-    def _build_wire_node(self, node: LayoutNode) -> dict[str, Any]:
+    def _build_wire_node(self, node: LayoutNode,
+                         collapsed_ids: set[str]) -> dict[str, Any]:
         if isinstance(node, TabSetNode):
-            return self._build_tabset_wire(node)
-        return self._build_split_wire(node)
+            return self._build_tabset_wire(node, collapsed_ids)
+        return self._build_split_wire(node, collapsed_ids)
 
-    def _build_tabset_wire(self, node: TabSetNode) -> dict[str, Any]:
+    def _build_tabset_wire(self, node: TabSetNode,
+                           collapsed_ids: set[str]) -> dict[str, Any]:
         tabs = []
         for pid in node.panel_ids:
             p = self._panels.get(pid)
@@ -289,17 +289,20 @@ class DockPanel(View):
                     tab["icon"] = p.icon
                 tabs.append(tab)
 
-        active_view = (self._panel_views.get(node.active_id)
-                       if node.active_id else None)
+        active_id = node.active_id
+        children: list[dict[str, Any]] = (
+            [{"$view": active_id}]
+            if active_id and active_id in self._panel_views else []
+        )
         result: dict[str, Any] = {
             "$component": "mutgui.DockPanel.TabSet",
             "$id": node.id,
             "nodeId": node.id,
             "tabs": tabs,
-            "activeId": node.active_id,
+            "activeId": active_id,
             "barPosition": node.bar_position,
             "displayMode": node.display_mode,
-            "$children": [active_view] if active_view else [],
+            "$children": children,
         }
         if node.actions:
             result["actions"] = [
@@ -307,13 +310,14 @@ class DockPanel(View):
                  "tooltip": a.tooltip, "position": a.position}
                 for a in node.actions
             ]
-        if node.id and node.id in self._collapsed_node_ids:
+        if node.id and node.id in collapsed_ids:
             result["collapsed"] = True
         return result
 
-    def _build_split_wire(self, node: SplitNode) -> dict[str, Any]:
-        c0_wire = self._build_wire_node(node.children[0])
-        c1_wire = self._build_wire_node(node.children[1])
+    def _build_split_wire(self, node: SplitNode,
+                          collapsed_ids: set[str]) -> dict[str, Any]:
+        c0_wire = self._build_wire_node(node.children[0], collapsed_ids)
+        c1_wire = self._build_wire_node(node.children[1], collapsed_ids)
 
         result: dict[str, Any] = {
             "$component": "mutgui.DockPanel.Split",
@@ -358,6 +362,8 @@ class DockPanel(View):
 
     def _compute_layout(
         self, node: LayoutNode, width: int, height: int,
+        channel_id: int = 0,
+        collapsed_ids: set[str] | None = None,
     ) -> LayoutNode:
         if isinstance(node, TabSetNode):
             return node
@@ -368,13 +374,16 @@ class DockPanel(View):
                      else self._default_collapse_below)
         if threshold > 0 and total < threshold:
             all_panels = collect_all_panels(node)
-            stored = self._collapsed_orders.get(node.id or "")
+            vp_orders = self._viewport_collapsed_orders.get(channel_id, {})
+            stored = vp_orders.get(node.id or "")
             if stored and set(stored) == set(all_panels):
                 all_panels = stored
-            active = self._collapsed_active.get(node.id or "")
+            vp_active = self._viewport_collapsed_active.get(channel_id, {})
+            active = vp_active.get(node.id or "")
             if not active or active not in all_panels:
                 active = find_active_in_subtree(node)
-            self._collapsed_node_ids.add(node.id or "")
+            if collapsed_ids is not None:
+                collapsed_ids.add(node.id or "")
             return TabSetNode(
                 panel_ids=all_panels,
                 id=node.id,
@@ -385,14 +394,14 @@ class DockPanel(View):
         c1_size = total - c0_size
         if axis == "horizontal":
             c0 = self._compute_layout(
-                node.children[0], c0_size, height)
+                node.children[0], c0_size, height, channel_id, collapsed_ids)
             c1 = self._compute_layout(
-                node.children[1], c1_size, height)
+                node.children[1], c1_size, height, channel_id, collapsed_ids)
         else:
             c0 = self._compute_layout(
-                node.children[0], width, c0_size)
+                node.children[0], width, c0_size, channel_id, collapsed_ids)
             c1 = self._compute_layout(
-                node.children[1], width, c1_size)
+                node.children[1], width, c1_size, channel_id, collapsed_ids)
 
         if c0 is node.children[0] and c1 is node.children[1]:
             return node
@@ -405,26 +414,65 @@ class DockPanel(View):
             collapse_below=node.collapse_below,
         )
 
+    # -- Per-viewport --
+
+    def render_viewport(
+        self, wire_tree: list[dict[str, Any]], channel_id: int,
+    ) -> list[dict[str, Any]]:
+        size = self._viewport_sizes.get(channel_id)
+        if not size:
+            return wire_tree
+        collapsed_ids: set[str] = set()
+        render_tree = self._compute_layout(
+            self._layout, *size, channel_id, collapsed_ids)
+        vp_wire = self._build_wire_node(render_tree, collapsed_ids)
+        if wire_tree:
+            return [{**wire_tree[0], "$children": [vp_wire]}]
+        return wire_tree
+
+    def _cleanup_viewports(self) -> None:
+        from ._view_impl import ViewObservers
+        from ._viewport_impl import ViewPortRuntime
+        obs = ViewObservers.get(self)
+        if obs is None:
+            return
+        active_ids: set[int] = set()
+        for vp in obs._viewports:
+            rt = ViewPortRuntime.get(vp)
+            if rt is not None and rt._channel is not None:
+                active_ids.add(rt._channel.channel_id)
+        self._viewport_sizes = {
+            k: v for k, v in self._viewport_sizes.items() if k in active_ids}
+        self._viewport_collapsed_active = {
+            k: v for k, v in self._viewport_collapsed_active.items()
+            if k in active_ids}
+        self._viewport_collapsed_orders = {
+            k: v for k, v in self._viewport_collapsed_orders.items()
+            if k in active_ids}
+
     # -- Event handlers --
 
     def _on_resize(self, *, width: int, height: int,
                    viewport_id: int) -> None:
-        self._container_size = (width, height)
+        self._viewport_sizes[viewport_id] = (width, height)
         self.invalidate()
 
-    def _on_tab_switch(self, *, tabsetId: str, panelId: str) -> None:
+    def _on_tab_switch(self, *, tabsetId: str, panelId: str,
+                       viewport_id: int) -> None:
         node = find_node(self._layout, tabsetId)
         if isinstance(node, TabSetNode):
             if panelId in node.panel_ids:
                 node.active_id = panelId
                 self.invalidate()
         elif isinstance(node, SplitNode):
-            self._collapsed_active[tabsetId] = panelId
-            set_active_in_subtree(node, panelId)
+            vp_active = self._viewport_collapsed_active.setdefault(
+                viewport_id, {})
+            vp_active[tabsetId] = panelId
             self.invalidate()
 
     def _on_tab_reorder(self, *, tabsetId: str,
-                        panelIds: list[str]) -> None:
+                        panelIds: list[str],
+                        viewport_id: int) -> None:
         node = find_node(self._layout, tabsetId)
         if isinstance(node, TabSetNode):
             if set(panelIds) == set(node.panel_ids):
@@ -433,7 +481,9 @@ class DockPanel(View):
         elif isinstance(node, SplitNode):
             all_panels = collect_all_panels(node)
             if set(panelIds) == set(all_panels):
-                self._collapsed_orders[tabsetId] = list(panelIds)
+                vp_orders = self._viewport_collapsed_orders.setdefault(
+                    viewport_id, {})
+                vp_orders[tabsetId] = list(panelIds)
                 self.invalidate()
 
     def _on_tab_move(self, *, fromTabset: str, toTabset: str,

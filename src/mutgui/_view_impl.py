@@ -41,16 +41,6 @@ class ViewRenderState(mutobj.Extension[View]):
     _render_event: asyncio.Event | None = None
 
 
-class ViewChildFilter(mutobj.Extension[View]):
-    """Per-VP child 过滤。只有需要的 View（如 VirtualList）才创建此 Extension。"""
-
-    _viewport_item_ids: dict = mutobj.field(default_factory=dict)  # dict[int, set[str]]
-
-    def get_children(self, channel_id: int) -> set[str] | None:
-        if not self._viewport_item_ids:
-            return None
-        return self._viewport_item_ids.get(channel_id, set())
-
 
 def _render_ext(view: View) -> ViewRenderState:
     return ViewRenderState.get_or_create(view)  # type: ignore[return-value]
@@ -103,6 +93,13 @@ async def _view_handle_event(self: View, event: dict[str, Any]) -> None:
     if isinstance(source, str):
         source = [source] if source else []
     await _route_event(self, source, event_name, data, viewport_id=viewport_id)
+
+
+@impl(View.render_viewport)
+def _default_render_viewport(
+    self: View, wire_tree: list[dict[str, Any]], channel_id: int,
+) -> list[dict[str, Any]]:
+    return wire_tree
 
 
 @impl(View.rendered)
