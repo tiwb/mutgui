@@ -8,18 +8,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import uvicorn
-from starlette.applications import Starlette
-from starlette.responses import HTMLResponse
-from starlette.routing import Route, WebSocketRoute, Mount
-from starlette.staticfiles import StaticFiles
-from starlette.websockets import WebSocket
+from mutio.net.server import (
+    Server, View as NetView, WebSocketView, StaticView,
+    WebSocketConnection, WebSocketDisconnect,
+    Request, Response, html_response,
+)
 
 from mutgui import View, ViewPort, Channel
 
 
 # ---------------------------------------------------------------------------
-# TestApp — 测试用 Web 服务器
+# TestApp — 测试用 Web 服务器（基于 mutio.net）
 # ---------------------------------------------------------------------------
 
 STATIC_DIR = Path(__file__).resolve().parents[2] / "src" / "mutgui" / "static"
@@ -39,7 +38,7 @@ HTML_TEMPLATE = """\
 
 
 class _TestChannel(Channel):
-    def __init__(self, ws: WebSocket) -> None:
+    def __init__(self, ws: WebSocketConnection) -> None:
         super().__init__()
         self._ws = ws
 
@@ -53,8 +52,7 @@ class TestApp:
     def __init__(self) -> None:
         self._views: dict[str, View] = {}
         self._viewports: list[ViewPort] = []
-        self._server: uvicorn.Server | None = None
-        self._task: asyncio.Task[None] | None = None
+        self._server: Server | None = None
         self.port: int = 0
 
     def mount(self, view: View, view_id: str | None = None) -> str:
@@ -62,78 +60,66 @@ class TestApp:
         self._views[view_id] = view
         return f"http://127.0.0.1:{self.port}/view/{view_id}"
 
-    async def _html_handler(self, request: Any) -> HTMLResponse:
-        view_id = request.path_params["view_id"]
-        if view_id not in self._views:
-            return HTMLResponse("View not found", status_code=404)
-        html = HTML_TEMPLATE.replace("{view_id}", view_id)
-        return HTMLResponse(html)
-
-    async def _ws_handler(self, websocket: WebSocket) -> None:
-        view_id = websocket.path_params["view_id"]
-        view = self._views.get(view_id)
-        if view is None:
-            await websocket.close(code=4004)
-            return
-
-        await websocket.accept()
-        channel = _TestChannel(websocket)
-        vp = ViewPort(view, channel)
-        self._viewports.append(vp)
-        await vp.initialize()
-        await view.rendered()
-        try:
-            while True:
-                raw = await websocket.receive_text()
-                event = json.loads(raw)
-                await vp.handle_event(event)
-        except Exception:
-            pass
-        finally:
-            vp.detach()
-            if vp in self._viewports:
-                self._viewports.remove(vp)
-
     async def start(self) -> None:
-        app = Starlette(routes=[
-            Route("/view/{view_id}", self._html_handler),
-            WebSocketRoute("/ws/{view_id}", self._ws_handler),
-            Mount("/static", StaticFiles(directory=str(STATIC_DIR))),
-        ])
-        config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
-        self._server = uvicorn.Server(config)
+        test_app = self
 
-        # uvicorn port=0 picks a random port; we need to extract it after startup
-        self._task = asyncio.create_task(self._server.serve())
+        class _PageView(NetView):
+            path = "/view/{view_id}"
+            async def get(self, request: Request) -> Response:
+                view_id = request.path_params["view_id"]
+                if view_id not in test_app._views:
+                    return html_response("View not found", status=404)
+                html = HTML_TEMPLATE.replace("{view_id}", view_id)
+                return html_response(html)
 
-        # Wait for the server to bind
-        for _ in range(100):
-            await asyncio.sleep(0.05)
-            if self._server.started:
-                break
-        else:
-            raise RuntimeError("TestApp failed to start within 5 seconds")
+        class _WSView(WebSocketView):
+            path = "/ws/{view_id}"
+            async def connect(self, ws: WebSocketConnection) -> None:
+                view_id = ws.path_params["view_id"]
+                view = test_app._views.get(view_id)
+                if view is None:
+                    await ws.close(code=4004, reason="View not found")
+                    return
+                await ws.accept()
+                channel = _TestChannel(ws)
+                vp = ViewPort(view, channel)
+                test_app._viewports.append(vp)
+                await vp.initialize()
+                await view.rendered()
+                try:
+                    while True:
+                        event = await ws.receive_json()
+                        await vp.handle_event(event)
+                except WebSocketDisconnect:
+                    pass
+                except Exception:
+                    pass
+                finally:
+                    vp.detach()
+                    if vp in test_app._viewports:
+                        test_app._viewports.remove(vp)
 
-        # Extract the actual port
-        for server in self._server.servers:
-            for socket in server.sockets:
-                addr = socket.getsockname()
-                self.port = addr[1]
-                return
-        raise RuntimeError("Could not determine TestApp port")
+        class _Static(StaticView):
+            path = "/static"
+            directory = str(STATIC_DIR)
+
+        server = Server(
+            host="127.0.0.1", port=0,
+            views=(_PageView, _WSView, _Static),
+        )
+        self._server = server
+        await server.start()
+
+        from mutio.net._server_impl import _ServerExt
+        ext = _ServerExt.get_or_create(server)
+        if ext._asgi_server:
+            ports = ext._asgi_server.ports
+            if ports:
+                self.port = ports[0]
 
     async def stop(self) -> None:
         if self._server is not None:
-            self._server.should_exit = True
-        if self._task is not None:
-            try:
-                await asyncio.wait_for(self._task, timeout=3.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                self._task.cancel()
-                try:
-                    await self._task
-                except asyncio.CancelledError:
-                    pass
+            await self._server.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +154,6 @@ async def browser(request: pytest.FixtureRequest, pw: Any):
     elif headless:
         b = await pw.chromium.launch(headless=True)
     else:
-        # 默认：先试 headless（无闪窗），fallback CDP，都失败 skip
         try:
             b = await pw.chromium.launch(headless=True)
         except Exception:
@@ -176,7 +161,7 @@ async def browser(request: pytest.FixtureRequest, pw: Any):
                 b = await pw.chromium.connect_over_cdp("http://localhost:9222")
             except Exception:
                 pytest.skip("No browser available (Chromium not installed, CDP 9222 unreachable)")
-                return  # unreachable, for type checker
+                return
     yield b
     await b.close()
 

@@ -25,11 +25,15 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "mutobj~=0.2.0",
+    "mutobj~=0.6.0",
 ]
 
 [project.optional-dependencies]
+demo = [
+    "mutio",
+]
 test = [
+    "mutio",
     "pytest>=7.0",
     "pytest-asyncio>=0.23",
     "playwright>=1.40",

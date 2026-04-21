@@ -1,0 +1,95 @@
+"""Ant Design 控件展示 — Form、Input、Select、Checkbox 等。"""
+from __future__ import annotations
+
+from typing import Any
+
+from mutgui import View, ViewBlock, Bind, Callback
+
+from demo.framework import MutguiRoute, DemoApp
+
+
+class AntdFormView(View):
+    def __init__(self) -> None:
+        self.name = ""
+        self.age = 18
+        self.subscribe = False
+        self.email = ""
+        self.plan = "free"
+        self.message = ""
+
+    def render(self) -> ViewBlock:
+        items: list[dict[str, Any]] = [
+            {"$component": "Form.Item", "$id": "fi-name", "label": "Name",
+             "$children": [
+                 {"$component": "Input", "$id": "name", "value": self.name,
+                  "placeholder": "Your name",
+                  "onChange": Bind(self, "name", "$0.target.value")},
+             ]},
+            {"$component": "Form.Item", "$id": "fi-age", "label": "Age",
+             "$children": [
+                 {"$component": "InputNumber", "$id": "age",
+                  "value": self.age, "min": 0, "max": 150,
+                  "onChange": Bind(self, "age", "$0")},
+             ]},
+            {"$component": "Form.Item", "$id": "fi-sub", "label": "Subscribe",
+             "$children": [
+                 {"$component": "Checkbox", "$id": "subscribe",
+                  "checked": self.subscribe,
+                  "onChange": Bind(self, "subscribe", "$0.target.checked")},
+             ]},
+        ]
+
+        if self.subscribe:
+            items.append(
+                {"$component": "Form.Item", "$id": "fi-email", "label": "Email",
+                 "$children": [
+                     {"$component": "Input", "$id": "email",
+                      "value": self.email, "placeholder": "you@example.com",
+                      "onChange": Bind(self, "email", "$0.target.value")},
+                 ]}
+            )
+
+        items.append(
+            {"$component": "Form.Item", "$id": "fi-plan", "label": "Plan",
+             "$children": [
+                 {"$component": "Select", "$id": "plan", "value": self.plan,
+                  "style": {"width": 200},
+                  "options": [
+                      {"value": "free", "label": "Free"},
+                      {"value": "pro", "label": "Pro"},
+                      {"value": "enterprise", "label": "Enterprise"},
+                  ],
+                  "onChange": Bind(self, "plan", "$0")},
+             ]}
+        )
+
+        return ViewBlock([
+            {"$component": "Typography.Title", "$id": "title",
+             "level": 3, "children": "mutgui — Ant Design Controls"},
+            {"$component": "Form", "$id": "form", "layout": "vertical",
+             "$children": items},
+            {"$component": "Space", "$id": "actions",
+             "$children": [
+                 {"$component": "Button", "$id": "submit",
+                  "type": "primary", "children": "Submit",
+                  "onClick": Callback(self._on_submit)},
+             ]},
+            *([{"$component": "Typography.Text", "$id": "msg",
+                "type": "success", "children": self.message}]
+              if self.message else []),
+        ])
+
+    def _on_submit(self) -> None:
+        self.message = (
+            f"Submitted: {self.name}, age {self.age}, "
+            f"plan={self.plan}, subscribe={self.subscribe}"
+        )
+        self.invalidate()
+
+
+app = DemoApp([
+    MutguiRoute("/", AntdFormView(), title="Ant Design Controls"),
+])
+
+if __name__ == "__main__":
+    app.run()
