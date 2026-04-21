@@ -91,7 +91,8 @@ class DockView(View):
             ratio=0.04,
         )
 
-        self.dock = DockPanel(id="dock", panels=panels, layout=layout)
+        self.dock = DockPanel(id="dock", panels=panels, layout=layout,
+                              default_collapse_below=300)
 
         colors = {
             "explorer": "#e8f5e9", "search": "#e3f2fd",

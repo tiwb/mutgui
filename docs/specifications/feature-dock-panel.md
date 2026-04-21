@@ -1,6 +1,6 @@
 # DockPanel 响应式面板布局组件 设计规范
 
-**状态**：🔄 实施中
+**状态**：✅ 已完成
 **日期**：2026-04-21
 **类型**：功能设计
 
@@ -13,15 +13,18 @@
 5. per-viewport 状态追踪（可见面板集合、active tab、tab 顺序），类似 VirtualList
 6. 支持拖拽调整 tab 顺序和面板归属
 7. Splitter 拖拽调整分割比例
-8. 布局持久化（可配置是否实时同步）
-9. Tab 栏可配置：位置（top/bottom/left/right）、显示模式（图标+文字/仅图标/图标+活跃tab文字）
+8. Tab 栏可配置：位置（top/bottom/left/right）、显示模式（图标+文字/仅图标/图标+活跃tab文字）
 10. SplitNode 支持 merge_bars：两个子 TabSet 的 tab 栏融合为一条，两端对齐
 11. Tab 栏支持额外操作按钮（菜单、新建等）
+12. Tab 停靠分割：拖 tab 到 TabSet 内容区边缘，将该 TabSet 分割为两个子面板
+13. 页面边缘停靠：拖 tab 到 DockPanel 容器四边，在根节点外层创建新分割
+14. 停靠预览：拖拽期间显示半透明遮罩预览停靠后的布局效果
 
 ### 不在范围内
 
 - 浮动面板（floating）
 - 共享 View 对象（多个布局引用同一 View 实例）
+- 布局持久化（可配置是否实时同步）
 - flexlayout-react 依赖
 
 ### 前置依赖
@@ -35,9 +38,9 @@
 
 ### 内部实现
 
-- **VirtualList per-viewport 模式** — `D:/ai/mutgui/src/mutgui/virtual_list.py`，`_viewports: dict[channel_id, tuple]` + `ViewChildFilter` + `_refresh_visible()` 计算可见集合的并集
-- **ViewChildFilter** — `D:/ai/mutgui/src/mutgui/_viewport_impl.py:108-160`，per-viewport 子 View 过滤，push 时只发送该 viewport 可见的子节点
-- **mutbot flexlayout 用法** — `D:/ai/mutbot/frontend/src/lib/layout.ts` + `D:/ai/mutbot/frontend/src/App.tsx`，布局模型 JSON 化、debounced 持久化、tab 管理
+- **VirtualList per-viewport 模式** — `src/mutgui/virtual_list.py`，`_viewports: dict[channel_id, tuple]` + `ViewChildFilter` + `_refresh_visible()` 计算可见集合的并集
+- **ViewChildFilter** — `src/mutgui/_viewport_impl.py:108-160`，per-viewport 子 View 过滤，push 时只发送该 viewport 可见的子节点
+- **mutbot flexlayout 用法** — `mutbot/frontend/src/lib/layout.ts` + `mutbot/frontend/src/App.tsx`，布局模型 JSON 化、debounced 持久化、tab 管理
 
 ### 外部参考
 
@@ -79,7 +82,7 @@ class SplitNode:
     id: str | None = None     # 用户可指定，未指定则自动生成
     ratio: float = 0.5        # 第一个子节点占比（0.0-1.0），可自由拖拽至 0-1
     merge_bars: bool = False   # 融合两个子 TabSet 的 tab 栏
-    collapse_below: int = 0    # 坍缩阈值（px）：该 split 在分割方向上的可用空间低于此值时坍缩为 TabSet。0 表示不自动坍缩
+    collapse_below: int | None = None  # 坍缩阈值（px）。None=继承 DockPanel 默认值，0=明确不坍缩，>0=低于此值时坍缩
 ```
 
 `merge_bars=True` 时，要求两个子节点都是 TabSetNode。前端将两个 tab 栏提升到 Split 层级渲染为一条连续的 bar，两端对齐（第一个子节点的 tabs 靠起始端，第二个靠末尾端）。内容区仍按 ratio 分割。
@@ -228,12 +231,13 @@ _viewport_states: dict[int, ViewportLayoutState]  # channel_id → 状态
 
 #### 触发条件
 
-SplitNode 的 `collapse_below` 字段定义坍缩阈值。当该 split 在分割方向上的**总可用空间**低于 `collapse_below` 时，合并为 TabSet。
+SplitNode 的 `collapse_below` 字段定义坍缩阈值。当该 split 在分割方向上的**总可用空间**低于阈值时，合并为 TabSet。
 
-- `collapse_below = 0`：该 split 永远不自动坍缩（默认）
+- `collapse_below = None`：继承 DockPanel 的 `default_collapse_below`（默认）
+- `collapse_below = 0`：该 split 明确不自动坍缩
 - `collapse_below = 300`：当水平 split 宽度 < 300px 或垂直 split 高度 < 300px 时坍缩
 
-坍缩阈值由声明者指定，未来动态创建的 SplitNode 可继承合理默认值。
+DockPanel 通过 `default_collapse_below` 参数设置全局默认坍缩阈值（默认 0）。所有未指定 `collapse_below` 的 SplitNode（包括停靠操作动态创建的）统一使用此默认值。
 
 #### 算法（自底向上递归）
 
@@ -245,8 +249,9 @@ compute_layout(node, available_width, available_height):
   # node is SplitNode
   axis_space = available_width if node.direction == "horizontal" else available_height
 
-  # 坍缩判定：总可用空间 < 阈值
-  if node.collapse_below > 0 and axis_space < node.collapse_below:
+  # 坍缩判定：解析 None → DockPanel 默认值，然后判断
+  threshold = node.collapse_below if node.collapse_below is not None else default_collapse_below
+  if threshold > 0 and axis_space < threshold:
     return collapse_to_tabset(node)
 
   # 空间充足，按 ratio 分配，递归处理子节点
@@ -290,6 +295,8 @@ collapse_to_tabset(node) -> TabSetNode:
 | `tab_move` | 用户拖拽 tab 到另一个 TabSet | `{from_tabset, to_tabset, panel_id, index}` |
 | `split_resize` | 用户拖拽 splitter | `{split_id, ratio}` |
 | `action_click` | 用户点击 tab 栏操作按钮 | `{tabset_id, action_id}` |
+| `tab_dock` | 拖拽 tab 到 TabSet 内容区边缘停靠 | `{from_tabset, panel_id, target_tabset, position}` |
+| `edge_dock` | 拖拽 tab 到 DockPanel 边缘停靠 | `{from_tabset, panel_id, edge}` |
 
 ### 后端→前端推送
 
@@ -365,13 +372,128 @@ collapse_to_tabset(node) -> TabSetNode:
 
 - 坍缩后多个面板合并在一个 TabSet 中
 - tab 重排（reorder）仍然有效（调整显示顺序）
-- **禁止跨 TabSet 拖拽（tab_move）**：坍缩态下原始归属信息对用户不可见，允许 move 会产生反直觉的恢复结果。前端在坍缩态 TabSet 中不提供跨 TabSet 的 drop target
+- **允许从坍缩态拖出**：tab 可从坍缩态 TabSet 拖出进行 move 和 dock 操作。源 TabSet 面板减少后，cleanup_tree 正常处理空节点清理
 - 恢复时按原始归属拆分，不受 tab 重排影响
+
+### 停靠分割（Dock Splitting）
+
+拖拽 tab 可触发两种停靠行为，将目标区域分割为两个面板。
+
+#### 面板内停靠（Panel Dock）
+
+拖拽 tab 进入某个 TabSet 的内容区域时，根据鼠标相对位置判断停靠方向：
+
+```
+┌─────────────────────────┐
+│         top 25%         │
+├────┬───────────┬────────┤
+│    │           │        │
+│ L  │  center   │  R     │
+│25% │   50%     │  25%   │
+│    │           │        │
+├────┴───────────┴────────┤
+│        bottom 25%       │
+└─────────────────────────┘
+```
+
+- **边缘 25%**：触发停靠分割，显示半透明遮罩覆盖对应半区
+- **中心 50%**：回落为 tab_move（等价于拖到 tab bar），遮罩覆盖整个内容区
+- **角落区域**（两个边缘 25% 重叠）：优先 top/bottom 方向
+
+**树操作**（以 position=left 为例）：
+
+```
+Before:  TabSet[A, B, C]
+
+After:
+  SplitNode(horizontal, ratio=0.5)
+  ├── TabSet[拖入的 tab]    ← 新建
+  └── TabSet[A, B, C]       ← 原 TabSet
+```
+
+- position → direction：left/right → horizontal，top/bottom → vertical
+- position → 子节点顺序：left/top → 新 TabSet 在前，right/bottom → 新 TabSet 在后
+- 新 SplitNode 替换原 TabSet 在父节点中的位置
+- 新建的 SplitNode 和 TabSet 由自增计数器分配 ID
+- 新分割 ratio 固定 0.5
+- 新分割 `collapse_below` 不指定（`None`），自动继承 DockPanel 默认值
+
+#### 页面边缘停靠（Edge Dock）
+
+拖拽开始时，DockPanel 容器四边各显示一个停靠触发区（约 40×40px 矩形，居中于边缘中点）。鼠标拖到触发区时，显示半透明遮罩覆盖整个 DockPanel 对应边缘的一半区域。
+
+```
+                    ┌──┐
+                    │▼ │ ← top 触发区
+        ┌───────────┴──┴───────────┐
+        │                          │
+  ┌──┐  │                          │  ┌──┐
+  │► │  │       DockPanel          │  │◄ │
+  └──┘  │                          │  └──┘
+        │                          │
+        └───────────┬──┬───────────┘
+                    │▲ │ ← bottom 触发区
+                    └──┘
+```
+
+**树操作**（以 edge=right 为例）：
+
+```
+Before:
+  Root (原有布局树)
+
+After:
+  SplitNode(horizontal, ratio=0.5)
+  ├── Root (原有布局树)     ← 原根节点降级为子节点
+  └── TabSet[拖入的 tab]    ← 新建
+```
+
+- edge → direction：同面板内停靠
+- edge → 子节点顺序：left/top → 新 TabSet 在前，right/bottom → 新 TabSet 在后
+- 新 SplitNode 成为新的布局根节点
+- 新分割 ratio 固定 0.5
+- 新分割 `collapse_below` 不指定（`None`），自动继承 DockPanel 默认值
+
+#### 停靠预览
+
+前端在拖拽期间渲染半透明遮罩（DockOverlay），预览停靠后的布局效果：
+
+- **面板内停靠预览**：遮罩覆盖目标 TabSet 内容区的对应半区
+- **中心区预览**：遮罩覆盖目标 TabSet 整个内容区（表示合并到该 TabSet）
+- **边缘停靠预览**：遮罩覆盖 DockPanel 容器对应边缘的一半
+- **无动画过渡**：遮罩直接出现/消失
+
+#### 前端拖拽状态
+
+拖拽状态从 TabSet 内部提升到 DockPanel 根级 Context：
+
+```typescript
+interface DockDragState {
+  isDragging: boolean;           // 控制边缘停靠区显示
+  preview: DockPreview | null;   // 当前停靠预览
+}
+
+type DockPreview =
+  | { type: 'panel-dock'; targetId: string; position: 'top' | 'bottom' | 'left' | 'right' }
+  | { type: 'tab-move'; targetId: string }    // 中心区，回落为 tab_move
+  | { type: 'edge-dock'; edge: 'top' | 'bottom' | 'left' | 'right' }
+```
+
+#### 后端清理逻辑
+
+停靠操作复用现有的 `cleanup_tree()` 逻辑：
+
+- 源 TabSet 面板全部移走后自动删除
+- 父 SplitNode 独子提升替代父节点
+- `merge_bars` 降级规则不变
 
 ### 前端组件结构
 
 ```
 mutgui.DockPanel (根容器)
+├── DockPanelCtx.Provider（拖拽状态 + 回调上下文）
+├── EdgeDropZone × 4（DockPanel 四边停靠触发区，仅拖拽时可见）
+├── DockOverlay（半透明停靠预览遮罩，根据 preview 状态定位）
 ├── mutgui.DockPanel.Split (分割容器)
 │   ├── 普通模式（mergeBars=false）：
 │   │   ├── 子节点 1（TabSet 或嵌套 Split，自带 tab 栏）
@@ -384,13 +506,15 @@ mutgui.DockPanel (根容器)
 │       └── 子节点 2 内容区（无 tab 栏）
 └── mutgui.DockPanel.TabSet (tab 页签容器)
     ├── Tab 栏（位置由 barPosition 决定，含 tabs + actions）
-    └── 内容区（MutguiView 渲染 active panel 的子 View）
+    ├── 内容区（MutguiView 渲染 active panel 的子 View）
+    └── ContentDropZone（内容区边缘停靠检测，拖拽时激活）
 ```
 
 前端职责：
 - 渲染 splitter 和 tab 栏
 - 检测容器尺寸变化（ResizeObserver）→ debounce（100-200ms）后上报后端（避免连续 resize 产生过多往返）
-- 处理拖拽交互（tab 重排、tab 移动、splitter 拖拽）→ 上报后端。拖拽自行实现（splitter 用 pointer event，tab 用 HTML5 Drag and Drop API），不引入额外依赖
+- 处理拖拽交互（tab 重排、tab 移动、tab 停靠、splitter 拖拽）→ 上报后端。拖拽自行实现（splitter 用 pointer event，tab 用 HTML5 Drag and Drop API），不引入额外依赖
+  - 停靠检测：内容区边缘 25% 触发面板内停靠，DockPanel 四边触发区触发页面边缘停靠
 - **不做布局决策**（坍缩/恢复由后端决定）
 
 ### 消费者场景
@@ -411,7 +535,14 @@ mutgui.DockPanel (根容器)
 - [x] IDE 风格 demo（`dock_demo.py`）
 - [x] 前端构建验证（library + standalone + antd 均通过）
 - [x] 现有测试回归通过（62/62）
-- [ ] 坍缩算法重构：splitter ratio 自由 0-1 + collapse_below 阈值驱动 + 自动恢复
-- [ ] 浏览器实际验证（tab 切换、拖拽重排、splitter 拖拽、坍缩恢复）
-- [ ] per-viewport 独立状态（多客户端各自尺寸、各自坍缩）
-- [ ] 布局持久化支持
+- [x] 坍缩算法重构：splitter ratio 自由 0-1 + collapse_below 阈值驱动 + 自动恢复
+- [x] 浏览器实际验证（tab 切换、拖拽重排、splitter 拖拽、坍缩恢复）
+- [x] 后端 tab_dock 事件处理（目标 TabSet 替换为 SplitNode + 新 TabSet）
+- [x] 后端 edge_dock 事件处理（根节点包裹新 SplitNode）
+- [x] 解除坍缩态拖出限制（允许从坍缩态 TabSet 拖出 dock 和 move）
+- [x] 前端拖拽状态提升到 DockPanel Context
+- [x] 前端 ContentDropZone（TabSet 内容区边缘检测 + 停靠方向判断）
+- [x] 前端 EdgeDropZone（DockPanel 四边停靠触发区）
+- [x] 前端 DockOverlay（半透明遮罩预览）
+- [x] 前端 drop 事件触发 tab_dock / edge_dock / tab_move 回调
+- [x] 浏览器验证停靠功能（面板内停靠、边缘停靠、预览效果）

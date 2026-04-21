@@ -44,7 +44,7 @@ class SplitNode:
     id: str | None = None
     ratio: float = 0.5
     merge_bars: bool = False
-    collapse_below: int = 0
+    collapse_below: int | None = None
 
 
 @dataclass
@@ -106,6 +106,50 @@ def cleanup_tree(root: LayoutNode) -> LayoutNode:
     )
 
 
+def replace_node(root: LayoutNode, node_id: str,
+                 new_node: LayoutNode) -> LayoutNode:
+    if root.id == node_id:
+        return new_node
+    if isinstance(root, SplitNode):
+        c0 = replace_node(root.children[0], node_id, new_node)
+        c1 = replace_node(root.children[1], node_id, new_node)
+        if c0 is root.children[0] and c1 is root.children[1]:
+            return root
+        return SplitNode(
+            direction=root.direction,
+            children=(c0, c1),
+            id=root.id,
+            ratio=root.ratio,
+            merge_bars=root.merge_bars,
+            collapse_below=root.collapse_below,
+        )
+    return root
+
+
+def remove_panel_from_subtree(node: LayoutNode, panel_id: str) -> bool:
+    if isinstance(node, TabSetNode):
+        if panel_id in node.panel_ids:
+            node.panel_ids.remove(panel_id)
+            if node.active_id == panel_id:
+                node.active_id = (node.panel_ids[0]
+                                  if node.panel_ids else None)
+            return True
+        return False
+    return (remove_panel_from_subtree(node.children[0], panel_id)
+            or remove_panel_from_subtree(node.children[1], panel_id))
+
+
+def find_parent_split(root: LayoutNode, node_id: str) -> SplitNode | None:
+    if isinstance(root, SplitNode):
+        for child in root.children:
+            if child.id == node_id:
+                return root
+            result = find_parent_split(child, node_id)
+            if result is not None:
+                return result
+    return None
+
+
 def find_active_in_subtree(node: LayoutNode) -> str | None:
     if isinstance(node, TabSetNode):
         return node.active_id
@@ -134,11 +178,13 @@ class DockPanel(View):
         id: str,
         panels: list[PanelDef],
         layout: LayoutNode,
+        default_collapse_below: int = 0,
     ) -> None:
         self.id = id
         self._panels: dict[str, PanelDef] = {p.id: p for p in panels}
         self._panel_views: dict[str, View] = {}
         self._layout = layout
+        self._default_collapse_below = default_collapse_below
         self._id_counter = 0
         self._container_size: tuple[int, int] | None = None
         self._collapsed_active: dict[str, str] = {}
@@ -214,6 +260,16 @@ class DockPanel(View):
             "onActionClick": Callback(
                 self._on_action_click,
                 tabsetId="$0.tabsetId", actionId="$0.actionId",
+            ),
+            "onTabDock": Callback(
+                self._on_tab_dock,
+                fromTabset="$0.fromTabset", panelId="$0.panelId",
+                targetTabset="$0.targetTabset", position="$0.position",
+            ),
+            "onEdgeDock": Callback(
+                self._on_edge_dock,
+                fromTabset="$0.fromTabset", panelId="$0.panelId",
+                edge="$0.edge",
             ),
             "$children": [self._build_wire_node(render_tree)],
         }])
@@ -308,7 +364,9 @@ class DockPanel(View):
         axis = node.direction
         total = width if axis == "horizontal" else height
 
-        if node.collapse_below > 0 and total < node.collapse_below:
+        threshold = (node.collapse_below if node.collapse_below is not None
+                     else self._default_collapse_below)
+        if threshold > 0 and total < threshold:
             all_panels = collect_all_panels(node)
             stored = self._collapsed_orders.get(node.id or "")
             if stored and set(stored) == set(all_panels):
@@ -382,15 +440,12 @@ class DockPanel(View):
                      panelId: str, index: int) -> None:
         src = find_node(self._layout, fromTabset)
         dst = find_node(self._layout, toTabset)
-        if not isinstance(src, TabSetNode) or not isinstance(dst, TabSetNode):
+        if src is None or not isinstance(dst, TabSetNode):
             return
-        if panelId not in src.panel_ids:
+        if not remove_panel_from_subtree(src, panelId):
             return
-        src.panel_ids.remove(panelId)
         idx = min(index, len(dst.panel_ids))
         dst.panel_ids.insert(idx, panelId)
-        if src.active_id == panelId:
-            src.active_id = src.panel_ids[0] if src.panel_ids else None
         self._layout = cleanup_tree(self._layout)
         self.invalidate()
 
@@ -402,3 +457,58 @@ class DockPanel(View):
 
     def _on_action_click(self, *, tabsetId: str, actionId: str) -> None:
         pass
+
+    def _on_tab_dock(self, *, fromTabset: str, panelId: str,
+                     targetTabset: str, position: str) -> None:
+        src = find_node(self._layout, fromTabset)
+        if src is None:
+            return
+        if not remove_panel_from_subtree(src, panelId):
+            return
+        dst = find_node(self._layout, targetTabset)
+        if dst is None:
+            return
+
+        direction: Literal["horizontal", "vertical"] = (
+            "horizontal" if position in ("left", "right") else "vertical")
+        new_tabset = TabSetNode(panel_ids=[panelId], active_id=panelId)
+        new_tabset.id = self._next_id("tabset")
+
+        if position in ("left", "top"):
+            children: tuple[LayoutNode, LayoutNode] = (new_tabset, dst)
+        else:
+            children = (dst, new_tabset)
+
+        new_split = SplitNode(direction=direction, children=children,
+                              ratio=0.5)
+        new_split.id = self._next_id("split")
+
+        self._layout = replace_node(self._layout, targetTabset, new_split)
+        self._layout = cleanup_tree(self._layout)
+        self.invalidate()
+
+    def _on_edge_dock(self, *, fromTabset: str, panelId: str,
+                      edge: str) -> None:
+        src = find_node(self._layout, fromTabset)
+        if src is None:
+            return
+        if not remove_panel_from_subtree(src, panelId):
+            return
+
+        direction: Literal["horizontal", "vertical"] = (
+            "horizontal" if edge in ("left", "right") else "vertical")
+        new_tabset = TabSetNode(panel_ids=[panelId], active_id=panelId)
+        new_tabset.id = self._next_id("tabset")
+
+        if edge in ("left", "top"):
+            children: tuple[LayoutNode, LayoutNode] = (
+                new_tabset, self._layout)
+        else:
+            children = (self._layout, new_tabset)
+
+        new_root = SplitNode(direction=direction, children=children,
+                             ratio=0.5)
+        new_root.id = self._next_id("split")
+
+        self._layout = cleanup_tree(new_root)
+        self.invalidate()
