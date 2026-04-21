@@ -39,6 +39,7 @@ class ViewRenderState(mutobj.Extension[View]):
     _dirty: bool = True
     _render_scheduled: bool = False
     _render_event: asyncio.Event | None = None
+    _overlay_children: dict = mutobj.field(default_factory=dict)  # dict[str|int, View] — 框架注入的子 View（如菜单）
 
 
 
@@ -161,6 +162,11 @@ def _render_and_cache(view: View) -> None:
     ext._children = {}
     ext._view_block = block
     ext._wire_tree = _process_items(view, block.items)
+
+    # 注入 overlay children（如活跃菜单）
+    for child_id, child_view in ext._overlay_children.items():
+        ext._children[child_id] = child_view
+        ext._wire_tree.append({"$view": child_id})
 
     # 递归 render dirty 子 View
     for child_view in ext._children.values():

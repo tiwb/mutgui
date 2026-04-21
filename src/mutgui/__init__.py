@@ -10,6 +10,7 @@ from .virtual_list import VirtualList, VirtualListItemAdapter
 from .dock_panel import (
     DockPanel, PanelDef, SplitNode, TabSetNode, ActionDef,
 )
+from .menu import MenuView, MenuTrigger
 
 __all__ = [
     "View",
@@ -28,4 +29,6 @@ __all__ = [
     "SplitNode",
     "TabSetNode",
     "ActionDef",
+    "MenuView",
+    "MenuTrigger",
 ]

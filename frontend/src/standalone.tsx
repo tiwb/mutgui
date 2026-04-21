@@ -18,6 +18,7 @@ import { registerComponents } from './registry';
 import { MutguiView } from './renderer';
 import { VirtualList } from './virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './dock-panel';
+import { Menu, MenuItem, MenuDivider } from './menu';
 import {
   ConnectionProvider,
   type MutguiConnection,
@@ -32,6 +33,9 @@ registerComponents({
   DockPanel,
   'DockPanel.Split': DockPanelSplit,
   'DockPanel.TabSet': DockPanelTabSet,
+  Menu,
+  'Menu.Item': MenuItem,
+  'Menu.Divider': MenuDivider,
 });
 
 function createConnection(ws: WebSocket): MutguiConnection {

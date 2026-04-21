@@ -18,6 +18,7 @@ import {
   type ViewPath,
   type MutguiConnection,
 } from './context';
+import { Menu, isMenuViewId, createMenuTriggerHandler } from './menu';
 
 /** 组件 schema 的基础类型。 */
 export interface ComponentSchema {
@@ -55,6 +56,17 @@ export function MutguiView({ viewId }: { viewId?: string | number }) {
       setTree(newTree as ComponentSchema[]);
     });
   }, [conn, fullPath]);
+
+  // 菜单 View — 用 Menu 容器包装并 portal 渲染
+  if (isMenuViewId(viewId)) {
+    return (
+      <ScopeProvider value={fullPath}>
+        <Menu menuId={String(viewId)} conn={conn} viewPath={fullPath}>
+          {renderTree(tree)}
+        </Menu>
+      </ScopeProvider>
+    );
+  }
 
   return (
     <ScopeProvider value={fullPath}>
@@ -243,6 +255,12 @@ function createHandler(
   conn: MutguiConnection,
 ) {
   const inner = (spec.$handler || {}) as Record<string, unknown>;
+
+  // $menu 标记 → 走菜单触发逻辑
+  if (inner.$menu) {
+    return createMenuTriggerHandler(spec, scope, componentId, eventName, conn);
+  }
+
   const argPaths = (inner.$args || []) as string[];
   const kwargPaths: Record<string, string> = {};
   for (const [k, v] of Object.entries(inner)) {

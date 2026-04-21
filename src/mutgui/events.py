@@ -51,7 +51,25 @@ class EventHandler:
 
 
 class Callback(EventHandler):
-    """提取数据 -> callback(*args, **kwargs)。不自动 invalidate。"""
+    """提取数据 -> callback(*args, **kwargs)。不自动 invalidate。
+
+    位置参数 (*args) 和关键字参数 (**extract) 是 **前端 resolvePath 提取路径**：
+
+        Callback(handler, "$0.target.value")   # event.target.value 作为第一个参数
+        Callback(handler, x="$0.x", y="$0.y")  # event.x / event.y 作为关键字参数
+        Callback(handler, "$0", "$1")          # 第一个和第二个事件参数（onChange(val, opt) 这类）
+
+    `@` 前缀路径在后端注入，不进入 wire（如 `view="@view"`、`session="@view.session"`）。
+
+    传后端常量（与事件无关的固定值）请用 `functools.partial` 或 `lambda`：
+
+        Callback(partial(handler, "Python Script"))
+        Callback(lambda val=item.id: handler(val))    # for 循环里用默认参数捕获
+
+    **不要写** `Callback(handler, "Python Script")` — 字符串会被当作前端 resolvePath
+    路径表达式，运行时只能解析出 None。这是预期行为，给未来更复杂的提取语法
+    （方法调用、表达式、模板等）保留语义空间。
+    """
 
     def __init__(self, callback: Callable[..., Any], /, *args: str, **extract: str) -> None:
         self.callback = callback
@@ -86,7 +104,18 @@ class Callback(EventHandler):
 
 
 class Bind(EventHandler):
-    """提取数据 -> setattr(obj, attr, value)。自动 invalidate。"""
+    """提取数据 -> setattr(obj, attr, value)。自动 invalidate。
+
+    `path` 参数是 **前端 resolvePath 提取路径**（默认 `"$0"`）。
+
+    常用路径：
+        Bind(self, "name", "$0.target.value")     # 原生 <input>
+        Bind(self, "checked", "$0.target.checked") # 原生 <checkbox>
+        Bind(self, "value", "$0")                  # 组件 onChange 直接给值（如 InputNumber）
+
+    `path` 不接受常量 — 它的语义是"从前端事件提取一个值赋给 attr"，
+    要赋常量请直接 setattr 或用 Callback + lambda。
+    """
 
     def __init__(self, obj: Any, attr: str, path: str = "$0") -> None:
         self.obj = obj
