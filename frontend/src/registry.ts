@@ -22,7 +22,9 @@ export function registerComponents(source: ComponentSource): void {
 export function resolve(name: string): ComponentType<any> | string {
   // 属性路径：Input.TextArea → 先完整匹配，再尝试属性访问
   if (name.includes('.')) {
-    const [prefix, suffix] = name.split('.', 2);
+    const dot = name.indexOf('.');
+    const prefix = name.substring(0, dot);
+    const suffix = name.substring(dot + 1);
 
     // 1. 命名空间查找：__name__ 匹配 prefix，取 suffix
     for (const src of sources) {

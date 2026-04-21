@@ -7,6 +7,9 @@ from .view import View, ViewBlock
 from .channel import Channel
 from .viewport import ViewPort
 from .virtual_list import VirtualList, VirtualListItemAdapter
+from .dock_panel import (
+    DockPanel, PanelDef, SplitNode, TabSetNode, ActionDef,
+)
 
 __all__ = [
     "View",
@@ -20,4 +23,9 @@ __all__ = [
     "Callback",
     "Bind",
     "EventFilter",
+    "DockPanel",
+    "PanelDef",
+    "SplitNode",
+    "TabSetNode",
+    "ActionDef",
 ]

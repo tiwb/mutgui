@@ -11,3 +11,4 @@ export {
 export type { ViewPath, MutguiConnection, RenderCallback } from './context';
 export { resolvePath } from './resolve-path';
 export { VirtualList } from './virtual-list';
+export { DockPanel, DockPanelSplit, DockPanelTabSet } from './dock-panel';

@@ -17,6 +17,7 @@ import * as jsxRuntime from 'react/jsx-runtime';
 import { registerComponents } from './registry';
 import { MutguiView } from './renderer';
 import { VirtualList } from './virtual-list';
+import { DockPanel, DockPanelSplit, DockPanelTabSet } from './dock-panel';
 import {
   ConnectionProvider,
   type MutguiConnection,
@@ -26,6 +27,12 @@ import {
 
 // 注册框架内置组件
 registerComponents({ VirtualList });
+registerComponents({
+  __name__: 'mutgui',
+  DockPanel,
+  'DockPanel.Split': DockPanelSplit,
+  'DockPanel.TabSet': DockPanelTabSet,
+});
 
 function createConnection(ws: WebSocket): MutguiConnection {
   const subs = new Map<string, RenderCallback>();
@@ -55,20 +62,30 @@ function createConnection(ws: WebSocket): MutguiConnection {
   };
 }
 
-function App({ wsUrl }: { wsUrl: string }) {
+interface AppProps {
+  wsUrl: string;
+  onStatus?: (status: string) => void;
+}
+
+function App({ wsUrl, onStatus }: AppProps) {
   const [status, setStatus] = useState('Connecting...');
   const connRef = useRef<MutguiConnection | null>(null);
   const [conn, setConn] = useState<MutguiConnection | null>(null);
+
+  const updateStatus = (s: string) => {
+    setStatus(s);
+    onStatus?.(s);
+  };
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
     const connection = createConnection(ws);
     connRef.current = connection;
     ws.onopen = () => {
-      setStatus('Connected');
+      updateStatus('Connected');
       setConn(connection);
     };
-    ws.onclose = () => setStatus('Disconnected');
+    ws.onclose = () => updateStatus('Disconnected');
     return () => ws.close();
   }, [wsUrl]);
 
@@ -78,14 +95,17 @@ function App({ wsUrl }: { wsUrl: string }) {
 
   return (
     <ConnectionProvider value={conn}>
-      <div style={{ color: '#999', fontSize: 12, marginBottom: 16 }}>{status}</div>
       <MutguiView />
     </ConnectionProvider>
   );
 }
 
-function mount(el: HTMLElement, wsUrl: string) {
-  createRoot(el).render(<App wsUrl={wsUrl} />);
+function mount(
+  el: HTMLElement,
+  wsUrl: string,
+  options?: { onStatus?: (status: string) => void },
+) {
+  createRoot(el).render(<App wsUrl={wsUrl} onStatus={options?.onStatus} />);
 }
 
 // 暴露到全局：核心 API + React 供组件库 JS 共享
