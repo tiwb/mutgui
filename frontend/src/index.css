@@ -6,7 +6,7 @@
  */
 @layer mutgui.base, mutgui.components, mutgui.theme;
 
-@import "./base.css";
-@import "./menu.css";
-@import "./dock-panel.css";
-@import "./virtual-list.css";
+@import "./core/base.css";
+@import "./components/menu.css";
+@import "./components/dock-panel.css";
+@import "./components/virtual-list.css";

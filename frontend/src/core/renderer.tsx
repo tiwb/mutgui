@@ -18,7 +18,7 @@ import {
   type ViewPath,
   type MutguiConnection,
 } from './context';
-import { Menu, isMenuViewId, createMenuTriggerHandler } from './menu';
+import { Menu, isMenuViewId, createMenuTriggerHandler } from '../components/menu';
 
 /** 组件 schema 的基础类型。 */
 export interface ComponentSchema {

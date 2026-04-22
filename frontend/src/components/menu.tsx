@@ -18,8 +18,8 @@
  */
 import { createPortal } from 'react-dom';
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
-import { resolvePath } from './resolve-path';
-import type { ViewPath, MutguiConnection } from './context';
+import { resolvePath } from '../core/resolve-path';
+import type { ViewPath, MutguiConnection } from '../core/context';
 
 // ---------------------------------------------------------------------------
 // 类型

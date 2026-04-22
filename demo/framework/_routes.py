@@ -27,7 +27,7 @@ def mutgui_page(title: str, ws_path: str | None = None) -> str:
     <div id="app"></div>
   </div>
   <script src="/static/mutgui.js"></script>
-  <script src="/static/libs/antd.js"></script>
+  <script src="/static/mutgui-antd.js"></script>
   <script>MutguiApp.mount(document.getElementById('app'), {ws_url})</script>
 </body>
 </html>

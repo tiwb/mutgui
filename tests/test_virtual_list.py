@@ -57,7 +57,7 @@ def test_virtual_list_initial_render_empty_viewport() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     tree = vl.render()
-    assert tree.items[0]["$component"] == "VirtualList"
+    assert tree.items[0]["$component"] == "mutgui.VirtualList"
     assert tree.items[0]["itemCount"] == 100
     assert tree.items[0]["$children"] == []
 
@@ -187,7 +187,7 @@ def test_virtual_list_end_to_end_render() -> None:
         vl_msgs = ch.messages_for(["vl"])
         assert len(vl_msgs) == 1
         vl_tree = vl_msgs[0]["tree"]
-        assert vl_tree[0]["$component"] == "VirtualList"
+        assert vl_tree[0]["$component"] == "mutgui.VirtualList"
         assert vl_tree[0]["itemCount"] == 1000
         # 初始 viewport=(0,0)，无 $children 中的 $view
         assert vl_tree[0].get("$children", []) == []

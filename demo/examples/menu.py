@@ -288,7 +288,7 @@ MENU_HTML = """\
 <body>
   <div id="app"></div>
   <script src="/static/mutgui.js"></script>
-  <script src="/static/libs/antd.js"></script>
+  <script src="/static/mutgui-antd.js"></script>
   <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}${location.pathname}`)</script>
 </body>
 </html>

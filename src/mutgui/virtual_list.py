@@ -89,7 +89,7 @@ class VirtualList(View):
         self._refresh_visible()
         visible_items = [self._item_views[vid] for vid in self._visible_ids]
         props: dict[str, Any] = {
-            "$component": "VirtualList",
+            "$component": "mutgui.VirtualList",
             "$id": "list",
             "itemCount": self.adapter.item_count,
             "onViewport": Callback(

@@ -6,20 +6,20 @@ import { resolve } from 'path';
  * antd 组件库打包配置 — 输出 IIFE，React 标记为 external。
  *
  * 构建：npm run build:antd
- * 产物：../../src/mutgui/static/libs/antd.js
+ * 产物：../../src/mutgui/static/mutgui-antd.js
  *
- * 加载顺序：先加载 mutgui.js（暴露 React），再加载 antd.js。
+ * 加载顺序：先加载 mutgui.js（暴露 React），再加载 mutgui-antd.js。
  */
 export default defineConfig({
   plugins: [react()],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/libs/antd.ts'),
+      entry: resolve(__dirname, 'src/integrations/antd.ts'),
       formats: ['iife'],
       name: 'MutguiAntd',
-      fileName: () => 'antd.js',
+      fileName: () => 'mutgui-antd.js',
     },
-    outDir: resolve(__dirname, '../src/mutgui/static/libs'),
+    outDir: resolve(__dirname, '../src/mutgui/static'),
     emptyOutDir: false,
     rollupOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime'],

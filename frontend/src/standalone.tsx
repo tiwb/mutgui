@@ -4,7 +4,7 @@
  * 用法（纯 HTML）：
  *   <div id="app"></div>
  *   <script src="/static/mutgui.js"></script>
- *   <script src="/static/libs/antd.js"></script>
+ *   <script src="/static/mutgui-antd.js"></script>
  *   <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}/ws`)</script>
  *
  * 组件库通过额外的 <script> 标签加载，加载后自动调用
@@ -14,20 +14,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import * as jsxRuntime from 'react/jsx-runtime';
-import { registerComponents } from './registry';
-import { MutguiView } from './renderer';
-import { VirtualList } from './virtual-list';
-import { DockPanel, DockPanelSplit, DockPanelTabSet } from './dock-panel';
-import { Menu, MenuItem, MenuDivider } from './menu';
+import { registerComponents } from './core/registry';
+import { MutguiView } from './core/renderer';
+import { VirtualList } from './components/virtual-list';
+import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
+import { Menu, MenuItem, MenuDivider } from './components/menu';
 import {
   ConnectionProvider,
   type MutguiConnection,
   type ViewPath,
   type RenderCallback,
-} from './context';
+} from './core/context';
 // 内联读取 CSS 源码（Vite ?inline query），在 mount 时注入 <style>
 // 确保 standalone IIFE 产物自带样式，用户零配置
-import mutguiStyles from './styles/index.css?inline';
+import mutguiStyles from './index.css?inline';
 
 let stylesInjected = false;
 function injectStyles() {
@@ -40,7 +40,6 @@ function injectStyles() {
 }
 
 // 注册框架内置组件
-registerComponents({ VirtualList });
 registerComponents({
   __name__: 'mutgui',
   DockPanel,
@@ -49,6 +48,7 @@ registerComponents({
   Menu,
   'Menu.Item': MenuItem,
   'Menu.Divider': MenuDivider,
+  VirtualList,
 });
 
 function createConnection(ws: WebSocket): MutguiConnection {
