@@ -283,28 +283,6 @@ MENU_HTML = """\
     html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fafafa; }
     h2 { margin: 0 0 8px 0; }
     h4 { margin: 0; font-size: 13px; color: #666; }
-
-    /* mutgui Menu 样式 */
-    .mutgui-menu {
-      min-width: 180px; max-width: 360px;
-      background: white; border: 1px solid #e0e0e0;
-      border-radius: 6px; padding: 4px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-      font-size: 13px; color: #333;
-      user-select: none;
-    }
-    .mutgui-menu-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 10px; border-radius: 4px;
-      cursor: pointer; line-height: 18px;
-    }
-    .mutgui-menu-item:hover:not(.disabled) { background: #1677ff; color: white; }
-    .mutgui-menu-item.disabled { color: #bbb; cursor: default; }
-    .mutgui-menu-icon { width: 16px; flex-shrink: 0; text-align: center; opacity: 0.85; }
-    .mutgui-menu-label { flex: 1; }
-    .mutgui-menu-shortcut { font-size: 11px; opacity: 0.55; margin-left: 16px; }
-    .mutgui-menu-submenu-arrow { font-size: 9px; opacity: 0.6; }
-    .mutgui-menu-divider { height: 1px; background: #eee; margin: 4px 2px; }
   </style>
 </head>
 <body>

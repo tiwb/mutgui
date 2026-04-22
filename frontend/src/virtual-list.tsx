@@ -125,13 +125,7 @@ export function VirtualList({
       ref={containerRef}
       className="mutgui-virtual-list"
       onScroll={handleScroll}
-      style={{
-        flex: 1,
-        minHeight: 0,
-        overflow: 'auto',
-        position: 'relative',
-        ...style,
-      }}
+      style={style}
     >
       {/* 占位区域（撑起滚动条） */}
       <div style={{ height: estimatedTotalHeight, pointerEvents: 'none' }} />

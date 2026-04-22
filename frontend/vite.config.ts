@@ -12,6 +12,14 @@ export default defineConfig({
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'antd'],
+      output: {
+        // CSS 独立产出为 dist/styles.css（而非 index.css 默认名）
+        assetFileNames: (asset) => {
+          if (asset.name && asset.name.endsWith('.css')) return 'styles.css';
+          return 'assets/[name].[hash][extname]';
+        },
+      },
     },
+    cssCodeSplit: false,
   },
 });

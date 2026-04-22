@@ -306,12 +306,7 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
       ref={menuRef}
       className="mutgui-menu"
       data-menu-id={menuId}
-      style={{
-        position: 'fixed',
-        left: pos.left,
-        top: pos.top,
-        zIndex: 10000,
-      }}
+      style={{ left: pos.left, top: pos.top }}
     >
       {children}
     </div>,

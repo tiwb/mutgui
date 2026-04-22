@@ -1,0 +1,134 @@
+/**
+ * DockPanel 组件样式
+ *
+ * 可被 tsx 内联 style 的动态属性（方向、尺寸 pct、active/indicator 位置等）
+ * 与静态结构属性共存时，CSS 只负责静态部分，动态部分保留在 tsx。
+ *
+ * 视觉样式（背景、边框、文字色）全部走 token，默认深色。
+ * 每个组件级 token 都 fallback 到核心 token，精细用户可单独覆盖。
+ */
+@layer mutgui.components {
+  /* 根容器 */
+  .mutgui-dock-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background: var(--mutgui-dock-bg, var(--mutgui-bg));
+    color: var(--mutgui-text);
+  }
+
+  /* 拖拽预览叠层（位置由 tsx 内联 style 决定，背景色保留现有提示色） */
+  .mutgui-dock-overlay {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* Split 容器 */
+  .mutgui-dock-split {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 分隔条（方向相关的 width/height/cursor 在 tsx 内联） */
+  .mutgui-dock-splitter {
+    flex-shrink: 0;
+    touch-action: none;
+    z-index: 1;
+    background: var(--mutgui-dock-splitter-bg, var(--mutgui-border));
+    transition: background 0.1s;
+  }
+
+  .mutgui-dock-splitter:hover {
+    background: var(--mutgui-dock-splitter-hover-bg, var(--mutgui-accent));
+  }
+
+  /* MergedTabBar —— merge_bars 模式下的融合 tab 栏 */
+  .mutgui-dock-merged-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 4px;
+    background: var(--mutgui-dock-bar-bg, var(--mutgui-surface));
+    border-bottom: 1px solid var(--mutgui-dock-border, var(--mutgui-border));
+  }
+
+  /* Tab 按钮（具体 flex-direction/padding 由 vertical prop 决定） */
+  .mutgui-dock-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--mutgui-dock-tab-text, var(--mutgui-text-dim));
+    background: transparent;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .mutgui-dock-tab:hover {
+    color: var(--mutgui-text);
+  }
+
+  .mutgui-dock-tab-active {
+    color: var(--mutgui-dock-tab-active-text, var(--mutgui-text));
+    background: var(--mutgui-dock-tab-active-bg, var(--mutgui-bg));
+  }
+
+  /* Action 按钮（具体 padding 由 vertical prop 决定） */
+  .mutgui-dock-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 14px;
+    color: var(--mutgui-text);
+    transition: opacity 0.1s;
+  }
+
+  .mutgui-dock-action:hover {
+    opacity: 1;
+  }
+
+  /* Tab 栏容器（方向、宽度、边框方向由 barPosition 在 tsx 内联决定） */
+  .mutgui-dock-tabbar {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    background: var(--mutgui-dock-bar-bg, var(--mutgui-surface));
+  }
+
+  /* 内容区 */
+  .mutgui-dock-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+    background: var(--mutgui-dock-content-bg, var(--mutgui-bg));
+  }
+
+  /* Tabset 容器（flex-direction 由 barPosition 在 tsx 内联决定） */
+  .mutgui-dock-tabset {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--mutgui-dock-border, var(--mutgui-border));
+  }
+
+  .mutgui-dock-tabset-collapsed {
+    /* 占位 class，样式差异通常随外部 flex/尺寸变化体现 */
+  }
+}

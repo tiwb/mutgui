@@ -25,6 +25,19 @@ import {
   type ViewPath,
   type RenderCallback,
 } from './context';
+// 内联读取 CSS 源码（Vite ?inline query），在 mount 时注入 <style>
+// 确保 standalone IIFE 产物自带样式，用户零配置
+import mutguiStyles from './styles/index.css?inline';
+
+let stylesInjected = false;
+function injectStyles() {
+  if (stylesInjected || typeof document === 'undefined') return;
+  stylesInjected = true;
+  const style = document.createElement('style');
+  style.setAttribute('data-mutgui', 'styles');
+  style.textContent = mutguiStyles;
+  document.head.appendChild(style);
+}
 
 // 注册框架内置组件
 registerComponents({ VirtualList });
@@ -109,6 +122,7 @@ function mount(
   wsUrl: string,
   options?: { onStatus?: (status: string) => void },
 ) {
+  injectStyles();
   createRoot(el).render(<App wsUrl={wsUrl} onStatus={options?.onStatus} />);
 }
 

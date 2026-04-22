@@ -1,0 +1,12 @@
+/**
+ * mutgui 内置组件样式入口
+ *
+ * @layer 声明决定级联顺序：theme 在最后，但任何用户普通 CSS（未入 layer）
+ * 都优先于所有 layer，因此用户无需 !important 即可覆盖默认样式。
+ */
+@layer mutgui.base, mutgui.components, mutgui.theme;
+
+@import "./base.css";
+@import "./menu.css";
+@import "./dock-panel.css";
+@import "./virtual-list.css";

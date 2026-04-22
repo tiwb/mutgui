@@ -1,0 +1,13 @@
+/**
+ * VirtualList 组件样式
+ *
+ * 仅结构性样式。动态值（滚动 transform、动态高度）保留在 tsx。
+ */
+@layer mutgui.components {
+  .mutgui-virtual-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+  }
+}

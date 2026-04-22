@@ -1,0 +1,45 @@
+/**
+ * mutgui 核心 token + 基础重置
+ *
+ * Token 挂 :where(:root, .mutgui-root) 双作用域，优先级为 0：
+ *   - :root             —— 宿主全局覆盖
+ *   - .mutgui-root      —— 局部覆盖（多实例、嵌套场景）
+ *
+ * 颜色采用 OKLCH（感知均匀亮度），便于用 color-mix / oklch(from ...)
+ * 从基色派生 hover / selected / pressed 等状态色。
+ */
+@layer mutgui.theme {
+  :where(:root, .mutgui-root) {
+    color-scheme: dark;
+
+    /* 核心层 —— 用户日常只改这些即可换肤 */
+    --mutgui-accent:    oklch(0.60 0.16 250);  /* 蓝色强调色（选中、聚焦、链接） */
+    --mutgui-bg:        oklch(0.22 0 0);        /* 页面/最底层背景 */
+    --mutgui-surface:   oklch(0.27 0 0);        /* 浮层背景（menu、card、tooltip） */
+    --mutgui-text:      oklch(0.88 0 0);        /* 主文字 */
+    --mutgui-text-dim:  oklch(0.62 0 0);        /* 次要文字（hint、disabled） */
+    --mutgui-border:    oklch(0.35 0 0);        /* 描边、分隔线 */
+  }
+}
+
+@layer mutgui.base {
+  /* 最小限度的重置 —— 只作用于 mutgui 自身元素，不污染宿主 */
+  :where(
+    .mutgui-menu,
+    .mutgui-menu-item,
+    .mutgui-menu-divider,
+    .mutgui-dock-panel,
+    .mutgui-dock-split,
+    .mutgui-dock-tabset,
+    .mutgui-dock-tab,
+    .mutgui-dock-splitter,
+    .mutgui-dock-content,
+    .mutgui-dock-tabbar,
+    .mutgui-dock-action,
+    .mutgui-dock-merged-bar,
+    .mutgui-dock-overlay,
+    .mutgui-virtual-list
+  ) {
+    box-sizing: border-box;
+  }
+}

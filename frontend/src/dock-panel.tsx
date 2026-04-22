@@ -177,14 +177,6 @@ export function DockPanel({
       <div
         ref={containerRef}
         className="mutgui-dock-panel"
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
       >
         {children}
 
@@ -204,9 +196,7 @@ export function DockPanel({
           <div
             className="mutgui-dock-overlay"
             style={{
-              position: 'absolute',
               background: 'rgba(24, 144, 255, 0.15)',
-              pointerEvents: 'none',
               zIndex: 99,
               ...edgeOverlayPosition(dockPreview.edge),
             }}
@@ -355,26 +345,12 @@ export function DockPanelSplit({
   const pct0 = `calc(${ratio * 100}% - 2px)`;
 
   const splitterStyle: React.CSSProperties = {
-    flexShrink: 0,
-    background: '#e0e0e0',
     cursor: isH ? 'col-resize' : 'row-resize',
-    touchAction: 'none',
     ...(isH ? { width: 4 } : { height: 4 }),
-    zIndex: 1,
   };
 
   return (
-    <div
-      className="mutgui-dock-split"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="mutgui-dock-split">
       {showMergedBar && mergedTabs && (
         <MergedTabBar tabs={mergedTabs} onTabSwitch={onTabSwitch} />
       )}
@@ -438,19 +414,7 @@ function MergedTabBar({
   onTabSwitch?: (info: { tabsetId: string; panelId: string }) => void;
 }) {
   return (
-    <div
-      className="mutgui-dock-merged-bar"
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        background: '#fafafa',
-        borderBottom: '1px solid #e0e0e0',
-        padding: '0 4px',
-        flexShrink: 0,
-        height: 36,
-        alignItems: 'center',
-      }}
-    >
+    <div className="mutgui-dock-merged-bar">
       <div style={{ display: 'flex', gap: 2 }}>
         {tabs.left.map((tab) => (
           <TabButton
@@ -523,7 +487,7 @@ function TabButton({
     | 'borderLeft'
     | 'borderRight';
   indicatorStyle[key] = active
-    ? '2px solid #1890ff'
+    ? '2px solid var(--mutgui-accent)'
     : '2px solid transparent';
 
   return (
@@ -531,16 +495,8 @@ function TabButton({
       className={`mutgui-dock-tab${active ? ' mutgui-dock-tab-active' : ''}`}
       style={{
         padding: vertical ? '8px 6px' : '4px 12px',
-        cursor: 'pointer',
-        userSelect: 'none',
-        background: active ? '#fff' : 'transparent',
-        fontSize: 13,
         lineHeight: vertical ? 'normal' : '26px',
-        whiteSpace: 'nowrap',
-        display: 'flex',
-        alignItems: 'center',
         flexDirection: vertical ? 'column' : 'row',
-        gap: 4,
         ...indicatorStyle,
       }}
       onClick={onClick}
@@ -730,12 +686,6 @@ export function DockPanelTabSet({
       className="mutgui-dock-action"
       style={{
         padding: isVert ? '8px 6px' : '4px 8px',
-        cursor: 'pointer',
-        opacity: 0.6,
-        fontSize: 14,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
       }}
       title={action.tooltip || undefined}
       onClick={() => onActionClick?.({ tabsetId: nodeId, actionId: action.id })}
@@ -748,23 +698,19 @@ export function DockPanelTabSet({
     <div
       className="mutgui-dock-tabbar"
       style={{
-        display: 'flex',
         flexDirection: isVert ? 'column' : 'row',
-        background: '#fafafa',
-        flexShrink: 0,
-        alignItems: 'stretch',
         ...(isVert
           ? {
               width: 36,
               ...(barPosition === 'left'
-                ? { borderRight: '1px solid #e0e0e0' }
-                : { borderLeft: '1px solid #e0e0e0' }),
+                ? { borderRight: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }
+                : { borderLeft: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }),
             }
           : {
               height: 36,
               ...(barPosition === 'top'
-                ? { borderBottom: '1px solid #e0e0e0' }
-                : { borderTop: '1px solid #e0e0e0' }),
+                ? { borderBottom: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }
+                : { borderTop: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }),
             }),
       }}
       onDragOver={(e) => {
@@ -820,13 +766,6 @@ export function DockPanelTabSet({
   const contentArea = (
     <div
       className="mutgui-dock-content"
-      style={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        overflow: 'auto',
-        position: 'relative',
-      }}
       onDragOver={handleContentDragOver}
       onDrop={handleContentDrop}
       onDragLeave={handleContentDragLeave}
@@ -838,9 +777,7 @@ export function DockPanelTabSet({
         <div
           className="mutgui-dock-overlay"
           style={{
-            position: 'absolute',
             background: 'rgba(24, 144, 255, 0.15)',
-            pointerEvents: 'none',
             zIndex: 10,
             ...panelOverlayPosition(panelPreview),
           }}
@@ -852,10 +789,8 @@ export function DockPanelTabSet({
         <div
           className="mutgui-dock-overlay"
           style={{
-            position: 'absolute',
             inset: 0,
             background: 'rgba(24, 144, 255, 0.1)',
-            pointerEvents: 'none',
             zIndex: 10,
           }}
         />
@@ -875,15 +810,7 @@ export function DockPanelTabSet({
   return (
     <div
       className={`mutgui-dock-tabset${collapsed ? ' mutgui-dock-tabset-collapsed' : ''}`}
-      style={{
-        display: 'flex',
-        flexDirection: flexDir,
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        overflow: 'hidden',
-        border: '1px solid #f0f0f0',
-      }}
+      style={{ flexDirection: flexDir }}
     >
       {tabBar}
       {contentArea}

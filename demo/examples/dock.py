@@ -119,10 +119,13 @@ DOCK_HTML = """\
   <title>mutgui — DockPanel</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--mutgui-bg); color: var(--mutgui-text); }
     #app { height: 100vh; display: flex; flex-direction: column; }
     .header {
-      padding: 8px 16px; background: #1a1a2e; color: #e0e0e0;
+      padding: 8px 16px;
+      background: var(--mutgui-surface);
+      color: var(--mutgui-text);
+      border-bottom: 1px solid var(--mutgui-border);
       font-size: 13px; flex-shrink: 0;
       display: flex; align-items: center; gap: 12px;
     }
