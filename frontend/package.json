@@ -15,8 +15,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --emitDeclarationOnly",
-    "build:standalone": "vite build --config vite.standalone.ts",
+    "build:standalone": "vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts",
+    "build:core": "vite build --config vite.standalone.ts",
     "build:antd": "vite build --config vite.antd.ts",
+    "build:theme-dark": "vite build --config vite.theme-dark.ts",
     "preview": "vite preview"
   },
   "dependencies": {

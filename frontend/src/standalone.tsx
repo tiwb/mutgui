@@ -5,12 +5,25 @@
  *   <div id="app"></div>
  *   <script src="/static/mutgui.js"></script>
  *   <script src="/static/mutgui-antd.js"></script>
- *   <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}/ws`)</script>
+ *   <script src="/static/mutgui-theme-dark.js"></script>  <!-- 可选 plugin -->
+ *   <script>
+ *     MutguiApp.mount(
+ *       document.getElementById('app'),
+ *       `ws://${location.host}/ws`,
+ *       [MutguiThemeDark]   // 可选 plugin 数组
+ *     )
+ *   </script>
  *
  * 组件库通过额外的 <script> 标签加载，加载后自动调用
  * MutguiApp.registerComponents() 注册。
+ *
+ * Plugin 协议:
+ *   plugin = (ctx) => void
+ *   ctx.addCss(css)         注入 <style> 到 document.head
+ *   ctx.addBodyClass(name)  给 document.body 加 class
+ *   ctx.wrapRoot(wrap)      根渲染树外包一层 React(Provider 等)
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, type ReactNode } from 'react';
 import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import * as jsxRuntime from 'react/jsx-runtime';
@@ -107,7 +120,7 @@ function App({ wsUrl, onStatus }: AppProps) {
   }, [wsUrl]);
 
   if (!conn) {
-    return <div style={{ color: '#999', fontSize: 12 }}>{status}</div>;
+    return <div style={{ color: 'var(--mutgui-text-dim)', fontSize: 12 }}>{status}</div>;
   }
 
   return (
@@ -117,13 +130,49 @@ function App({ wsUrl, onStatus }: AppProps) {
   );
 }
 
+// Plugin 协议类型
+export type RootWrapper = (children: ReactNode) => ReactNode;
+export interface PluginContext {
+  addCss(css: string): void;
+  addBodyClass(className: string): void;
+  wrapRoot(wrap: RootWrapper): void;
+}
+export type MutguiPlugin = (ctx: PluginContext) => void;
+
+function applyPlugins(plugins: MutguiPlugin[]): RootWrapper[] {
+  const wrappers: RootWrapper[] = [];
+  const ctx: PluginContext = {
+    addCss(css) {
+      const style = document.createElement('style');
+      style.setAttribute('data-mutgui-plugin', '');
+      style.textContent = css;
+      document.head.appendChild(style);
+    },
+    addBodyClass(name) {
+      document.body.classList.add(name);
+    },
+    wrapRoot(wrap) {
+      wrappers.push(wrap);
+    },
+  };
+  for (const p of plugins) p(ctx);
+  return wrappers;
+}
+
 function mount(
   el: HTMLElement,
   wsUrl: string,
+  plugins?: MutguiPlugin[],
   options?: { onStatus?: (status: string) => void },
 ) {
   injectStyles();
-  createRoot(el).render(<App wsUrl={wsUrl} onStatus={options?.onStatus} />);
+  const wrappers = applyPlugins(plugins ?? []);
+  let tree: ReactNode = <App wsUrl={wsUrl} onStatus={options?.onStatus} />;
+  // 数组中靠前的 plugin 在外层,靠后的在内层
+  for (let i = wrappers.length - 1; i >= 0; i--) {
+    tree = wrappers[i](tree);
+  }
+  createRoot(el).render(tree);
 }
 
 // 暴露到全局：核心 API + React 供组件库 JS 共享

@@ -5,20 +5,20 @@
  *   - :root             —— 宿主全局覆盖
  *   - .mutgui-root      —— 局部覆盖（多实例、嵌套场景）
  *
- * 颜色采用 OKLCH（感知均匀亮度），便于用 color-mix / oklch(from ...)
- * 从基色派生 hover / selected / pressed 等状态色。
+ * 默认值为亮色 —— 对齐浏览器默认、antd / MUI / Chakra 等主流组件库默认。
+ * mutgui 框架本身不提供主题，暗色 / 自定义色通过 plugin 覆盖 token。
  */
 @layer mutgui.theme {
   :where(:root, .mutgui-root) {
-    color-scheme: dark;
+    color-scheme: light;
 
-    /* 核心层 —— 用户日常只改这些即可换肤 */
-    --mutgui-accent:    oklch(0.60 0.16 250);  /* 蓝色强调色（选中、聚焦、链接） */
-    --mutgui-bg:        oklch(0.22 0 0);        /* 页面/最底层背景 */
-    --mutgui-surface:   oklch(0.27 0 0);        /* 浮层背景（menu、card、tooltip） */
-    --mutgui-text:      oklch(0.88 0 0);        /* 主文字 */
-    --mutgui-text-dim:  oklch(0.62 0 0);        /* 次要文字（hint、disabled） */
-    --mutgui-border:    oklch(0.35 0 0);        /* 描边、分隔线 */
+    /* 核心层 —— 亮色默认值,消费者通过 plugin 或自己的 CSS 覆盖 */
+    --mutgui-accent:    oklch(0.55 0.18 250);  /* 蓝色强调色 */
+    --mutgui-bg:        oklch(0.99 0 0);        /* 近白页面背景 */
+    --mutgui-surface:   oklch(0.97 0 0);        /* 浅灰浮层 */
+    --mutgui-text:      oklch(0.20 0 0);        /* 深色主文字 */
+    --mutgui-text-dim:  oklch(0.50 0 0);        /* 中灰次要文字 */
+    --mutgui-border:    oklch(0.88 0 0);        /* 浅灰描边 */
   }
 }
 

@@ -137,7 +137,10 @@ class CommandPalette(MenuView):
                   "autoFocus": True,
                   "style": {
                       "width": "100%", "padding": "6px 8px",
-                      "border": "1px solid #ddd", "borderRadius": "4px",
+                      "border": "1px solid var(--mutgui-border)",
+                      "background": "var(--mutgui-bg)",
+                      "color": "var(--mutgui-text)",
+                      "borderRadius": "4px",
                       "fontSize": "13px", "outline": "none",
                   },
                   "onChange": Bind(self, "query", "$0.target.value")},
@@ -147,7 +150,7 @@ class CommandPalette(MenuView):
         if not filtered:
             items.append({
                 "$component": "div", "$id": "empty",
-                "style": {"padding": "12px", "color": "#999",
+                "style": {"padding": "12px", "color": "var(--mutgui-text-dim)",
                           "fontSize": "12px", "textAlign": "center"},
                 "children": "No commands match",
             })
@@ -205,9 +208,12 @@ class MenuDemoPage(View):
                                item_id="$0.currentTarget.dataset.id",
                            ),
                            "style": {
-                               "padding": "8px 16px", "border": "1px solid #ccc",
+                               "padding": "8px 16px",
+                               "border": "1px solid var(--mutgui-border)",
                                "borderRadius": "4px", "cursor": "context-menu",
-                               "background": "#f7f7f7", "userSelect": "none",
+                               "background": "var(--mutgui-surface)",
+                               "color": "var(--mutgui-text)",
+                               "userSelect": "none",
                            },
                            "children": f"Tab {n} (right-click)"}
                           for n in range(1, 6)
@@ -227,8 +233,10 @@ class MenuDemoPage(View):
                       ),
                       "style": {
                           "padding": "8px 16px", "marginTop": "8px",
-                          "border": "1px solid #1677ff", "background": "#1677ff",
-                          "color": "white", "borderRadius": "4px", "cursor": "pointer",
+                          "border": "1px solid var(--mutgui-accent)",
+                          "background": "var(--mutgui-accent)",
+                          "color": "var(--mutgui-text)",
+                          "borderRadius": "4px", "cursor": "pointer",
                       },
                       "children": "+ Add"},
                  ]},
@@ -246,7 +254,9 @@ class MenuDemoPage(View):
                       ),
                       "style": {
                           "padding": "8px 16px", "marginTop": "8px",
-                          "border": "1px solid #999", "background": "white",
+                          "border": "1px solid var(--mutgui-border)",
+                          "background": "var(--mutgui-surface)",
+                          "color": "var(--mutgui-text)",
                           "borderRadius": "4px", "cursor": "pointer",
                       },
                       "children": "⌘ Open Palette"},
@@ -260,7 +270,10 @@ class MenuDemoPage(View):
                       "children": "Action log"},
                      {"$component": "pre", "$id": "log",
                       "style": {
-                          "padding": "12px", "background": "#1e1e1e", "color": "#d4d4d4",
+                          "padding": "12px",
+                          "background": "var(--mutgui-surface)",
+                          "color": "var(--mutgui-text)",
+                          "border": "1px solid var(--mutgui-border)",
                           "borderRadius": "4px", "minHeight": "120px",
                           "fontSize": "12px", "fontFamily": "monospace",
                           "marginTop": "8px",
@@ -280,16 +293,17 @@ MENU_HTML = """\
   <title>mutgui — Menu System</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fafafa; }
+    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     h2 { margin: 0 0 8px 0; }
-    h4 { margin: 0; font-size: 13px; color: #666; }
+    h4 { margin: 0; font-size: 13px; color: var(--mutgui-text-dim); }
   </style>
 </head>
 <body>
   <div id="app"></div>
   <script src="/static/mutgui.js"></script>
   <script src="/static/mutgui-antd.js"></script>
-  <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}${location.pathname}`)</script>
+  <script src="/static/mutgui-theme-dark.js"></script>
+  <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}${location.pathname}`, [MutguiThemeDark])</script>
 </body>
 </html>
 """

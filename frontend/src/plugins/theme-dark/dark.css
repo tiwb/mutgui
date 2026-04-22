@@ -1,0 +1,27 @@
+/**
+ * mutgui 内置暗色主题 plugin 的 CSS 部分
+ *
+ * 在 body.mutgui-dark 下覆盖所有 --mutgui-* token 为深色值,
+ * 并设置 body 的背景、前景色、color-scheme。
+ *
+ * 这份 CSS 由 mutgui-theme-dark.js 通过 plugin 的 ctx.addCss 注入。
+ * 加载 plugin 后 body 会自动获得 mutgui-dark class。
+ */
+body.mutgui-dark,
+body.mutgui-dark .mutgui-root {
+  color-scheme: dark;
+
+  --mutgui-accent:    oklch(0.60 0.16 250);
+  --mutgui-bg:        oklch(0.22 0 0);
+  --mutgui-surface:   oklch(0.27 0 0);
+  --mutgui-text:      oklch(0.88 0 0);
+  --mutgui-text-dim:  oklch(0.62 0 0);
+  --mutgui-border:    oklch(0.35 0 0);
+}
+
+body.mutgui-dark {
+  background: var(--mutgui-bg);
+  color: var(--mutgui-text);
+  min-height: 100vh;
+  margin: 0;
+}

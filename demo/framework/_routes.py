@@ -28,7 +28,8 @@ def mutgui_page(title: str, ws_path: str | None = None) -> str:
   </div>
   <script src="/static/mutgui.js"></script>
   <script src="/static/mutgui-antd.js"></script>
-  <script>MutguiApp.mount(document.getElementById('app'), {ws_url})</script>
+  <script src="/static/mutgui-theme-dark.js"></script>
+  <script>MutguiApp.mount(document.getElementById('app'), {ws_url}, [MutguiThemeDark])</script>
 </body>
 </html>
 """
