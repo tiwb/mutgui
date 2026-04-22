@@ -123,7 +123,7 @@ export function VirtualList({
   return (
     <div
       ref={containerRef}
-      className="mutgui-virtual-list"
+      className="mutgui-virtual-list mutgui-scrollbar"
       onScroll={handleScroll}
       style={style}
     >

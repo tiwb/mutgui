@@ -4,7 +4,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,10 +17,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --emitDeclarationOnly",
-    "build:standalone": "vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts",
-    "build:core": "vite build --config vite.standalone.ts",
-    "build:antd": "vite build --config vite.antd.ts",
-    "build:theme-dark": "vite build --config vite.theme-dark.ts",
+    "build:standalone": "vitest run && vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -31,6 +31,7 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "typescript": "^5.8.3",
-    "vite": "^6.3.2"
+    "vite": "^6.3.2",
+    "vitest": "^4.1.5"
   }
 }

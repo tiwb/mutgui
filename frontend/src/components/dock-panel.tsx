@@ -466,6 +466,7 @@ function TabButton({
   showText = true,
   vertical = false,
   indicator = 'bottom',
+  showIndicator = false,
 }: {
   tab: TabDef;
   active: boolean;
@@ -479,16 +480,17 @@ function TabButton({
   showText?: boolean;
   vertical?: boolean;
   indicator?: 'top' | 'bottom' | 'left' | 'right';
+  showIndicator?: boolean;
 }) {
   const indicatorStyle: React.CSSProperties = {};
-  const key = `border${indicator.charAt(0).toUpperCase()}${indicator.slice(1)}` as
-    | 'borderTop'
-    | 'borderBottom'
-    | 'borderLeft'
-    | 'borderRight';
-  indicatorStyle[key] = active
-    ? '2px solid var(--mutgui-accent)'
-    : '2px solid transparent';
+  if (showIndicator) {
+    const key = `border${indicator.charAt(0).toUpperCase()}${indicator.slice(1)}` as
+      | 'borderTop'
+      | 'borderBottom'
+      | 'borderLeft'
+      | 'borderRight';
+    indicatorStyle[key] = '2px solid var(--mutgui-accent)';
+  }
 
   return (
     <div
@@ -699,19 +701,7 @@ export function DockPanelTabSet({
       className="mutgui-dock-tabbar"
       style={{
         flexDirection: isVert ? 'column' : 'row',
-        ...(isVert
-          ? {
-              width: 36,
-              ...(barPosition === 'left'
-                ? { borderRight: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }
-                : { borderLeft: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }),
-            }
-          : {
-              height: 36,
-              ...(barPosition === 'top'
-                ? { borderBottom: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }
-                : { borderTop: '1px solid var(--mutgui-dock-border, var(--mutgui-border))' }),
-            }),
+        ...(isVert ? { width: 36 } : { height: 36 }),
       }}
       onDragOver={(e) => {
         e.preventDefault();
@@ -745,6 +735,7 @@ export function DockPanelTabSet({
                   : 'left'
                 : indicator
             }
+            showIndicator={dragOverIdx === i}
             onClick={() => onTabSwitch?.({ tabsetId: nodeId, panelId: tab.id })}
             draggable
             onDragStart={(e) => handleDragStart(e, tab.id)}
@@ -765,7 +756,7 @@ export function DockPanelTabSet({
 
   const contentArea = (
     <div
-      className="mutgui-dock-content"
+      className="mutgui-dock-content mutgui-scrollbar"
       onDragOver={handleContentDragOver}
       onDrop={handleContentDrop}
       onDragLeave={handleContentDragLeave}

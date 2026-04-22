@@ -36,12 +36,13 @@
     overflow: hidden;
   }
 
-  /* 分隔条（方向相关的 width/height/cursor 在 tsx 内联） */
+  /* 分隔条（方向相关的 width/height/cursor 在 tsx 内联）
+     默认色 = surface，与 tabbar 融为一体 */
   .mutgui-dock-splitter {
     flex-shrink: 0;
     touch-action: none;
     z-index: 1;
-    background: var(--mutgui-dock-splitter-bg, var(--mutgui-border));
+    background: var(--mutgui-dock-splitter-bg, var(--mutgui-surface));
     transition: background 0.1s;
   }
 
@@ -49,7 +50,8 @@
     background: var(--mutgui-dock-splitter-hover-bg, var(--mutgui-accent));
   }
 
-  /* MergedTabBar —— merge_bars 模式下的融合 tab 栏 */
+  /* MergedTabBar —— merge_bars 模式下的融合 tab 栏
+     bg = surface，和 splitter 同色，只有 active tab 下沉到 bg 色突出 */
   .mutgui-dock-merged-bar {
     display: flex;
     justify-content: space-between;
@@ -58,7 +60,6 @@
     height: 36px;
     padding: 0 4px;
     background: var(--mutgui-dock-bar-bg, var(--mutgui-surface));
-    border-bottom: 1px solid var(--mutgui-dock-border, var(--mutgui-border));
   }
 
   /* Tab 按钮（具体 flex-direction/padding 由 vertical prop 决定） */
@@ -100,7 +101,8 @@
     opacity: 1;
   }
 
-  /* Tab 栏容器（方向、宽度、边框方向由 barPosition 在 tsx 内联决定） */
+  /* Tab 栏容器（方向、宽度、边框方向由 barPosition 在 tsx 内联决定）
+     bg = surface，和 splitter 同色 */
   .mutgui-dock-tabbar {
     display: flex;
     align-items: stretch;
@@ -118,14 +120,13 @@
     background: var(--mutgui-dock-content-bg, var(--mutgui-bg));
   }
 
-  /* Tabset 容器（flex-direction 由 barPosition 在 tsx 内联决定） */
+  /* Tabset 容器（flex-direction 由 barPosition 在 tsx 内联决定，无外边框） */
   .mutgui-dock-tabset {
     display: flex;
     flex: 1;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--mutgui-dock-border, var(--mutgui-border));
   }
 
   .mutgui-dock-tabset-collapsed {

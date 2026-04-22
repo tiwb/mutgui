@@ -19,6 +19,9 @@
     --mutgui-text:      oklch(0.20 0 0);        /* 深色主文字 */
     --mutgui-text-dim:  oklch(0.50 0 0);        /* 中灰次要文字 */
     --mutgui-border:    oklch(0.88 0 0);        /* 浅灰描边 */
+
+    /* 滚动条 thumb 色 —— 亮底深色半透明,暗底主题覆盖成浅色半透明 */
+    --mutgui-scrollbar-thumb: rgba(100, 100, 100, 0.4);
   }
 }
 
@@ -41,5 +44,35 @@
     .mutgui-virtual-list
   ) {
     box-sizing: border-box;
+  }
+
+  /* 全局滚动条样式 —— 作用于 html(页面滚动条)
+   * scrollbar-color 可继承,后代元素自动获得主题色
+   * scrollbar-width 不继承,只影响 html 自己;其他滚动容器靠 .mutgui-scrollbar 挂样式
+   * 宿主普通 CSS(未入 layer)优先级天然更高,可直接覆盖
+   */
+  :where(:root) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mutgui-scrollbar-thumb) transparent;
+  }
+}
+
+@layer mutgui.components {
+  /* .mutgui-scrollbar —— utility class,给任何滚动容器一致的滚动条样式。
+   *
+   * 只用标准 API(scrollbar-width + scrollbar-color),不用 ::-webkit-scrollbar:
+   *   - Chrome 121+ 同元素设了 scrollbar-color 后会禁用同元素的 webkit 规则
+   *   - 全浏览器一致(Firefox/Chrome/Edge/Safari)
+   *
+   * 代价:
+   *   - thin 实际宽度由浏览器决定(Chrome Windows ≈ 10-12px),不能精确像素控制
+   *   - 标准 API 不支持 thumb hover 高亮
+   *
+   * mutgui 内置组件(VirtualList / DockPanel content / Menu)默认带上这个 class。
+   * 宿主想覆盖直接写 CSS 即可(未入 layer 的规则优先级天然高于 layer)。
+   */
+  .mutgui-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mutgui-scrollbar-thumb) transparent;
   }
 }

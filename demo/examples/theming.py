@@ -98,8 +98,6 @@ THEMING_HTML = """\
         body.my-purple {
           background: var(--mutgui-bg);
           color: var(--mutgui-text);
-          min-height: 100vh;
-          margin: 0;
         }
       `);
 

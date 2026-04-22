@@ -12,10 +12,9 @@ from demo.framework import MutguiRoute, DemoApp
 
 
 class SimplePanelView(View):
-    def __init__(self, panel_id: str, title: str, color: str | None = None) -> None:
+    def __init__(self, panel_id: str, title: str) -> None:
         self.id = panel_id
         self.title = title
-        self.color = color
         self.click_count = 0
 
     def render(self) -> ViewBlock:
@@ -24,10 +23,6 @@ class SimplePanelView(View):
             "height": "100%", "boxSizing": "border-box",
             "color": "var(--mutgui-text)",
         }
-        if self.color is not None:
-            wrap_style["background"] = self.color
-        else:
-            wrap_style["background"] = "var(--mutgui-surface)"
         return ViewBlock([{
             "$component": "div", "$id": "wrap",
             "style": wrap_style,
@@ -100,22 +95,8 @@ class DockView(View):
         self.dock = DockPanel(id="dock", panels=panels, layout=layout,
                               default_collapse_below=300)
 
-        colors = {
-            "explorer": "oklch(0.28 0.04 150)",  # 绿
-            "search":   "oklch(0.28 0.04 240)",  # 蓝
-            "git":      "oklch(0.28 0.04 10)",   # 粉
-            "settings": "oklch(0.28 0.04 60)",   # 橙
-            "main-py":  "oklch(0.25 0 0)",       # 编辑区（中性深）
-            "utils-py": "oklch(0.25 0 0)",
-            "readme":   "oklch(0.28 0.04 85)",   # 黄
-            "outline":  "oklch(0.28 0.04 295)",  # 紫
-            "problems": "oklch(0.28 0.06 25)",   # 红
-            "output":   "oklch(0.28 0.04 180)",  # 青
-            "terminal": "oklch(0.18 0 0)",       # 终端（最暗）
-        }
         for p in panels:
-            color = colors.get(p.id)
-            self.dock.set_panel_view(p.id, SimplePanelView(p.id, p.title, color))
+            self.dock.set_panel_view(p.id, SimplePanelView(p.id, p.title))
 
     def render(self) -> ViewBlock:
         return ViewBlock([self.dock])
@@ -131,31 +112,15 @@ DOCK_HTML = """\
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #app { height: 100vh; display: flex; flex-direction: column; }
-    .header {
-      padding: 8px 16px;
-      background: var(--mutgui-surface);
-      color: var(--mutgui-text);
-      border-bottom: 1px solid var(--mutgui-border);
-      font-size: 13px; flex-shrink: 0;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .header h3 { font-size: 14px; font-weight: 600; }
-    .dock-wrap { flex: 1; min-height: 0; overflow: hidden; }
+    #app { height: 100vh; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div class="header">
-      <h3>mutgui DockPanel Demo</h3>
-      <span style="opacity:0.6">Drag tabs | Drag splitters | Resize window</span>
-    </div>
-    <div class="dock-wrap" id="dock-root"></div>
-  </div>
+  <div id="app"></div>
   <script src="/static/mutgui.js"></script>
   <script src="/static/mutgui-antd.js"></script>
   <script src="/static/mutgui-theme-dark.js"></script>
-  <script>MutguiApp.mount(document.getElementById('dock-root'), `ws://${location.host}${location.pathname}`, [MutguiThemeDark])</script>
+  <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}${location.pathname}`, [MutguiThemeDark])</script>
 </body>
 </html>
 """

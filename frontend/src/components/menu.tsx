@@ -304,7 +304,7 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className="mutgui-menu"
+      className="mutgui-menu mutgui-scrollbar"
       data-menu-id={menuId}
       style={{ left: pos.left, top: pos.top }}
     >

@@ -6,22 +6,35 @@
  *
  * 这份 CSS 由 mutgui-theme-dark.js 通过 plugin 的 ctx.addCss 注入。
  * 加载 plugin 后 body 会自动获得 mutgui-dark class。
+ *
+ * 所有规则包在 @layer mutgui.theme 内 —— theme 层是 cascade 最高层,
+ * 保证插件能覆盖 base.css 的默认 token。详见 tests/css-contracts.test.ts 的铁律 A/C。
  */
-body.mutgui-dark,
-body.mutgui-dark .mutgui-root {
-  color-scheme: dark;
+@layer mutgui.theme {
+  /* color-scheme 抬到 html 层级,让浏览器系统滚动条、表单控件等跟着暗色走
+   * :has() 检测 body.mutgui-dark 存在,不依赖 plugin 主动操作 html.classList
+   */
+  html:has(body.mutgui-dark),
+  body.mutgui-dark,
+  body.mutgui-dark .mutgui-root {
+    color-scheme: dark;
+  }
 
-  --mutgui-accent:    oklch(0.60 0.16 250);
-  --mutgui-bg:        oklch(0.22 0 0);
-  --mutgui-surface:   oklch(0.27 0 0);
-  --mutgui-text:      oklch(0.88 0 0);
-  --mutgui-text-dim:  oklch(0.62 0 0);
-  --mutgui-border:    oklch(0.35 0 0);
-}
+  body.mutgui-dark,
+  body.mutgui-dark .mutgui-root {
+    --mutgui-accent:    oklch(0.55 0.17 240);    /* ≈ #007acc VS Code 蓝 */
+    --mutgui-bg:        oklch(0.2393 0 0);        /* ≈ #1F1F1F 主背景 / panel content / active tab */
+    --mutgui-surface:   oklch(0.2659 0 0);        /* ≈ #262526 tabbar / splitter / 浮层 */
+    --mutgui-text:      oklch(0.85 0 0);          /* ≈ #cccccc 主文字 */
+    --mutgui-text-dim:  oklch(0.60 0 0);          /* ≈ #858585 次文字 */
+    --mutgui-border:    oklch(0.3562 0 0);        /* ≈ #3c3c3c 描边 / 分割线 */
 
-body.mutgui-dark {
-  background: var(--mutgui-bg);
-  color: var(--mutgui-text);
-  min-height: 100vh;
-  margin: 0;
+    /* 暗底用浅色半透明灰 —— 不走 color-mix,mix 在深色上行为反直觉 */
+    --mutgui-scrollbar-thumb: rgba(121, 121, 121, 0.4);
+  }
+
+  body.mutgui-dark {
+    background: var(--mutgui-bg);
+    color: var(--mutgui-text);
+  }
 }

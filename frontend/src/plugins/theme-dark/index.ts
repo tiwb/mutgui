@@ -18,7 +18,7 @@ import { ConfigProvider, theme as antdTheme } from 'antd';
 const darkAntdTheme = {
   algorithm: antdTheme.darkAlgorithm,
   token: {
-    colorPrimary: '#4a8ef0',
+    colorPrimary: '#007acc',
   },
 };
 
