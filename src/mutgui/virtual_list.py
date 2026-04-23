@@ -22,10 +22,10 @@ class VirtualListItemAdapter:
     应用继承此类，提供业务数据到 View 的映射。
     """
 
-    _virtual_lists: list[VirtualList]
+    virtual_lists: list[VirtualList]
 
     def __init__(self) -> None:
-        self._virtual_lists = []
+        self.virtual_lists = []
 
     @property
     def item_count(self) -> int:
@@ -51,8 +51,8 @@ class VirtualListItemAdapter:
 
         VirtualList 会重新查询 adapter，对比 id，复用/创建/销毁 View。
         """
-        if self._virtual_lists is not None:
-            for vl in self._virtual_lists:
+        if self.virtual_lists is not None:
+            for vl in self.virtual_lists:
                 vl.invalidate()
 
 
@@ -76,18 +76,18 @@ class VirtualList(View):
     ) -> None:
         self.id = id
         self.adapter = adapter
-        adapter._virtual_lists.append(self)
-        self._item_views: dict[str, View] = {}
-        self._viewports: dict[int, tuple[int, int]] = {}  # channel_id → (start, end)
-        self._viewport_item_ids: dict[int, set[str]] = {}  # channel_id → visible item IDs
-        self._visible_ids: list[str] = []
+        adapter.virtual_lists.append(self)
+        self.item_views: dict[str, View] = {}
+        self.viewport_ranges: dict[int, tuple[int, int]] = {}  # channel_id → (start, end)
+        self.viewport_item_ids: dict[int, set[str]] = {}  # channel_id → visible item IDs
+        self.visible_ids: list[str] = []
         self.sync_scroll = sync_scroll
-        self._scroll_top: float = 0
+        self.scroll_top: float = 0
 
     def render(self) -> ViewBlock:
         """返回 VirtualList 容器 + 当前 viewport 并集内的 item View。"""
         self._refresh_visible()
-        visible_items = [self._item_views[vid] for vid in self._visible_ids]
+        visible_items = [self.item_views[vid] for vid in self.visible_ids]
         props: dict[str, Any] = {
             "$component": "mutgui.VirtualList",
             "$id": "list",
@@ -99,7 +99,7 @@ class VirtualList(View):
             "$children": visible_items,
         }
         if self.sync_scroll:
-            props["scrollTop"] = self._scroll_top
+            props["scrollTop"] = self.scroll_top
             props["onScroll"] = Callback(
                 self._on_scroll, scrollTop="$0.scrollTop",
             )
@@ -108,17 +108,17 @@ class VirtualList(View):
     def render_viewport(
         self, wire_tree: list[dict[str, Any]], channel_id: int,
     ) -> list[dict[str, Any]]:
-        allowed = self._viewport_item_ids.get(channel_id, set())
+        allowed = self.viewport_item_ids.get(channel_id, set())
         return _filter_children_in_tree(wire_tree, allowed)
 
     def _on_viewport(self, *, start: int, end: int, viewport_id: int) -> None:
         """Callback 回调：前端 viewport 变化时更新 per-VP viewport range。"""
-        self._viewports[viewport_id] = (start, end)
+        self.viewport_ranges[viewport_id] = (start, end)
         self.invalidate()
 
     def _on_scroll(self, *, scrollTop: float) -> None:
         """Callback 回调：sync scroll 模式下前端报告滚动位置。"""
-        self._scroll_top = scrollTop
+        self.scroll_top = scrollTop
         self.invalidate()
 
     def _refresh_visible(self) -> None:
@@ -130,22 +130,22 @@ class VirtualList(View):
         obs = ViewObservers.get(self)
         if obs is not None:
             active_ids: set[int] = set()
-            for vp in obs._viewports:
+            for vp in obs.viewports:
                 rt = ViewPortRuntime.get(vp)
-                if rt is not None and rt._channel is not None:
-                    active_ids.add(rt._channel.channel_id)
-            self._viewports = {k: v for k, v in self._viewports.items()
+                if rt is not None and rt.channel is not None:
+                    active_ids.add(rt.channel.channel_id)
+            self.viewport_ranges = {k: v for k, v in self.viewport_ranges.items()
                                if k in active_ids}
 
-        if not self._viewports:
-            self._visible_ids = []
-            self._item_views.clear()
-            self._viewport_item_ids = {}
+        if not self.viewport_ranges:
+            self.visible_ids = []
+            self.item_views.clear()
+            self.viewport_item_ids = {}
             return
 
         # 计算并集
-        union_start = min(s for s, e in self._viewports.values())
-        union_end = max(e for s, e in self._viewports.values())
+        union_start = min(s for s, e in self.viewport_ranges.values())
+        union_end = max(e for s, e in self.viewport_ranges.values())
 
         count = self.adapter.item_count
         union_start = min(union_start, count)
@@ -155,22 +155,22 @@ class VirtualList(View):
         new_ids = [self.adapter.item_id(i) for i in range(union_start, union_end)]
         # 创建新 item View（VirtualList 负责赋 id）
         for i, item_id in enumerate(new_ids):
-            if item_id not in self._item_views:
+            if item_id not in self.item_views:
                 view = self.adapter.create_item_view(union_start + i)
                 view.id = item_id
-                self._item_views[item_id] = view
+                self.item_views[item_id] = view
         # 清理不在并集范围内的旧 View
         visible_set = set(new_ids)
-        for old_id in list(self._item_views):
+        for old_id in list(self.item_views):
             if old_id not in visible_set:
-                del self._item_views[old_id]
-        self._visible_ids = new_ids
+                del self.item_views[old_id]
+        self.visible_ids = new_ids
 
         # 预计算 per-VP 的 item ID 集合
         viewport_item_ids: dict[int, set[str]] = {}
-        for vp_id, (s, e) in self._viewports.items():
+        for vp_id, (s, e) in self.viewport_ranges.items():
             s, e = min(s, count), min(e, count)
             viewport_item_ids[vp_id] = {
                 self.adapter.item_id(i) for i in range(s, e)
             }
-        self._viewport_item_ids = viewport_item_ids
+        self.viewport_item_ids = viewport_item_ids

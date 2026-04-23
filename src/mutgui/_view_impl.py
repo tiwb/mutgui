@@ -7,7 +7,7 @@ ViewPort 只负责接收 wire_tree 并发送到 Channel。
 from __future__ import annotations
 
 import asyncio
-from typing import Any, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING
 
 import mutobj
 from mutobj import impl
@@ -26,20 +26,21 @@ if TYPE_CHECKING:
 class ViewObservers(mutobj.Extension[View]):
     """追踪一个 View 实例的所有 ViewPort 观察者。"""
 
-    _viewports: list = mutobj.field(default_factory=list)  # list[ViewPort]
+    viewports: list[ViewPort] = mutobj.field(default_factory=list)
 
 
 class ViewRenderState(mutobj.Extension[View]):
     """View 的渲染状态 — handlers、children、wire_tree 缓存、dirty 标记。"""
 
-    _handlers: dict = mutobj.field(default_factory=dict)  # dict[(node_id, event_name), EventHandler]
-    _children: dict = mutobj.field(default_factory=dict)  # dict[str|int, View]
-    _event_filters: list = mutobj.field(default_factory=list)  # list[EventFilter]
-    _wire_tree: list = mutobj.field(default_factory=list)
-    _dirty: bool = True
-    _render_scheduled: bool = False
-    _render_event: asyncio.Event | None = None
-    _overlay_children: dict = mutobj.field(default_factory=dict)  # dict[str|int, View] — 框架注入的子 View（如菜单）
+    handlers: dict[tuple[str | int, str], EventHandler] = mutobj.field(default_factory=dict)
+    children: dict[str | int, View] = mutobj.field(default_factory=dict)
+    event_filters: list[EventFilter] = mutobj.field(default_factory=list)
+    wire_tree: list[dict[str, Any]] = mutobj.field(default_factory=list)
+    dirty: bool = True
+    render_scheduled: bool = False
+    render_event: asyncio.Event | None = None
+    overlay_children: dict[str | int, View] = mutobj.field(default_factory=dict)  # 框架注入的子 View（如菜单）
+    view_block: ViewBlock | None = None
 
 
 
@@ -59,7 +60,7 @@ def _default_render(self: View) -> ViewBlock:
 @impl(View.on_event)
 async def _default_on_event(self: View, event: Event) -> bool:
     ext = _render_ext(self)
-    handler = ext._handlers.get((event.component_id, event.name))
+    handler = ext.handlers.get((event.component_id, event.name))
     if handler is not None:
         return await handler.handle(self, event)
     return False
@@ -68,10 +69,10 @@ async def _default_on_event(self: View, event: Event) -> bool:
 @impl(View.invalidate)
 def _view_invalidate(self: View) -> None:
     ext = _render_ext(self)
-    ext._dirty = True
-    if ext._render_scheduled:
+    ext.dirty = True
+    if ext.render_scheduled:
         return
-    ext._render_scheduled = True
+    ext.render_scheduled = True
     try:
         loop = asyncio.get_running_loop()
         loop.call_soon(lambda: asyncio.ensure_future(_deferred_render(self)))
@@ -82,7 +83,7 @@ def _view_invalidate(self: View) -> None:
 @impl(View.install_event_filter)
 def _view_install_event_filter(self: View, filter: EventFilter) -> None:
     ext = _render_ext(self)
-    ext._event_filters.append(filter)
+    ext.event_filters.append(filter)
 
 
 @impl(View.handle_event)
@@ -106,12 +107,12 @@ def _default_render_viewport(
 @impl(View.rendered)
 async def _view_rendered(self: View) -> None:
     ext = _render_ext(self)
-    if not ext._dirty and not ext._render_scheduled:
+    if not ext.dirty and not ext.render_scheduled:
         return
-    if ext._render_event is None:
-        ext._render_event = asyncio.Event()
-    ext._render_event.clear()
-    await ext._render_event.wait()
+    if ext.render_event is None:
+        ext.render_event = asyncio.Event()
+    ext.render_event.clear()
+    await ext.render_event.wait()
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +121,7 @@ async def _view_rendered(self: View) -> None:
 
 async def _route_event(
     view: View,
-    source: list[str | int],
+    source: Sequence[str | int],
     event_name: str,
     data: dict[str, Any],
     *,
@@ -130,7 +131,7 @@ async def _route_event(
     ext = _render_ext(view)
     if len(source) > 1:
         child_id = source[0]
-        child_view = ext._children.get(child_id)
+        child_view = ext.children.get(child_id)
         if child_view is not None:
             await _route_event(child_view, source[1:], event_name, data,
                                viewport_id=viewport_id)
@@ -139,7 +140,7 @@ async def _route_event(
         event = Event(component_id, event_name, data, viewport_id=viewport_id)
 
         # Filter 链
-        for f in ext._event_filters:
+        for f in ext.event_filters:
             if await f.on_event_filter(view, event):
                 return
 
@@ -158,47 +159,47 @@ def _render_and_cache(view: View) -> None:
     ext = _render_ext(view)
     block = view.render()
 
-    ext._handlers.clear()
-    ext._children = {}
-    ext._view_block = block
-    ext._wire_tree = _process_items(view, block.items)
+    ext.handlers.clear()
+    ext.children = {}
+    ext.view_block = block
+    ext.wire_tree = _process_items(view, block.items)
 
     # 注入 overlay children（如活跃菜单）
-    for child_id, child_view in ext._overlay_children.items():
-        ext._children[child_id] = child_view
-        ext._wire_tree.append({"$view": child_id})
+    for child_id, child_view in ext.overlay_children.items():
+        ext.children[child_id] = child_view
+        ext.wire_tree.append({"$view": child_id})
 
     # 递归 render dirty 子 View
-    for child_view in ext._children.values():
+    for child_view in ext.children.values():
         child_ext = _render_ext(child_view)
-        if child_ext._dirty:
+        if child_ext.dirty:
             _render_and_cache(child_view)
-            child_ext._dirty = False
+            child_ext.dirty = False
 
 
 async def _deferred_render(view: View) -> None:
     """deferred render callback — render -> push -> signal。"""
     ext = _render_ext(view)
-    ext._render_scheduled = False
+    ext.render_scheduled = False
 
-    if not ext._dirty:
+    if not ext.dirty:
         # 防御性：dirty 已被外部清除，仍需 signal 等待者
-        if ext._render_event is not None:
-            ext._render_event.set()
+        if ext.render_event is not None:
+            ext.render_event.set()
         return
 
     _render_and_cache(view)
-    ext._dirty = False
+    ext.dirty = False
 
     # push to all ViewPorts
     obs = ViewObservers.get(view)
     if obs is not None:
-        for vp in obs._viewports:
+        for vp in obs.viewports:
             await vp._push_render()  # type: ignore[attr-defined]
 
     # signal rendered
-    if ext._render_event is not None:
-        ext._render_event.set()
+    if ext.render_event is not None:
+        ext.render_event.set()
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +212,7 @@ def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for item in items:
         if isinstance(item, View):
-            ext._children[item.id] = item
+            ext.children[item.id] = item
             result.append({"$view": item.id})
         else:
             result.append(_process_node(view, item))
@@ -227,7 +228,7 @@ def _process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
         if key == "$children" and isinstance(val, list):
             result[key] = _process_items(view, val)
         elif isinstance(val, EventHandler):
-            ext._handlers[(node_id, key)] = val
+            ext.handlers[(node_id, key)] = val
             result[key] = val.to_wire()
         else:
             result[key] = val

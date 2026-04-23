@@ -345,7 +345,7 @@ def test_dynamic_view_add_remove() -> None:
         # child 的 ViewPort 已 detach（ViewObservers 中不再有该 ViewPort）
         obs = ViewObservers.get(view.child)
         if obs is not None:
-            assert len(obs._viewports) == 0
+            assert len(obs.viewports) == 0
 
     asyncio.run(_test())
 
@@ -404,7 +404,7 @@ def test_detach_removes_observer() -> None:
 
         obs = ViewObservers.get(view)
         assert obs is not None
-        assert len(obs._viewports) == 1
-        assert obs._viewports[0] is vp_b
+        assert len(obs.viewports) == 1
+        assert obs.viewports[0] is vp_b
 
     asyncio.run(_test())

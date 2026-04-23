@@ -133,7 +133,7 @@ def test_trigger_creates_and_pushes_menu() -> None:
 
         # overlay_children 已注册
         state = ViewRenderState.get(page)
-        assert len(state._overlay_children) == 1
+        assert len(state.overlay_children) == 1
 
     asyncio.run(_t())
 
@@ -155,7 +155,7 @@ def test_menu_item_click_routes_to_menu_view() -> None:
         await page.rendered()
 
         state = ViewRenderState.get(page)
-        menu = list(state._overlay_children.values())[0]
+        menu = list(state.overlay_children.values())[0]
         assert isinstance(menu, TabMenu)
 
         await vp.handle_event({
@@ -187,7 +187,7 @@ def test_close_event_removes_menu() -> None:
         await page.rendered()
 
         state = ViewRenderState.get(page)
-        menu_id = list(state._overlay_children.keys())[0]
+        menu_id = list(state.overlay_children.keys())[0]
 
         chan.messages.clear()
         await vp.handle_event({
@@ -198,7 +198,7 @@ def test_close_event_removes_menu() -> None:
         await page.rendered()
 
         # 菜单已移除
-        assert len(state._overlay_children) == 0
+        assert len(state.overlay_children) == 0
 
         # 根 View 重新 push 不含菜单引用
         root_msgs = [m for m in chan.messages if m["viewId"] == []]
@@ -228,7 +228,7 @@ def test_second_trigger_closes_first_menu() -> None:
         })
         await page.rendered()
         state = ViewRenderState.get(page)
-        first_id = list(state._overlay_children.keys())[0]
+        first_id = list(state.overlay_children.keys())[0]
 
         await vp.handle_event({
             "source": ["pane"],
@@ -237,10 +237,10 @@ def test_second_trigger_closes_first_menu() -> None:
         })
         await page.rendered()
 
-        assert len(state._overlay_children) == 1
-        new_id = list(state._overlay_children.keys())[0]
+        assert len(state.overlay_children) == 1
+        new_id = list(state.overlay_children.keys())[0]
         assert new_id != first_id
-        new_menu = state._overlay_children[new_id]
+        new_menu = state.overlay_children[new_id]
         assert isinstance(new_menu, TabMenu) and new_menu.item_id == "tab-B"
 
     asyncio.run(_t())

@@ -114,9 +114,9 @@ class RecordAdapter(VirtualListItemAdapter):
             return
         self.records[index] = (uid, name, age, plan)
         item_id = self.item_id(index)
-        for vl in self._virtual_lists:
-            if item_id in vl._item_views:
-                del vl._item_views[item_id]
+        for vl in self.virtual_lists:
+            if item_id in vl.item_views:
+                del vl.item_views[item_id]
         self.invalidate()
 
     def delete_record(self, uid: int) -> None:

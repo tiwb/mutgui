@@ -24,7 +24,7 @@ class MenuView(View):
     自然解决 per-viewport 问题。
     """
 
-    _owner: View | None = None
+    owner: View | None = None
 
     def __init__(self) -> None:
         self.id = f"$menu:{uuid.uuid4().hex[:8]}"

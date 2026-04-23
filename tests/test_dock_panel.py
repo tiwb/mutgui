@@ -58,7 +58,7 @@ def _make_dock(collapse_below: int = 600) -> DockPanel:
 def test_compute_layout_no_collapse() -> None:
     """宽屏不坍缩。"""
     dock = _make_dock()
-    result = dock._compute_layout(dock._layout, 800, 600)
+    result = dock._compute_layout(dock.layout, 800, 600)
     assert isinstance(result, SplitNode)
 
 
@@ -66,7 +66,7 @@ def test_compute_layout_collapsed() -> None:
     """窄屏坍缩为单个 TabSetNode。"""
     dock = _make_dock()
     collapsed_ids: set[str] = set()
-    result = dock._compute_layout(dock._layout, 400, 600,
+    result = dock._compute_layout(dock.layout, 400, 600,
                                   collapsed_ids=collapsed_ids)
     assert isinstance(result, TabSetNode)
     assert set(result.panel_ids) == {"a", "b", "c"}
@@ -76,11 +76,11 @@ def test_compute_layout_collapsed() -> None:
 def test_compute_layout_per_viewport_active() -> None:
     """不同 viewport 的 collapsed active 独立。"""
     dock = _make_dock()
-    dock._viewport_collapsed_active[1] = {dock._layout.id or "": "b"}
-    dock._viewport_collapsed_active[2] = {dock._layout.id or "": "c"}
+    dock.viewport_collapsed_active[1] = {dock.layout.id or "": "b"}
+    dock.viewport_collapsed_active[2] = {dock.layout.id or "": "c"}
 
-    r1 = dock._compute_layout(dock._layout, 400, 600, channel_id=1)
-    r2 = dock._compute_layout(dock._layout, 400, 600, channel_id=2)
+    r1 = dock._compute_layout(dock.layout, 400, 600, channel_id=1)
+    r2 = dock._compute_layout(dock.layout, 400, 600, channel_id=2)
 
     assert isinstance(r1, TabSetNode) and r1.active_id == "b"
     assert isinstance(r2, TabSetNode) and r2.active_id == "c"
@@ -89,11 +89,11 @@ def test_compute_layout_per_viewport_active() -> None:
 def test_compute_layout_per_viewport_orders() -> None:
     """不同 viewport 的 collapsed tab 顺序独立。"""
     dock = _make_dock()
-    split_id = dock._layout.id or ""
-    dock._viewport_collapsed_orders[1] = {split_id: ["c", "b", "a"]}
+    split_id = dock.layout.id or ""
+    dock.viewport_collapsed_orders[1] = {split_id: ["c", "b", "a"]}
 
-    r1 = dock._compute_layout(dock._layout, 400, 600, channel_id=1)
-    r2 = dock._compute_layout(dock._layout, 400, 600, channel_id=2)
+    r1 = dock._compute_layout(dock.layout, 400, 600, channel_id=1)
+    r2 = dock._compute_layout(dock.layout, 400, 600, channel_id=2)
 
     assert isinstance(r1, TabSetNode) and r1.panel_ids == ["c", "b", "a"]
     assert isinstance(r2, TabSetNode) and r2.panel_ids == ["a", "b", "c"]
@@ -127,7 +127,7 @@ def test_transform_no_size_passthrough() -> None:
 def test_transform_wide_viewport() -> None:
     """宽屏 viewport 不坍缩 → transform 输出 Split 结构。"""
     dock = _make_dock()
-    dock._viewport_sizes[1] = (800, 600)
+    dock.viewport_sizes[1] = (800, 600)
     template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
     result = dock.render_viewport(template, channel_id=1)
     inner = result[0]["$children"][0]
@@ -137,7 +137,7 @@ def test_transform_wide_viewport() -> None:
 def test_transform_narrow_viewport() -> None:
     """窄屏 viewport 坍缩 → transform 输出 TabSet + collapsed 标记。"""
     dock = _make_dock()
-    dock._viewport_sizes[1] = (400, 600)
+    dock.viewport_sizes[1] = (400, 600)
     template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
     result = dock.render_viewport(template, channel_id=1)
     inner = result[0]["$children"][0]
@@ -148,8 +148,8 @@ def test_transform_narrow_viewport() -> None:
 def test_transform_two_viewports_independent() -> None:
     """两个 viewport 不同尺寸 → 各自独立的树结构。"""
     dock = _make_dock()
-    dock._viewport_sizes[1] = (800, 600)  # 宽屏
-    dock._viewport_sizes[2] = (400, 600)  # 窄屏
+    dock.viewport_sizes[1] = (800, 600)  # 宽屏
+    dock.viewport_sizes[2] = (400, 600)  # 窄屏
     template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
 
     r1 = dock.render_viewport(template, channel_id=1)
@@ -162,7 +162,7 @@ def test_transform_two_viewports_independent() -> None:
 def test_transform_view_refs() -> None:
     """transform 输出的 wire tree 包含 $view 引用。"""
     dock = _make_dock()
-    dock._viewport_sizes[1] = (800, 600)
+    dock.viewport_sizes[1] = (800, 600)
     template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
     result = dock.render_viewport(template, channel_id=1)
 
@@ -183,14 +183,14 @@ def test_on_resize_per_viewport() -> None:
     dock = _make_dock()
     dock._on_resize(width=800, height=600, viewport_id=1)
     dock._on_resize(width=400, height=300, viewport_id=2)
-    assert dock._viewport_sizes[1] == (800, 600)
-    assert dock._viewport_sizes[2] == (400, 300)
+    assert dock.viewport_sizes[1] == (800, 600)
+    assert dock.viewport_sizes[2] == (400, 300)
 
 
 def test_tab_switch_shared() -> None:
     """非坍缩态 tab_switch 修改共享 active_id。"""
     dock = _make_dock()
-    left = dock._layout.children[0]  # type: ignore[union-attr]
+    left = dock.layout.children[0]  # type: ignore[union-attr]
     assert isinstance(left, TabSetNode)
     assert left.active_id == "a"
 
@@ -201,27 +201,27 @@ def test_tab_switch_shared() -> None:
 def test_tab_switch_collapsed_per_viewport() -> None:
     """坍缩态 tab_switch 只更新该 viewport 的 collapsed_active。"""
     dock = _make_dock()
-    split_id = dock._layout.id or ""
+    split_id = dock.layout.id or ""
 
     dock._on_tab_switch(tabsetId=split_id, panelId="b", viewport_id=1)
     dock._on_tab_switch(tabsetId=split_id, panelId="c", viewport_id=2)
 
-    assert dock._viewport_collapsed_active[1][split_id] == "b"
-    assert dock._viewport_collapsed_active[2][split_id] == "c"
+    assert dock.viewport_collapsed_active[1][split_id] == "b"
+    assert dock.viewport_collapsed_active[2][split_id] == "c"
 
 
 def test_tab_reorder_collapsed_per_viewport() -> None:
     """坍缩态 tab_reorder 只更新该 viewport 的 collapsed_orders。"""
     dock = _make_dock()
-    split_id = dock._layout.id or ""
+    split_id = dock.layout.id or ""
 
     dock._on_tab_reorder(tabsetId=split_id,
                          panelIds=["c", "b", "a"], viewport_id=1)
     dock._on_tab_reorder(tabsetId=split_id,
                          panelIds=["b", "a", "c"], viewport_id=2)
 
-    assert dock._viewport_collapsed_orders[1][split_id] == ["c", "b", "a"]
-    assert dock._viewport_collapsed_orders[2][split_id] == ["b", "a", "c"]
+    assert dock.viewport_collapsed_orders[1][split_id] == ["c", "b", "a"]
+    assert dock.viewport_collapsed_orders[2][split_id] == ["b", "a", "c"]
 
 
 # ---------------------------------------------------------------------------

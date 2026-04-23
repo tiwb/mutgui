@@ -35,12 +35,12 @@ _close_filter = _MenuCloseFilter()
 
 @impl(MenuView.close)
 async def _menu_close(self: MenuView) -> None:
-    if self._owner is None:
+    if self.owner is None:
         return
-    ext = _render_ext(self._owner)
-    ext._overlay_children.pop(self.id, None)
-    self._owner.invalidate()
-    self._owner = None
+    ext = _render_ext(self.owner)
+    ext.overlay_children.pop(self.id, None)
+    self.owner.invalidate()
+    self.owner = None
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ async def _menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> b
 
     # 关闭已有菜单
     ext = _render_ext(view)
-    for child in list(ext._overlay_children.values()):
+    for child in list(ext.overlay_children.values()):
         if isinstance(child, MenuView):
             await child.close()
 
@@ -76,8 +76,8 @@ async def _menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> b
     if not isinstance(menu_view, MenuView):
         return False
 
-    menu_view._owner = view
+    menu_view.owner = view
     menu_view.install_event_filter(_close_filter)
-    ext._overlay_children[menu_view.id] = menu_view
+    ext.overlay_children[menu_view.id] = menu_view
     view.invalidate()
     return True
