@@ -33,7 +33,7 @@ class SimplePanelView(View):
                 {"$component": "div", "$id": "info",
                  "style": {"fontSize": "13px", "color": "var(--mutgui-text-dim)"},
                  "children": f"Clicks: {self.click_count}"},
-                {"$component": "Button", "$id": "btn",
+                {"$component": "antd.Button", "$id": "btn",
                  "size": "small", "style": {"marginTop": "8px"},
                  "children": "Click me",
                  "onClick": Callback(self._on_click)},

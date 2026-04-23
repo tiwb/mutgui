@@ -12,6 +12,8 @@ import * as antd from 'antd';
 const app = (window as unknown as Record<string, unknown>).MutguiApp as Record<string, unknown>;
 app.antd = antd;
 app.registerComponents = app.registerComponents ?? (() => undefined);
+// 只作为命名空间源注册：$component 必须写成 "antd.Button" / "antd.Typography.Title"
+// 不 spread 到顶层，避免 Button、Input 等常见名字劫持原生 HTML 元素
 (app.registerComponents as (obj: unknown) => void)({
   __name__: 'antd',
   ...antd,

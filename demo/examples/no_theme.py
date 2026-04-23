@@ -26,27 +26,27 @@ class NoThemeView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "Typography.Title", "$id": "title",
+            {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3, "children": "No Theme — mutgui 零预设"},
-            {"$component": "Typography.Paragraph", "$id": "desc",
+            {"$component": "antd.Typography.Paragraph", "$id": "desc",
              "children": (
                  "此页面不加载任何主题 Plugin。mount 传 [] 空数组, "
                  "mutgui 框架不认识'主题',token 默认为亮色, "
                  "antd 无 ConfigProvider 也默认亮色,两者自然一致。"
              )},
-            {"$component": "Form", "$id": "form", "layout": "vertical",
+            {"$component": "antd.Form", "$id": "form", "layout": "vertical",
              "$children": [
-                 {"$component": "Form.Item", "$id": "fi", "label": "Input",
+                 {"$component": "antd.Form.Item", "$id": "fi", "label": "Input",
                   "$children": [
-                      {"$component": "Input", "$id": "in",
+                      {"$component": "antd.Input", "$id": "in",
                        "placeholder": "antd 默认亮色"},
                   ]},
              ]},
-            {"$component": "Button", "$id": "btn",
+            {"$component": "antd.Button", "$id": "btn",
              "type": "primary",
              "children": f"Primary Button ({self.click_count})",
              "onClick": Callback(self._on_click)},
-            {"$component": "Typography.Paragraph", "$id": "hint",
+            {"$component": "antd.Typography.Paragraph", "$id": "hint",
              "type": "secondary",
              "style": {"marginTop": 24, "fontSize": 13},
              "children": (

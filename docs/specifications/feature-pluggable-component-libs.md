@@ -31,37 +31,42 @@
 
 ### 组件解析机制
 
-**解析链**：一个有序数组，每个元素是一个 `name → Component` 的映射对象（即模块导出表或手动映射）。
+**解析链**：一个有序数组，每个元素是一个 `name → Component` 的映射对象。映射可选带 `__name__` 字段标明命名空间（组件库源都必须带），不带则作为“手动覆盖”顶层源。
 
 ```typescript
-// 新的 resolve 逻辑（替代 registry.ts）
-const sources: Record<string, ComponentType>[] = [];
+// 解析规则（registry.ts 实现）
+const sources: Record<string, unknown>[] = [];
 
 function registerComponents(source: Record<string, unknown>): void {
   sources.unshift(source);  // 后加入的优先级更高
 }
 
 function resolve(name: string): ComponentType | string {
-  // 支持命名空间：antd.Button → 从 antd 源中找 Button
+  // 带点名字（antd.Button / mutgui.Menu.Item）：只在命名空间源内查找，
+  // 命中后允许按点分段逐层属性访问
   if (name.includes('.')) {
-    const [ns, comp] = name.split('.', 2);
+    const [ns, ...rest] = name.split('.');
     for (const src of sources) {
-      if (src.__name__ === ns && src[comp]) return src[comp];
+      if (src.__name__ === ns) {
+        const hit = walk(src, rest);
+        if (hit) return hit;
+      }
     }
+    return name;  // 未命中 → 原生元素
   }
-  // 遍历所有源
+  // 单段名字：只匹配无命名空间的源（手动覆盖），避免组件库名字劫持
   for (const src of sources) {
+    if (src.__name__) continue;
     if (src[name]) return src[name];
   }
-  // 兜底：返回字符串，React.createElement 当原生元素渲染
-  return name;
+  return name;  // 兜底：React.createElement 当原生元素渲染
 }
 ```
 
-**关键变化**：
-- 不再有 `UnknownComponent`——任何未识别的名字都尝试作为 HTML 原生元素或 Web Component 渲染
-- `registerComponents()` 是唯一 API，替代 `register()` / `registerAll()` / `registerAntd()`
-- 手动覆盖也是 `registerComponents()`：`registerComponents({ Button: MyCustomButton })` 等价于原来的 `register("Button", MyCustomButton)`
+**关键规则**：
+- **裸名字不会命中组件库**。`$component: "Button"` 永远是 `<button>`（HTML），不会被 antd 的 `Button` 劫持。引用组件库组件必须写全名：`antd.Button`、`mutgui.VirtualList`、`antd.Typography.Title`。
+- 不再有 `UnknownComponent`——任何未识别的名字都尝试作为 HTML 原生元素或 Web Component 渲染。
+- `registerComponents()` 是唯一 API。组件库以命名空间形式注册（`{__name__: 'antd', ...antd}`），手动覆盖以无命名空间形式注册（`{Button: MyCustomButton}`）。
 
 ### 构建拆分
 

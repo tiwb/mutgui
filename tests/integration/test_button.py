@@ -18,7 +18,7 @@ class CounterView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "Button", "$id": "inc",
+            {"$component": "antd.Button", "$id": "inc",
              "data-testid": "inc-btn",
              "children": f"Count: {self.count}",
              "onClick": Callback(self._increment)},
@@ -57,14 +57,14 @@ class ToggleView(View):
 
     def render(self) -> ViewBlock:
         items: list = [
-            {"$component": "Button", "$id": "toggle-btn",
+            {"$component": "antd.Button", "$id": "toggle-btn",
              "data-testid": "toggle-btn",
              "children": "Toggle",
              "onClick": Callback(self._toggle)},
         ]
         if self.visible:
             items.append(
-                {"$component": "Typography.Text", "$id": "secret",
+                {"$component": "antd.Typography.Text", "$id": "secret",
                  "data-testid": "secret-text",
                  "children": "Hello World"},
             )

@@ -52,7 +52,7 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-// 注册框架内置组件
+// 注册框架内置组件（命名空间源，$component 必须写成 "mutgui.XXX"）
 registerComponents({
   __name__: 'mutgui',
   DockPanel,

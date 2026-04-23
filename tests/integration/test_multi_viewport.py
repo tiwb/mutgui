@@ -18,11 +18,11 @@ class SharedCounterView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "Button", "$id": "inc",
+            {"$component": "antd.Button", "$id": "inc",
              "data-testid": "inc-btn",
              "children": f"Count: {self.count}",
              "onClick": Callback(self._increment)},
-            {"$component": "Typography.Text", "$id": "display",
+            {"$component": "antd.Typography.Text", "$id": "display",
              "data-testid": "display",
              "children": f"Value is {self.count}"},
         ])

@@ -20,38 +20,38 @@ class RecordItemView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "Row", "$id": "row",
+            "$component": "antd.Row", "$id": "row",
             "wrap": False,
             "style": {"lineHeight": "32px", "flexWrap": "nowrap"},
             "$children": [
-                {"$component": "Col", "$id": "c-idx", "flex": "50px",
+                {"$component": "antd.Col", "$id": "c-idx", "flex": "50px",
                  "$children": [
-                     {"$component": "Typography.Text", "$id": "idx",
+                     {"$component": "antd.Typography.Text", "$id": "idx",
                       "type": "secondary", "children": f"#{self.uid}"},
                  ]},
-                {"$component": "Col", "$id": "c-name", "flex": "auto",
+                {"$component": "antd.Col", "$id": "c-name", "flex": "auto",
                  "$children": [
-                     {"$component": "Typography.Text", "$id": "name",
+                     {"$component": "antd.Typography.Text", "$id": "name",
                       "children": self.name},
                  ]},
-                {"$component": "Col", "$id": "c-age", "flex": "60px",
+                {"$component": "antd.Col", "$id": "c-age", "flex": "60px",
                  "$children": [
-                     {"$component": "Typography.Text", "$id": "age",
+                     {"$component": "antd.Typography.Text", "$id": "age",
                       "children": str(self.age)},
                  ]},
-                {"$component": "Col", "$id": "c-plan", "flex": "100px",
+                {"$component": "antd.Col", "$id": "c-plan", "flex": "100px",
                  "$children": [
-                     {"$component": "Typography.Text", "$id": "plan",
+                     {"$component": "antd.Typography.Text", "$id": "plan",
                       "children": self.plan},
                  ]},
-                {"$component": "Col", "$id": "c-actions", "flex": "none",
+                {"$component": "antd.Col", "$id": "c-actions", "flex": "none",
                  "$children": [
-                     {"$component": "Space", "$id": "btns", "size": 4,
+                     {"$component": "antd.Space", "$id": "btns", "size": 4,
                       "$children": [
-                          {"$component": "Button", "$id": "edit",
+                          {"$component": "antd.Button", "$id": "edit",
                            "size": "small", "children": "Edit",
                            "onClick": Callback(self._do_edit)},
-                          {"$component": "Button", "$id": "del",
+                          {"$component": "antd.Button", "$id": "del",
                            "size": "small", "danger": True,
                            "children": "Del",
                            "onClick": Callback(self._do_delete)},
@@ -177,35 +177,35 @@ class VirtualListView(View):
         btn_label = "Save" if is_editing else "Add"
 
         action_items: list[Any] = [
-            {"$component": "Input", "$id": "name",
+            {"$component": "antd.Input", "$id": "name",
              "value": self.name, "placeholder": "Name", "size": "small",
              "style": {"width": 120},
              "onChange": Bind(self, "name", "$0.target.value")},
-            {"$component": "InputNumber", "$id": "age",
+            {"$component": "antd.InputNumber", "$id": "age",
              "value": self.age, "min": 0, "max": 150, "size": "small",
              "onChange": Bind(self, "age", "$0")},
-            {"$component": "Button", "$id": "add",
+            {"$component": "antd.Button", "$id": "add",
              "type": "primary", "size": "small", "children": btn_label,
              "onClick": Callback(self._on_save)},
         ]
         if is_editing:
             action_items.append(
-                {"$component": "Button", "$id": "cancel",
+                {"$component": "antd.Button", "$id": "cancel",
                  "size": "small", "children": "Cancel",
                  "onClick": Callback(self._on_cancel)},
             )
         if self.message:
             action_items.append(
-                {"$component": "Typography.Text", "$id": "msg",
+                {"$component": "antd.Typography.Text", "$id": "msg",
                  "type": "success", "children": self.message},
             )
 
         return ViewBlock([
-            {"$component": "Typography.Title", "$id": "title",
+            {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3,
              "children": f"mutgui — VirtualList ({self.adapter.item_count} items)"},
-            {"$component": "Space", "$id": "actions", "$children": action_items},
-            {"$component": "Divider", "$id": "div",
+            {"$component": "antd.Space", "$id": "actions", "$children": action_items},
+            {"$component": "antd.Divider", "$id": "div",
              "style": {"margin": "12px 0"}},
             {"$component": "div", "$id": "list-wrapper",
              "style": {"height": 500, "display": "flex", "flexDirection": "column"},

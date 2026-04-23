@@ -19,21 +19,21 @@ class AntdFormView(View):
 
     def render(self) -> ViewBlock:
         items: list[dict[str, Any]] = [
-            {"$component": "Form.Item", "$id": "fi-name", "label": "Name",
+            {"$component": "antd.Form.Item", "$id": "fi-name", "label": "Name",
              "$children": [
-                 {"$component": "Input", "$id": "name", "value": self.name,
+                 {"$component": "antd.Input", "$id": "name", "value": self.name,
                   "placeholder": "Your name",
                   "onChange": Bind(self, "name", "$0.target.value")},
              ]},
-            {"$component": "Form.Item", "$id": "fi-age", "label": "Age",
+            {"$component": "antd.Form.Item", "$id": "fi-age", "label": "Age",
              "$children": [
-                 {"$component": "InputNumber", "$id": "age",
+                 {"$component": "antd.InputNumber", "$id": "age",
                   "value": self.age, "min": 0, "max": 150,
                   "onChange": Bind(self, "age", "$0")},
              ]},
-            {"$component": "Form.Item", "$id": "fi-sub", "label": "Subscribe",
+            {"$component": "antd.Form.Item", "$id": "fi-sub", "label": "Subscribe",
              "$children": [
-                 {"$component": "Checkbox", "$id": "subscribe",
+                 {"$component": "antd.Checkbox", "$id": "subscribe",
                   "checked": self.subscribe,
                   "onChange": Bind(self, "subscribe", "$0.target.checked")},
              ]},
@@ -41,18 +41,18 @@ class AntdFormView(View):
 
         if self.subscribe:
             items.append(
-                {"$component": "Form.Item", "$id": "fi-email", "label": "Email",
+                {"$component": "antd.Form.Item", "$id": "fi-email", "label": "Email",
                  "$children": [
-                     {"$component": "Input", "$id": "email",
+                     {"$component": "antd.Input", "$id": "email",
                       "value": self.email, "placeholder": "you@example.com",
                       "onChange": Bind(self, "email", "$0.target.value")},
                  ]}
             )
 
         items.append(
-            {"$component": "Form.Item", "$id": "fi-plan", "label": "Plan",
+            {"$component": "antd.Form.Item", "$id": "fi-plan", "label": "Plan",
              "$children": [
-                 {"$component": "Select", "$id": "plan", "value": self.plan,
+                 {"$component": "antd.Select", "$id": "plan", "value": self.plan,
                   "style": {"width": 200},
                   "options": [
                       {"value": "free", "label": "Free"},
@@ -64,17 +64,17 @@ class AntdFormView(View):
         )
 
         return ViewBlock([
-            {"$component": "Typography.Title", "$id": "title",
+            {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3, "children": "mutgui — Ant Design Controls"},
-            {"$component": "Form", "$id": "form", "layout": "vertical",
+            {"$component": "antd.Form", "$id": "form", "layout": "vertical",
              "$children": items},
-            {"$component": "Space", "$id": "actions",
+            {"$component": "antd.Space", "$id": "actions",
              "$children": [
-                 {"$component": "Button", "$id": "submit",
+                 {"$component": "antd.Button", "$id": "submit",
                   "type": "primary", "children": "Submit",
                   "onClick": Callback(self._on_submit)},
              ]},
-            *([{"$component": "Typography.Text", "$id": "msg",
+            *([{"$component": "antd.Typography.Text", "$id": "msg",
                 "type": "success", "children": self.message}]
               if self.message else []),
         ])

@@ -25,28 +25,28 @@ class ThemingDemoView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "Typography.Title", "$id": "title",
+            {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3, "children": "Custom Theme Demo"},
-            {"$component": "Typography.Paragraph", "$id": "desc",
+            {"$component": "antd.Typography.Paragraph", "$id": "desc",
              "children": (
                  "这个页面用的是自定义紫色 Plugin(不是内置的 mutgui-theme-dark)。 "
                  "Plugin 源码就写在页面 HTML 里,展示如何定制主题。"
              )},
-            {"$component": "Typography.Title", "$id": "t2",
+            {"$component": "antd.Typography.Title", "$id": "t2",
              "level": 5, "children": "antd 控件跟着主题走"},
-            {"$component": "Form", "$id": "form", "layout": "vertical",
+            {"$component": "antd.Form", "$id": "form", "layout": "vertical",
              "$children": [
-                 {"$component": "Form.Item", "$id": "fi", "label": "Input",
+                 {"$component": "antd.Form.Item", "$id": "fi", "label": "Input",
                   "$children": [
-                      {"$component": "Input", "$id": "in",
+                      {"$component": "antd.Input", "$id": "in",
                        "placeholder": "主题色影响 focus / button"},
                   ]},
              ]},
-            {"$component": "Button", "$id": "btn",
+            {"$component": "antd.Button", "$id": "btn",
              "type": "primary",
              "children": f"Primary Button ({self.click_count})",
              "onClick": Callback(self._on_click)},
-            {"$component": "Typography.Title", "$id": "t3",
+            {"$component": "antd.Typography.Title", "$id": "t3",
              "level": 5, "style": {"marginTop": 24},
              "children": "mutgui 组件也跟着 --mutgui-* token 走"},
             {"$component": "div", "$id": "surface-box",
