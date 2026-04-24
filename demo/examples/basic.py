@@ -8,6 +8,7 @@ from demo.framework import MutguiRoute, DemoApp
 
 class CounterView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.count = 0
 
     def render(self) -> ViewBlock:

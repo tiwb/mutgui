@@ -13,6 +13,7 @@ from demo.framework import MutguiRoute, DemoApp
 
 class SimplePanelView(View):
     def __init__(self, panel_id: str, title: str) -> None:
+        super().__init__()
         self.id = panel_id
         self.title = title
         self.click_count = 0
@@ -47,6 +48,7 @@ class SimplePanelView(View):
 
 class DockView(View):
     def __init__(self) -> None:
+        super().__init__()
         panels = [
             PanelDef("explorer", "Explorer", icon="📁"),
             PanelDef("search", "Search", icon="🔍"),

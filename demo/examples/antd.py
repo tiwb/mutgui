@@ -10,6 +10,7 @@ from demo.framework import MutguiRoute, DemoApp
 
 class AntdFormView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.name = ""
         self.age = 18
         self.subscribe = False

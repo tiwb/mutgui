@@ -12,6 +12,7 @@ class ProfileView(View):
     id = "profile"
 
     def __init__(self) -> None:
+        super().__init__()
         self.name = ""
         self.age = 18
         self._render_count = 0
@@ -44,6 +45,7 @@ class SubscriptionView(View):
     id = "subscription"
 
     def __init__(self) -> None:
+        super().__init__()
         self.subscribe = False
         self.email = ""
         self.plan = "free"
@@ -92,6 +94,7 @@ class SubscriptionView(View):
 
 class NestingView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.profile = ProfileView()
         self.subscription = SubscriptionView()
         self._render_count = 0

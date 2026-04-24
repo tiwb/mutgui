@@ -22,6 +22,7 @@ from demo.framework import MutguiRoute, DemoApp
 
 class NoThemeView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.click_count = 0
 
     def render(self) -> ViewBlock:

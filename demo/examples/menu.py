@@ -174,6 +174,7 @@ class CommandPalette(MenuView):
 
 class MenuDemoPage(View):
     def __init__(self) -> None:
+        super().__init__()
         self.log_lines: list[str] = []
 
     def log(self, msg: str) -> None:

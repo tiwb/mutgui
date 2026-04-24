@@ -11,6 +11,7 @@ from demo.framework import MutguiRoute, DemoApp
 class RecordItemView(View):
     def __init__(self, uid: int, name: str, age: int, plan: str,
                  on_edit: Any = None, on_delete: Any = None) -> None:
+        super().__init__()
         self.uid = uid
         self.name = name
         self.age = age
@@ -129,6 +130,7 @@ class RecordAdapter(VirtualListItemAdapter):
 
 class VirtualListView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.adapter = RecordAdapter(
             on_edit=self._on_edit, on_delete=self._on_delete,
         )

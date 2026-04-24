@@ -54,6 +54,7 @@ class MutguiRoute:
         title: str | None = None,
         html: str | None = None,
     ) -> None:
+        super().__init__()
         self.path = path
         self.view = view
         self._title = title or "mutgui"
@@ -69,6 +70,7 @@ class DemoApp:
     """Demo 应用容器。Gallery 通过 app.routes 发现路由，独立运行通过 app.run()。"""
 
     def __init__(self, routes: list[MutguiRoute]) -> None:
+        super().__init__()
         self.routes = routes
 
     def run(self, *, host: str = "127.0.0.1", port: int = 8080) -> None:
