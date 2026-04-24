@@ -50,6 +50,7 @@ class TestApp:
     """测试用 mutgui 服务器。支持动态 mount View，通过通配路由访问。"""
 
     def __init__(self) -> None:
+        super().__init__()
         self._views: dict[str, View] = {}
         self._viewports: list[ViewPort] = []
         self._server: Server | None = None

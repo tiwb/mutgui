@@ -27,6 +27,7 @@ class ChildView(View):
     id = "child"
 
     def __init__(self) -> None:
+        super().__init__()
         self.value = 0
 
     def render(self) -> ViewBlock:
@@ -42,6 +43,7 @@ class ChildView(View):
 
 class ParentView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.child = ChildView()
         self.title = "Parent"
 
@@ -119,6 +121,7 @@ def test_event_to_parent_component() -> None:
 
         class ParentWithHandler(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.clicked = False
                 self.child = ChildView()
 
@@ -162,6 +165,7 @@ def test_deeply_nested_event_routing() -> None:
             id = "inner"
 
             def __init__(self) -> None:
+                super().__init__()
                 self.val = ""
 
             def render(self) -> ViewBlock:
@@ -175,6 +179,7 @@ def test_deeply_nested_event_routing() -> None:
             id = "middle"
 
             def __init__(self) -> None:
+                super().__init__()
                 self.inner = InnerView()
 
             def render(self) -> ViewBlock:
@@ -182,6 +187,7 @@ def test_deeply_nested_event_routing() -> None:
 
         class RootView(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.middle = MiddleView()
 
             def render(self) -> ViewBlock:
@@ -275,6 +281,7 @@ def test_view_inside_children() -> None:
 
         class TabsView(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.panel = PanelView()
 
             def render(self) -> ViewBlock:
@@ -313,6 +320,7 @@ def test_dynamic_view_add_remove() -> None:
 
         class DynamicParent(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.child = ChildView()
                 self.show_child = True
 

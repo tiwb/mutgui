@@ -14,6 +14,7 @@ class SharedCounterView(View):
     id = "shared-counter"
 
     def __init__(self) -> None:
+        super().__init__()
         self.count = 0
 
     def render(self) -> ViewBlock:

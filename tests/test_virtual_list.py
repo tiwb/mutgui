@@ -25,6 +25,7 @@ class MockChannel(Channel):
 
 class SimpleItemView(View):
     def __init__(self, text: str) -> None:
+        super().__init__()
         self.text = text
 
     def render(self) -> ViewBlock:
@@ -167,6 +168,7 @@ def test_virtual_list_end_to_end_render() -> None:
         # 模拟父 View 包含 VirtualList
         class RootView(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.vlist = vl
 
             def render(self) -> ViewBlock:
@@ -309,6 +311,7 @@ def test_per_vp_push_filtering_e2e() -> None:
 
         class RootView(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.vlist = vl
 
             def render(self) -> ViewBlock:
@@ -373,6 +376,7 @@ def test_vp_disconnect_cleanup() -> None:
 
         class RootView(View):
             def __init__(self) -> None:
+                super().__init__()
                 self.vlist = vl
 
             def render(self) -> ViewBlock:

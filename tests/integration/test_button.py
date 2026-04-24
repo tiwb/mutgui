@@ -14,6 +14,7 @@ class CounterView(View):
     id = "counter"
 
     def __init__(self) -> None:
+        super().__init__()
         self.count = 0
 
     def render(self) -> ViewBlock:
@@ -53,6 +54,7 @@ class ToggleView(View):
     id = "toggle"
 
     def __init__(self) -> None:
+        super().__init__()
         self.visible = False
 
     def render(self) -> ViewBlock:

@@ -83,6 +83,7 @@ def test_plain_props_pass_through() -> None:
 
 class CallbackView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.clicked = False
 
     def render(self) -> ViewBlock:
@@ -121,6 +122,7 @@ def test_callback_registered_and_dispatched() -> None:
 
 class BindView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.name = ""
         self.age = 18
 
@@ -199,6 +201,7 @@ def test_bind_number() -> None:
 
 class EventHandlerView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.last_event: Event | None = None
 
     def render(self) -> ViewBlock:
@@ -241,6 +244,7 @@ def test_event_handler_falls_through_to_on_event() -> None:
 
 class ConditionalView(View):
     def __init__(self) -> None:
+        super().__init__()
         self.show_extra = False
 
     def render(self) -> ViewBlock:
@@ -344,6 +348,7 @@ def test_callback_does_not_auto_invalidate() -> None:
 
     class CountView(View):
         def __init__(self) -> None:
+            super().__init__()
             self.count = 0
 
         def render(self) -> ViewBlock:

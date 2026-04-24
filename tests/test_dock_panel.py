@@ -22,6 +22,7 @@ class MockChannel(Channel):
 
 class PanelView(View):
     def __init__(self, label: str) -> None:
+        super().__init__()
         self.label = label
 
     def render(self) -> ViewBlock:
