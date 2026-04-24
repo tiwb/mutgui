@@ -26,6 +26,7 @@ class MenuView(View):
     owner: View | None = None
 
     def __init__(self) -> None:
+        super().__init__()
         self.id = f"$menu:{uuid.uuid4().hex[:8]}"
 
     async def close(self) -> None:
@@ -52,6 +53,7 @@ class MenuTrigger(EventHandler):
         placement: str = "cursor",
         **context_extract: str,
     ) -> None:
+        super().__init__()
         self.menu_factory = menu_factory
         self.placement = placement
         self.extract = context_extract

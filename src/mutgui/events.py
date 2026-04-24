@@ -26,6 +26,7 @@ class Event:
         *,
         viewport_id: int | None = None,
     ) -> None:
+        super().__init__()
         self.component_id = component_id
         self.name = name
         self.data = data
@@ -40,6 +41,7 @@ class EventHandler:
     """
 
     def __init__(self, **extract: str) -> None:
+        super().__init__()
         self.extract = extract
 
     async def handle(self, view: View, event: Event) -> bool:
@@ -72,6 +74,7 @@ class Callback(EventHandler):
     """
 
     def __init__(self, callback: Callable[..., Any], /, *args: str, **extract: str) -> None:
+        super().__init__()
         self.callback = callback
         self.args = args
         self.extract = extract
@@ -118,6 +121,7 @@ class Bind(EventHandler):
     """
 
     def __init__(self, obj: Any, attr: str, path: str = "$0") -> None:
+        super().__init__()
         self.obj = obj
         self.attr = attr
         self.path = path

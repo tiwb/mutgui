@@ -15,6 +15,7 @@ class ViewBlock:
     __slots__ = ("items",)
 
     def __init__(self, items: list[dict[str, Any] | View]):
+        super().__init__()
         self.items = items
 
 

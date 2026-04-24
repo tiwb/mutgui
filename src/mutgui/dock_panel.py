@@ -180,6 +180,7 @@ class DockPanel(View):
         layout: LayoutNode,
         default_collapse_below: int = 0,
     ) -> None:
+        super().__init__()
         self.id = id
         self.panels: dict[str, PanelDef] = {p.id: p for p in panels}
         self.panel_views: dict[str, View] = {}

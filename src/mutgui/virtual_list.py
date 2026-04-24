@@ -25,6 +25,7 @@ class VirtualListItemAdapter:
     virtual_lists: list[VirtualList]
 
     def __init__(self) -> None:
+        super().__init__()
         self.virtual_lists = []
 
     @property
@@ -73,6 +74,7 @@ class VirtualList(View):
         *,
         sync_scroll: bool = False,
     ) -> None:
+        super().__init__()
         self.id = id
         self.adapter = adapter
         adapter.virtual_lists.append(self)
