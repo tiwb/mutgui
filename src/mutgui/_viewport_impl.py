@@ -6,12 +6,12 @@ ViewPort 是纯管道：接收 View push 的 wire_tree 并发送到 Channel。
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import mutobj
 from mutobj import impl
 
-from ._view_impl import ViewObservers, ViewRenderState, _render_ext
+from ._view_impl import ViewObservers, ViewRenderState
 from .channel import Channel
 from .view import View
 from .viewport import ViewPort
@@ -39,7 +39,7 @@ def _ext(vp: ViewPort) -> ViewPortRuntime:
 # ---------------------------------------------------------------------------
 
 @impl(ViewPort.__init__)
-def _viewport_init(
+def viewport_init(
     self: ViewPort, view: View, channel: Channel,
     *,
     _path: list[str | int] | None = None,
@@ -53,7 +53,7 @@ def _viewport_init(
 
 
 @impl(ViewPort.initialize)
-async def _viewport_initialize(self: ViewPort) -> None:
+async def viewport_initialize(self: ViewPort) -> None:
     ext = _ext(self)
     view = ext.view
     assert view is not None
@@ -67,7 +67,7 @@ async def _viewport_initialize(self: ViewPort) -> None:
 
 
 @impl(ViewPort.handle_event)
-async def _viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
+async def viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     ext = _ext(self)
     assert ext.view is not None
     event["_viewport_id"] = ext.channel.channel_id  # type: ignore[union-attr]
@@ -75,7 +75,7 @@ async def _viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
 
 
 @impl(ViewPort.detach)
-def _viewport_detach(self: ViewPort) -> None:
+def viewport_detach(self: ViewPort) -> None:
     ext = _ext(self)
     if ext.view is not None:
         obs = ViewObservers.get(ext.view)
@@ -94,16 +94,17 @@ def _viewport_detach(self: ViewPort) -> None:
 # Push render — 由 _view_impl._deferred_render 调用
 # ---------------------------------------------------------------------------
 
-def _filter_children_in_tree(
+def filter_children_in_tree(
     tree: list[dict[str, Any]], allowed: set[str],
 ) -> list[dict[str, Any]]:
     """浅拷贝 tree，只保留 $children 中 ID 在 allowed 集合内的 $view 节点。"""
     result: list[dict[str, Any]] = []
     for node in tree:
         if "$children" in node:
-            filtered = [
-                c for c in node["$children"]
-                if not isinstance(c, dict) or c.get("$view") in allowed
+            raw_children: list[Any] = node["$children"]
+            filtered: list[Any] = [
+                c for c in raw_children
+                if not isinstance(c, dict) or c.get("$view") in allowed  # pyright: ignore[reportUnknownMemberType]
             ]
             node = {**node, "$children": filtered}
         result.append(node)
@@ -114,14 +115,13 @@ def _extract_view_refs(tree: list[dict[str, Any]]) -> set[str]:
     """从 wire tree 中递归提取所有 $view 引用 ID。"""
     refs: set[str] = set()
     for node in tree:
-        if not isinstance(node, dict):
-            continue
         view_id = node.get("$view")
         if view_id is not None:
             refs.add(view_id)
         children = node.get("$children")
         if isinstance(children, list):
-            refs.update(_extract_view_refs(children))
+            child_list = cast(list[dict[str, Any]], children)
+            refs.update(_extract_view_refs(child_list))
     return refs
 
 

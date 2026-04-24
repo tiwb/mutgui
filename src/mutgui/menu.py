@@ -6,7 +6,6 @@ MenuTrigger 是 EventHandler 子类，声明"此事件弹出菜单"。
 
 from __future__ import annotations
 
-import inspect
 import uuid
 from typing import Any, Callable, TYPE_CHECKING
 
@@ -64,7 +63,7 @@ class MenuTrigger(EventHandler):
     def to_wire(self) -> dict[str, Any]:
         wire: dict[str, Any] = {
             k: v for k, v in self.extract.items()
-            if not (isinstance(v, str) and v.startswith("@"))
+            if not v.startswith("@")
         }
         wire["$menu"] = True
         if self.placement != "cursor":

@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "mutobj~=0.6.0",
+    "mutobj~=0.7.0",
 ]
 
 [project.optional-dependencies]
@@ -75,4 +75,5 @@ warn_unused_configs = true
 
 [tool.pyright]
 pythonVersion = "3.11"
+include = ["src"]
 typeCheckingMode = "strict"

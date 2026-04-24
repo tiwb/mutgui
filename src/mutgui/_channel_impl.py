@@ -10,7 +10,7 @@ _next_channel_id = 1
 
 
 @impl(Channel.__init__)
-def _channel_init(self: Channel) -> None:
+def channel_init(self: Channel) -> None:
     global _next_channel_id
     self.channel_id = _next_channel_id
     _next_channel_id += 1

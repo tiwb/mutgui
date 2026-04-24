@@ -6,7 +6,7 @@ from typing import Any
 
 from mutobj import impl
 
-from ._view_impl import _render_ext
+from ._view_impl import render_ext
 from .events import Event, EventFilter
 from .menu import MenuView, MenuTrigger
 from .view import View
@@ -34,10 +34,10 @@ _close_filter = _MenuCloseFilter()
 # ---------------------------------------------------------------------------
 
 @impl(MenuView.close)
-async def _menu_close(self: MenuView) -> None:
+async def menu_close(self: MenuView) -> None:
     if self.owner is None:
         return
-    ext = _render_ext(self.owner)
+    ext = render_ext(self.owner)
     ext.overlay_children.pop(self.id, None)
     self.owner.invalidate()
     self.owner = None
@@ -48,7 +48,7 @@ async def _menu_close(self: MenuView) -> None:
 # ---------------------------------------------------------------------------
 
 @impl(MenuTrigger.handle)
-async def _menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
+async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
     context: dict[str, Any] = {}
     for k, v in event.data.items():
         if k == "$args" or k.startswith("$"):
@@ -58,7 +58,7 @@ async def _menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> b
     # @-prefix: 后端注入
     inject_sources = {"event": event, "view": view}
     for k, v in self.extract.items():
-        if isinstance(v, str) and v.startswith("@"):
+        if v.startswith("@"):
             parts = v[1:].split(".")
             obj: Any = inject_sources.get(parts[0])
             for attr in parts[1:]:
@@ -66,14 +66,14 @@ async def _menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> b
             context[k] = obj
 
     # 关闭已有菜单
-    ext = _render_ext(view)
+    ext = render_ext(view)
     for child in list(ext.overlay_children.values()):
         if isinstance(child, MenuView):
             await child.close()
 
     # 创建新菜单
     menu_view = self.menu_factory(**context)
-    if not isinstance(menu_view, MenuView):
+    if not isinstance(menu_view, MenuView):  # pyright: ignore[reportUnnecessaryIsInstance]
         return False
 
     menu_view.owner = view

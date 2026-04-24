@@ -7,7 +7,7 @@ ViewPort 只负责接收 wire_tree 并发送到 Channel。
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Sequence, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING, cast
 
 import mutobj
 from mutobj import impl
@@ -44,7 +44,7 @@ class ViewRenderState(mutobj.Extension[View]):
 
 
 
-def _render_ext(view: View) -> ViewRenderState:
+def render_ext(view: View) -> ViewRenderState:
     return ViewRenderState.get_or_create(view)  # type: ignore[return-value]
 
 
@@ -53,13 +53,13 @@ def _render_ext(view: View) -> ViewRenderState:
 # ---------------------------------------------------------------------------
 
 @impl(View.render)
-def _default_render(self: View) -> ViewBlock:
+def view_render(self: View) -> ViewBlock:
     return ViewBlock([])
 
 
 @impl(View.on_event)
-async def _default_on_event(self: View, event: Event) -> bool:
-    ext = _render_ext(self)
+async def view_on_event(self: View, event: Event) -> bool:
+    ext = render_ext(self)
     handler = ext.handlers.get((event.component_id, event.name))
     if handler is not None:
         return await handler.handle(self, event)
@@ -67,8 +67,8 @@ async def _default_on_event(self: View, event: Event) -> bool:
 
 
 @impl(View.invalidate)
-def _view_invalidate(self: View) -> None:
-    ext = _render_ext(self)
+def view_invalidate(self: View) -> None:
+    ext = render_ext(self)
     ext.dirty = True
     if ext.render_scheduled:
         return
@@ -81,13 +81,13 @@ def _view_invalidate(self: View) -> None:
 
 
 @impl(View.install_event_filter)
-def _view_install_event_filter(self: View, filter: EventFilter) -> None:
-    ext = _render_ext(self)
+def view_install_event_filter(self: View, filter: EventFilter) -> None:
+    ext = render_ext(self)
     ext.event_filters.append(filter)
 
 
 @impl(View.handle_event)
-async def _view_handle_event(self: View, event: dict[str, Any]) -> None:
+async def view_handle_event(self: View, event: dict[str, Any]) -> None:
     source = event.get("source", [])
     event_name = event.get("event", "")
     data = event.get("data", {})
@@ -98,15 +98,15 @@ async def _view_handle_event(self: View, event: dict[str, Any]) -> None:
 
 
 @impl(View.render_viewport)
-def _default_render_viewport(
+def view_render_viewport(
     self: View, wire_tree: list[dict[str, Any]], channel_id: int,
 ) -> list[dict[str, Any]]:
     return wire_tree
 
 
 @impl(View.rendered)
-async def _view_rendered(self: View) -> None:
-    ext = _render_ext(self)
+async def view_rendered(self: View) -> None:
+    ext = render_ext(self)
     if not ext.dirty and not ext.render_scheduled:
         return
     if ext.render_event is None:
@@ -128,7 +128,7 @@ async def _route_event(
     viewport_id: int | None = None,
 ) -> None:
     """按 source 数组逐层路由事件。"""
-    ext = _render_ext(view)
+    ext = render_ext(view)
     if len(source) > 1:
         child_id = source[0]
         child_view = ext.children.get(child_id)
@@ -156,7 +156,7 @@ async def _route_event(
 
 def _render_and_cache(view: View) -> None:
     """render -> serialize -> 缓存 wire_tree + handlers + children。"""
-    ext = _render_ext(view)
+    ext = render_ext(view)
     block = view.render()
 
     ext.handlers.clear()
@@ -171,7 +171,7 @@ def _render_and_cache(view: View) -> None:
 
     # 递归 render dirty 子 View
     for child_view in ext.children.values():
-        child_ext = _render_ext(child_view)
+        child_ext = render_ext(child_view)
         if child_ext.dirty:
             _render_and_cache(child_view)
             child_ext.dirty = False
@@ -179,7 +179,7 @@ def _render_and_cache(view: View) -> None:
 
 async def _deferred_render(view: View) -> None:
     """deferred render callback — render -> push -> signal。"""
-    ext = _render_ext(view)
+    ext = render_ext(view)
     ext.render_scheduled = False
 
     if not ext.dirty:
@@ -208,7 +208,7 @@ async def _deferred_render(view: View) -> None:
 
 def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
     """处理列表：组件 dict 或 View 实例。"""
-    ext = _render_ext(view)
+    ext = render_ext(view)
     result: list[dict[str, Any]] = []
     for item in items:
         if isinstance(item, View):
@@ -221,12 +221,13 @@ def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
 
 def _process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
     """处理单个组件节点：检测 EventHandler，处理 $children。"""
-    ext = _render_ext(view)
+    ext = render_ext(view)
     result: dict[str, Any] = {}
     node_id: str | int = node.get("$id", "")
     for key, val in node.items():
         if key == "$children" and isinstance(val, list):
-            result[key] = _process_items(view, val)
+            children = cast(list[Any], val)
+            result[key] = _process_items(view, children)
         elif isinstance(val, EventHandler):
             ext.handlers[(node_id, key)] = val
             result[key] = val.to_wire()

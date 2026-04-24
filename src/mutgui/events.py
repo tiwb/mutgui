@@ -82,7 +82,7 @@ class Callback(EventHandler):
         # @-prefix: 后端注入（@event.xxx / @view）
         inject_sources = {"event": event, "view": view}
         for k, v in self.extract.items():
-            if isinstance(v, str) and v.startswith("@"):
+            if v.startswith("@"):
                 parts = v[1:].split(".")
                 obj = inject_sources.get(parts[0])
                 for attr in parts[1:]:
@@ -96,7 +96,7 @@ class Callback(EventHandler):
     def to_wire(self) -> dict[str, Any]:
         wire: dict[str, str | list[str]] = {
             k: v for k, v in self.extract.items()
-            if not (isinstance(v, str) and v.startswith("@"))
+            if not v.startswith("@")
         }
         if self.args:
             wire["$args"] = list(self.args)

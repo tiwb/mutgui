@@ -13,7 +13,7 @@ from typing import Any
 
 from .events import Callback
 from .view import View, ViewBlock
-from ._viewport_impl import _filter_children_in_tree
+from ._viewport_impl import filter_children_in_tree
 
 
 class VirtualListItemAdapter:
@@ -51,9 +51,8 @@ class VirtualListItemAdapter:
 
         VirtualList 会重新查询 adapter，对比 id，复用/创建/销毁 View。
         """
-        if self.virtual_lists is not None:
-            for vl in self.virtual_lists:
-                vl.invalidate()
+        for vl in self.virtual_lists:
+            vl.invalidate()
 
 
 class VirtualList(View):
@@ -109,7 +108,7 @@ class VirtualList(View):
         self, wire_tree: list[dict[str, Any]], channel_id: int,
     ) -> list[dict[str, Any]]:
         allowed = self.viewport_item_ids.get(channel_id, set())
-        return _filter_children_in_tree(wire_tree, allowed)
+        return filter_children_in_tree(wire_tree, allowed)
 
     def _on_viewport(self, *, start: int, end: int, viewport_id: int) -> None:
         """Callback 回调：前端 viewport 变化时更新 per-VP viewport range。"""
@@ -144,8 +143,8 @@ class VirtualList(View):
             return
 
         # 计算并集
-        union_start = min(s for s, e in self.viewport_ranges.values())
-        union_end = max(e for s, e in self.viewport_ranges.values())
+        union_start = min(s for s, _ in self.viewport_ranges.values())
+        union_end = max(e for _, e in self.viewport_ranges.values())
 
         count = self.adapter.item_count
         union_start = min(union_start, count)

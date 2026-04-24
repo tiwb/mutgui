@@ -201,7 +201,7 @@ class DockPanel(View):
                 node.id = self._next_id("split")
             self._assign_ids(node.children[0])
             self._assign_ids(node.children[1])
-        elif isinstance(node, TabSetNode):
+        else:
             if node.id is None:
                 node.id = self._next_id("tabset")
             if node.active_id is None and node.panel_ids:
@@ -280,7 +280,7 @@ class DockPanel(View):
 
     def _build_tabset_wire(self, node: TabSetNode,
                            collapsed_ids: set[str]) -> dict[str, Any]:
-        tabs = []
+        tabs: list[dict[str, Any]] = []
         for pid in node.panel_ids:
             p = self.panels.get(pid)
             if p:
