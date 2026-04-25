@@ -11,7 +11,7 @@ import pytest
 from mutio.net.server import (
     Server, View as NetView, WebSocketView, StaticView,
     WebSocketConnection, WebSocketDisconnect,
-    Request, Response, html_response,
+    Request, Response, HTMLResponse,
 )
 
 from mutgui import View, ViewPort, Channel
@@ -69,9 +69,9 @@ class TestApp:
             async def get(self, request: Request) -> Response:
                 view_id = request.path_params["view_id"]
                 if view_id not in test_app._views:
-                    return html_response("View not found", status=404)
+                    return HTMLResponse("View not found", status_code=404)
                 html = HTML_TEMPLATE.replace("{view_id}", view_id)
-                return html_response(html)
+                return HTMLResponse(html)
 
         class _WSView(WebSocketView):
             path = "/ws/{view_id}"

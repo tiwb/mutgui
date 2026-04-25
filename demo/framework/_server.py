@@ -8,7 +8,7 @@ from typing import Any
 
 from mutgui import ViewPort
 from mutio.net.server import (
-    Server, StaticView, Response, html_response,
+    Server, StaticView, Response, HTMLResponse, RedirectResponse,
     WebSocketConnection, WebSocketDisconnect,
 )
 
@@ -146,7 +146,7 @@ class _GalleryServer(Server):
 
         # Gallery 首页
         if path == "/" and scope_type == "http":
-            resp = html_response(_gallery_html(self._demo_names))
+            resp = HTMLResponse(_gallery_html(self._demo_names))
             await _send_response(resp, send)
             return
 
@@ -160,7 +160,7 @@ class _GalleryServer(Server):
 
         # 尾斜杠重定向：/basic → /basic/
         if path == f"/{name}" and scope_type == "http":
-            resp = Response(status=301, headers={"location": f"/{name}/"})
+            resp = RedirectResponse(f"/{name}/", status_code=301)
             await _send_response(resp, send)
             return
 
@@ -172,7 +172,7 @@ class _GalleryServer(Server):
             return
 
         if scope_type == "http":
-            resp = html_response(route.get_html())
+            resp = HTMLResponse(route.get_html())
             await _send_response(resp, send)
             return
 
@@ -233,7 +233,7 @@ def run_single(
                 return
 
             if scope_type == "http":
-                resp = html_response(matched.get_html())
+                resp = HTMLResponse(matched.get_html())
                 await _send_response(resp, send)
                 return
 
