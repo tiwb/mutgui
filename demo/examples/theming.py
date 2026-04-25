@@ -20,9 +20,7 @@ from demo.framework import MutguiRoute, DemoApp
 
 
 class ThemingDemoView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.click_count = 0
+    click_count: int = 0
 
     def render(self) -> ViewBlock:
         return ViewBlock([

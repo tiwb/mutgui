@@ -3,21 +3,20 @@ from __future__ import annotations
 
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, Bind, Callback, VirtualList, VirtualListItemAdapter
 
 from demo.framework import MutguiRoute, DemoApp
 
 
 class RecordItemView(View):
-    def __init__(self, uid: int, name: str, age: int, plan: str,
-                 on_edit: Any = None, on_delete: Any = None) -> None:
-        super().__init__()
-        self.uid = uid
-        self.name = name
-        self.age = age
-        self.plan = plan
-        self.on_edit = on_edit
-        self.on_delete = on_delete
+    uid: int = 0
+    name: str = ""
+    age: int = 0
+    plan: str = ""
+    on_edit: Any = None
+    on_delete: Any = None
 
     def render(self) -> ViewBlock:
         return ViewBlock([{
@@ -71,12 +70,13 @@ class RecordItemView(View):
 
 
 class RecordAdapter(VirtualListItemAdapter):
+    records: list[tuple[int, str, int, str]] = mutobj.field(default_factory=list)
+    on_edit: Any = None
+    on_delete: Any = None
+    _next_uid: int = 0
+
     def __init__(self, on_edit: Any = None, on_delete: Any = None) -> None:
-        super().__init__()
-        self.records: list[tuple[int, str, int, str]] = []
-        self.on_edit = on_edit
-        self.on_delete = on_delete
-        self._next_uid = 0
+        super().__init__(on_edit=on_edit, on_delete=on_delete)
         plans = ["Free", "Pro", "Enterprise"]
         for i in range(100):
             self._add(f"User-{i}", 18 + (i % 50), plans[i % 3])
@@ -95,7 +95,7 @@ class RecordAdapter(VirtualListItemAdapter):
     def create_item_view(self, index: int) -> View:
         uid, name, age, plan = self.records[index]
         return RecordItemView(
-            uid, name, age, plan,
+            uid=uid, name=name, age=age, plan=plan,
             on_edit=self.on_edit, on_delete=self.on_delete,
         )
 

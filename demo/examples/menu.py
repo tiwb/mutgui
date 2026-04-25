@@ -1,6 +1,8 @@
 """菜单系统 demo — 右键菜单、下拉菜单、子菜单、带搜索的菜单。"""
 from __future__ import annotations
 
+import mutobj
+
 from mutgui import (
     View, ViewBlock, Callback, Bind,
     MenuView, MenuTrigger,
@@ -16,10 +18,8 @@ from demo.framework import MutguiRoute, DemoApp
 class TabContextMenu(MenuView):
     """右键菜单 — 演示静态菜单 + disabled。"""
 
-    def __init__(self, item_id: str = "?", page: "MenuDemoPage | None" = None) -> None:
-        super().__init__()
-        self.item_id = item_id
-        self.page = page
+    item_id: str = "?"
+    page: "MenuDemoPage | None" = None
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -51,9 +51,7 @@ class TabContextMenu(MenuView):
 class AddDropdownMenu(MenuView):
     """下拉菜单 + 子菜单触发。"""
 
-    def __init__(self, page: "MenuDemoPage | None" = None) -> None:
-        super().__init__()
-        self.page = page
+    page: "MenuDemoPage | None" = None
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -64,7 +62,7 @@ class AddDropdownMenu(MenuView):
              "label": "New from Template", "icon": "▣",
              "hasSubmenu": True, "closeOnClick": False,
              "onMouseEnter": MenuTrigger(
-                 lambda: TemplateSubmenu(self.page),
+                 lambda: TemplateSubmenu(page=self.page),
                  placement="right",
              )},
             {"$component": "mutgui.Menu.Divider"},
@@ -85,9 +83,7 @@ class AddDropdownMenu(MenuView):
 class TemplateSubmenu(MenuView):
     """子菜单。"""
 
-    def __init__(self, page: "MenuDemoPage | None" = None) -> None:
-        super().__init__()
-        self.page = page
+    page: "MenuDemoPage | None" = None
 
     def render(self) -> ViewBlock:
         templates = ["Empty", "Python Script", "React App", "FastAPI Service"]
@@ -119,10 +115,8 @@ class CommandPalette(MenuView):
         ("term.toggle", "Terminal: Toggle", "Ctrl+`"),
     ]
 
-    def __init__(self, page: "MenuDemoPage | None" = None) -> None:
-        super().__init__()
-        self.query = ""
-        self.page = page
+    query: str = ""
+    page: "MenuDemoPage | None" = None
 
     def render(self) -> ViewBlock:
         q = self.query.lower()
@@ -173,9 +167,7 @@ class CommandPalette(MenuView):
 # ---------------------------------------------------------------------------
 
 class MenuDemoPage(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.log_lines: list[str] = []
+    log_lines: list[str] = mutobj.field(default_factory=list)
 
     def log(self, msg: str) -> None:
         self.log_lines.append(msg)
@@ -205,7 +197,7 @@ class MenuDemoPage(View):
                           {"$component": "div", "$id": f"item-{n}",
                            "data-id": f"tab-{n}",
                            "onContextMenu": MenuTrigger(
-                               lambda item_id: TabContextMenu(item_id, self),
+                               lambda item_id: TabContextMenu(item_id=item_id, page=self),
                                item_id="$0.currentTarget.dataset.id",
                            ),
                            "style": {
@@ -229,7 +221,7 @@ class MenuDemoPage(View):
                       "children": "Dropdown menu (with submenu)"},
                      {"$component": "button", "$id": "add-btn",
                       "onClick": MenuTrigger(
-                          lambda: AddDropdownMenu(self),
+                          lambda: AddDropdownMenu(page=self),
                           placement="bottom",
                       ),
                       "style": {
@@ -250,7 +242,7 @@ class MenuDemoPage(View):
                       "children": "Searchable menu (Command Palette)"},
                      {"$component": "button", "$id": "cmd-btn",
                       "onClick": MenuTrigger(
-                          lambda: CommandPalette(self),
+                          lambda: CommandPalette(page=self),
                           placement="bottom",
                       ),
                       "style": {

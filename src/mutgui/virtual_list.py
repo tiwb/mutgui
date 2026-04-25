@@ -11,22 +11,20 @@ from __future__ import annotations
 
 from typing import Any
 
+import mutobj
+
 from .events import Callback
 from .view import View, ViewBlock
 from ._viewport_impl import filter_children_in_tree
 
 
-class VirtualListItemAdapter:
+class VirtualListItemAdapter(mutobj.Declaration):
     """VirtualList 的 item 数据适配器。
 
     应用继承此类，提供业务数据到 View 的映射。
     """
 
-    virtual_lists: list[VirtualList]
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.virtual_lists = []
+    virtual_lists: list[VirtualList] = mutobj.field(default_factory=list)
 
     @property
     def item_count(self) -> int:

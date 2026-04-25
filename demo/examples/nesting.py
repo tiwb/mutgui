@@ -3,19 +3,18 @@ from __future__ import annotations
 
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, Bind
 
 from demo.framework import MutguiRoute, DemoApp
 
 
 class ProfileView(View):
-    id = "profile"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.name = ""
-        self.age = 18
-        self._render_count = 0
+    id: str | int = "profile"
+    name: str = ""
+    age: int = 18
+    _render_count: int = 0
 
     def render(self) -> ViewBlock:
         self._render_count += 1
@@ -42,14 +41,11 @@ class ProfileView(View):
 
 
 class SubscriptionView(View):
-    id = "subscription"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.subscribe = False
-        self.email = ""
-        self.plan = "free"
-        self._render_count = 0
+    id: str | int = "subscription"
+    subscribe: bool = False
+    email: str = ""
+    plan: str = "free"
+    _render_count: int = 0
 
     def render(self) -> ViewBlock:
         self._render_count += 1
@@ -93,11 +89,9 @@ class SubscriptionView(View):
 
 
 class NestingView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.profile = ProfileView()
-        self.subscription = SubscriptionView()
-        self._render_count = 0
+    profile: ProfileView = mutobj.field(default_factory=ProfileView)
+    subscription: SubscriptionView = mutobj.field(default_factory=SubscriptionView)
+    _render_count: int = 0
 
     def render(self) -> ViewBlock:
         self._render_count += 1

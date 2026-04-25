@@ -12,11 +12,8 @@ from demo.framework import MutguiRoute, DemoApp
 
 
 class SimplePanelView(View):
-    def __init__(self, panel_id: str, title: str) -> None:
-        super().__init__()
-        self.id = panel_id
-        self.title = title
-        self.click_count = 0
+    title: str = ""
+    click_count: int = 0
 
     def render(self) -> ViewBlock:
         wrap_style: dict[str, Any] = {

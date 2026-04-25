@@ -9,14 +9,12 @@ from demo.framework import MutguiRoute, DemoApp
 
 
 class AntdFormView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.name = ""
-        self.age = 18
-        self.subscribe = False
-        self.email = ""
-        self.plan = "free"
-        self.message = ""
+    name: str = ""
+    age: int = 18
+    subscribe: bool = False
+    email: str = ""
+    plan: str = "free"
+    message: str = ""
 
     def render(self) -> ViewBlock:
         items: list[dict[str, Any]] = [

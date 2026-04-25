@@ -9,6 +9,8 @@ from __future__ import annotations
 import uuid
 from typing import Any, Callable, TYPE_CHECKING
 
+import mutobj
+
 from .events import EventHandler
 from .view import View
 
@@ -23,11 +25,8 @@ class MenuView(View):
     自然解决 per-viewport 问题。
     """
 
+    id: str | int = mutobj.field(default_factory=lambda: f"$menu:{uuid.uuid4().hex[:8]}")
     owner: View | None = None
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.id = f"$menu:{uuid.uuid4().hex[:8]}"
 
     async def close(self) -> None:
         """关闭菜单 — 从宿主 View 移除自身。"""
