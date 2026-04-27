@@ -15,6 +15,12 @@ export interface ComponentSource extends NamespacedSource {}
 
 const sources: ComponentSource[] = [];
 
+function isRenderableComponentType(hit: unknown): hit is ComponentType<any> {
+  if (typeof hit === 'function') return true;
+  if (typeof hit !== 'object' || hit == null) return false;
+  return '$$typeof' in (hit as Record<string, unknown>);
+}
+
 /** 注册一组组件到解析链（后加入的优先级更高）。 */
 export function registerComponents(source: ComponentSource): void {
   sources.unshift(source);
@@ -23,6 +29,6 @@ export function registerComponents(source: ComponentSource): void {
 /** 按名字解析组件。返回 React 组件或字符串（原生 HTML 元素）。 */
 export function resolve(name: string): ComponentType<any> | string {
   const hit = resolveFromSources(sources, name);
-  if (typeof hit === 'function') return hit as ComponentType<any>;
+  if (isRenderableComponentType(hit)) return hit;
   return name;
 }
