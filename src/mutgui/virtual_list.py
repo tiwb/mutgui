@@ -71,16 +71,26 @@ class VirtualList(View):
         adapter: VirtualListItemAdapter,
         *,
         sync_scroll: bool = False,
+        stick_to_bottom: bool = False,
+        estimated_item_height: int = 32,
     ) -> None:
         super().__init__()
+        if sync_scroll and stick_to_bottom:
+            raise ValueError(
+                "VirtualList sync_scroll 和 stick_to_bottom 不能同时为 True",
+            )
         self.id = id
         self.adapter = adapter
         adapter.virtual_lists.append(self)
         self.item_views: dict[str, View] = {}
         self.viewport_ranges: dict[int, tuple[int, int]] = {}  # channel_id → (start, end)
         self.viewport_item_ids: dict[int, set[str]] = {}  # channel_id → visible item IDs
+        self.rendered_viewport_ranges: dict[int, tuple[int, int]] = {}
+        self.rendered_viewport_ids: dict[int, list[str]] = {}
         self.visible_ids: list[str] = []
         self.sync_scroll = sync_scroll
+        self.stick_to_bottom = stick_to_bottom
+        self.estimated_item_height = estimated_item_height
         self.scroll_top: float = 0
 
     def render(self) -> ViewBlock:
@@ -91,6 +101,10 @@ class VirtualList(View):
             "$component": "mutgui.VirtualList",
             "$id": "list",
             "itemCount": self.adapter.item_count,
+            "itemIds": self.visible_ids,
+            "viewportStart": 0,
+            "stickToBottom": self.stick_to_bottom,
+            "estimatedItemHeight": self.estimated_item_height,
             "onViewport": Callback(
                 self._on_viewport, start="$0.start", end="$0.end",
                 viewport_id="@event.viewport_id",
@@ -108,7 +122,12 @@ class VirtualList(View):
         self, wire_tree: list[dict[str, Any]], channel_id: int,
     ) -> list[dict[str, Any]]:
         allowed = self.viewport_item_ids.get(channel_id, set())
-        return filter_children_in_tree(wire_tree, allowed)
+        filtered = filter_children_in_tree(wire_tree, allowed)
+        if filtered:
+            start, _ = self.rendered_viewport_ranges.get(channel_id, (0, 0))
+            filtered[0]["viewportStart"] = start
+            filtered[0]["itemIds"] = self.rendered_viewport_ids.get(channel_id, [])
+        return filtered
 
     def _on_viewport(self, *, start: int, end: int, viewport_id: int) -> None:
         """Callback 回调：前端 viewport 变化时更新 per-VP viewport range。"""
@@ -140,6 +159,8 @@ class VirtualList(View):
             self.visible_ids = []
             self.item_views.clear()
             self.viewport_item_ids = {}
+            self.rendered_viewport_ranges = {}
+            self.rendered_viewport_ids = {}
             return
 
         # 计算并集
@@ -167,9 +188,17 @@ class VirtualList(View):
 
         # 预计算 per-VP 的 item ID 集合
         viewport_item_ids: dict[int, set[str]] = {}
+        rendered_viewport_ranges: dict[int, tuple[int, int]] = {}
+        rendered_viewport_ids: dict[int, list[str]] = {}
         for vp_id, (s, e) in self.viewport_ranges.items():
             s, e = min(s, count), min(e, count)
+            rendered_viewport_ranges[vp_id] = (s, e)
+            rendered_viewport_ids[vp_id] = [
+                self.adapter.item_id(i) for i in range(s, e)
+            ]
             viewport_item_ids[vp_id] = {
                 self.adapter.item_id(i) for i in range(s, e)
             }
         self.viewport_item_ids = viewport_item_ids
+        self.rendered_viewport_ranges = rendered_viewport_ranges
+        self.rendered_viewport_ids = rendered_viewport_ids

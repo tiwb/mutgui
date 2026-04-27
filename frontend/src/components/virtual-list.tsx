@@ -5,11 +5,287 @@
  * 前端负责滚动容器、高度估算、viewport 计算和防抖。
  * children 由框架从 $children 渲染为 MutguiView 列表。
  */
-import { useRef, useState, useCallback, useEffect, Children } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo, Children } from 'react';
 
 const DEFAULT_ITEM_HEIGHT = 32;
 const DEFAULT_OVERSCAN = 5;
 const VIEWPORT_THROTTLE_MS = 50;
+const USER_SCROLL_IDLE_MS = 100;
+export const FOLLOW_THRESHOLD_PX = 32;
+const USER_SCROLL_KEYS = new Set([
+  'ArrowDown',
+  'ArrowUp',
+  'End',
+  'Home',
+  'PageDown',
+  'PageUp',
+  'Space',
+  ' ',
+ ]);
+
+export type FollowState = 'FOLLOWING' | 'DETACHED';
+export type ScrollCause = 'USER' | 'LAYOUT_OR_PROGRAMMATIC';
+
+export interface FollowStateInput {
+  previousState: FollowState;
+  previousScrollTop: number;
+  currentScrollTop: number;
+  clientHeight: number;
+  scrollHeight: number;
+  threshold?: number;
+}
+
+export interface FollowStateOnScrollInput extends FollowStateInput {
+  cause: ScrollCause;
+}
+
+export interface ScrollCauseInput {
+  isProgrammaticScroll: boolean;
+  hasPendingUserIntent: boolean;
+  isPointerDragging: boolean;
+}
+
+export interface VirtualLayoutInput {
+  itemCount: number;
+  viewportStart: number;
+  visibleItemIds: string[];
+  indexToId: ReadonlyMap<number, string>;
+  heightMap: ReadonlyMap<string, number>;
+  estimatedItemHeight: number;
+}
+
+export interface ViewportRangeInput extends VirtualLayoutInput {
+  scrollTop: number;
+  clientHeight: number;
+  overscan: number;
+}
+
+export interface ScrollAnchor {
+  index: number;
+  offsetWithinItem: number;
+}
+
+export interface VirtualLayout {
+  totalHeight: number;
+  offsetTop: number;
+}
+
+export interface ViewportRange {
+  start: number;
+  end: number;
+}
+
+function getItemIdAtIndex(
+  index: number,
+  viewportStart: number,
+  visibleItemIds: string[],
+  indexToId: ReadonlyMap<number, string>,
+): string | null {
+  const visibleOffset = index - viewportStart;
+  if (visibleOffset >= 0 && visibleOffset < visibleItemIds.length) {
+    return visibleItemIds[visibleOffset] ?? null;
+  }
+  return indexToId.get(index) ?? null;
+}
+
+export function getEstimatedItemHeight(
+  measuredHeightSum: number,
+  measuredCount: number,
+  bootstrapEstimatedItemHeight: number,
+): number {
+  if (measuredCount <= 0) {
+    return bootstrapEstimatedItemHeight;
+  }
+  return measuredHeightSum / measuredCount;
+}
+
+function getItemHeightAtIndex(
+  index: number,
+  estimatedItemHeight: number,
+  viewportStart: number,
+  visibleItemIds: string[],
+  indexToId: ReadonlyMap<number, string>,
+  heightMap: ReadonlyMap<string, number>,
+): number {
+  const itemId = getItemIdAtIndex(index, viewportStart, visibleItemIds, indexToId);
+  if (!itemId) {
+    return estimatedItemHeight;
+  }
+  return heightMap.get(itemId) ?? estimatedItemHeight;
+}
+
+export function calculateScrollAnchor(input: {
+  itemCount: number;
+  scrollTop: number;
+  viewportStart: number;
+  visibleItemIds: string[];
+  indexToId: ReadonlyMap<number, string>;
+  heightMap: ReadonlyMap<string, number>;
+  estimatedItemHeight: number;
+}): ScrollAnchor {
+  if (input.itemCount <= 0) {
+    return { index: 0, offsetWithinItem: 0 };
+  }
+
+  let offsetTop = 0;
+  for (let index = 0; index < input.itemCount; index += 1) {
+    const height = getItemHeightAtIndex(
+      index,
+      input.estimatedItemHeight,
+      input.viewportStart,
+      input.visibleItemIds,
+      input.indexToId,
+      input.heightMap,
+    );
+    if (input.scrollTop < offsetTop + height) {
+      return {
+        index,
+        offsetWithinItem: Math.max(0, input.scrollTop - offsetTop),
+      };
+    }
+    offsetTop += height;
+  }
+
+  const lastIndex = input.itemCount - 1;
+  const lastHeight = getItemHeightAtIndex(
+    lastIndex,
+    input.estimatedItemHeight,
+    input.viewportStart,
+    input.visibleItemIds,
+    input.indexToId,
+    input.heightMap,
+  );
+  return {
+    index: lastIndex,
+    offsetWithinItem: Math.max(0, Math.min(lastHeight, input.scrollTop - (offsetTop - lastHeight))),
+  };
+}
+
+export function calculateVirtualLayout(input: VirtualLayoutInput): VirtualLayout {
+  let totalHeight = 0;
+  for (let index = 0; index < input.itemCount; index += 1) {
+    totalHeight += getItemHeightAtIndex(
+      index,
+      input.estimatedItemHeight,
+      input.viewportStart,
+      input.visibleItemIds,
+      input.indexToId,
+      input.heightMap,
+    );
+  }
+
+  let offsetTop = 0;
+  for (let index = 0; index < input.viewportStart; index += 1) {
+    offsetTop += getItemHeightAtIndex(
+      index,
+      input.estimatedItemHeight,
+      input.viewportStart,
+      input.visibleItemIds,
+      input.indexToId,
+      input.heightMap,
+    );
+  }
+
+  return {
+    totalHeight,
+    offsetTop,
+  };
+}
+
+export function calculateViewportRange(input: ViewportRangeInput): ViewportRange {
+  const anchor = calculateScrollAnchor({
+    itemCount: input.itemCount,
+    scrollTop: input.scrollTop,
+    viewportStart: input.viewportStart,
+    visibleItemIds: input.visibleItemIds,
+    indexToId: input.indexToId,
+    heightMap: input.heightMap,
+    estimatedItemHeight: input.estimatedItemHeight,
+  });
+  const visibleStart = anchor.index;
+
+  let visibleEnd = visibleStart;
+  let remaining = anchor.offsetWithinItem + input.clientHeight;
+  while (visibleEnd < input.itemCount && remaining > 0) {
+    remaining -= getItemHeightAtIndex(
+      visibleEnd,
+      input.estimatedItemHeight,
+      input.viewportStart,
+      input.visibleItemIds,
+      input.indexToId,
+      input.heightMap,
+    );
+    visibleEnd += 1;
+  }
+  if (input.itemCount > 0 && visibleEnd === visibleStart) {
+    visibleEnd = visibleStart + 1;
+  }
+
+  return {
+    start: Math.max(0, visibleStart - input.overscan),
+    end: Math.min(input.itemCount, visibleEnd + input.overscan),
+  };
+}
+
+export function resolveFollowState(params: {
+  scrollTop: number;
+  clientHeight: number;
+  scrollHeight: number;
+  threshold?: number;
+}): FollowState {
+  const distanceFromBottom = Math.max(0, params.scrollHeight - params.clientHeight - params.scrollTop);
+  return distanceFromBottom <= (params.threshold ?? FOLLOW_THRESHOLD_PX) ? 'FOLLOWING' : 'DETACHED';
+}
+
+export function resolveFollowStateOnUserScroll(params: FollowStateInput): FollowState {
+  const threshold = params.threshold ?? FOLLOW_THRESHOLD_PX;
+  const distanceFromBottom = Math.max(
+    0,
+    params.scrollHeight - params.clientHeight - params.currentScrollTop,
+  );
+  const isScrollingUp = params.currentScrollTop < params.previousScrollTop - 1;
+
+  if (isScrollingUp || distanceFromBottom > threshold) {
+    return 'DETACHED';
+  }
+  if (distanceFromBottom <= threshold) {
+    return 'FOLLOWING';
+  }
+  return params.previousState;
+}
+
+export function resolveScrollCause(params: ScrollCauseInput): ScrollCause {
+  if (params.isProgrammaticScroll) {
+    return 'LAYOUT_OR_PROGRAMMATIC';
+  }
+  if (params.hasPendingUserIntent || params.isPointerDragging) {
+    return 'USER';
+  }
+  return 'LAYOUT_OR_PROGRAMMATIC';
+}
+
+export function resolveFollowStateOnScroll(params: FollowStateOnScrollInput): FollowState {
+  if (params.cause === 'USER') {
+    return resolveFollowStateOnUserScroll(params);
+  }
+  const nextState = resolveFollowState({
+    scrollTop: params.currentScrollTop,
+    clientHeight: params.clientHeight,
+    scrollHeight: params.scrollHeight,
+    threshold: params.threshold,
+  });
+  return nextState === 'FOLLOWING' ? 'FOLLOWING' : params.previousState;
+}
+
+export function shouldAutoRefreshViewport(params: {
+  stickToBottom: boolean;
+  followState: FollowState;
+}): boolean {
+  if (!params.stickToBottom) {
+    return true;
+  }
+  return params.followState === 'FOLLOWING';
+}
 
 interface VirtualListProps {
   itemCount: number;
@@ -19,6 +295,10 @@ interface VirtualListProps {
   scrollTop?: number;
   overscan?: number;
   style?: React.CSSProperties;
+  stickToBottom?: boolean;
+  estimatedItemHeight?: number;
+  itemIds?: string[];
+  viewportStart?: number;
 }
 
 export function VirtualList({
@@ -29,86 +309,226 @@ export function VirtualList({
   scrollTop: scrollTopProp,
   overscan = DEFAULT_OVERSCAN,
   style,
+  stickToBottom = false,
+  estimatedItemHeight = DEFAULT_ITEM_HEIGHT,
+  itemIds = [],
+  viewportStart = 0,
 }: VirtualListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // throttle 状态
+  const heightMapRef = useRef(new Map<string, number>());
+  const indexToIdRef = useRef(new Map<number, string>());
+  const idToIndexRef = useRef(new Map<string, number>());
+  const itemElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const pendingMeasureIdsRef = useRef(new Set<string>());
+  const stagedHeightUpdatesRef = useRef(new Map<string, number>());
+  const measureRafRef = useRef<number | null>(null);
+  const measuredHeightSumRef = useRef(0);
+  const measuredCountRef = useRef(0);
+  const followStateRef = useRef<FollowState>('FOLLOWING');
+  const userScrollingRef = useRef(false);
+  const userScrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLayoutApplyRef = useRef(false);
   const lastFireRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
   const trailingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 当前 viewport 范围（已发送给后端）
   const sentViewportRef = useRef<{ start: number; end: number }>({
     start: -1,
     end: -1,
   });
-
-  // item 起始 index
-  const [viewportStart, setViewportStart] = useState(0);
-
-  // 防循环：programmatic scroll 时跳过 onScroll 回发
+  const [layoutVersion, setLayoutVersion] = useState(0);
   const isProgrammaticScrollRef = useRef(false);
+  const pendingUserScrollIntentRef = useRef(false);
+  const pointerDraggingRef = useRef(false);
 
-  const estimatedTotalHeight = itemCount * DEFAULT_ITEM_HEIGHT;
+  const visibleChildren = Children.toArray(children);
+  const effectiveEstimatedItemHeight = getEstimatedItemHeight(
+    measuredHeightSumRef.current,
+    measuredCountRef.current,
+    estimatedItemHeight,
+  );
+
+  const layout = useMemo(
+    () => calculateVirtualLayout({
+      itemCount,
+      viewportStart,
+      visibleItemIds: itemIds,
+      indexToId: indexToIdRef.current,
+      heightMap: heightMapRef.current,
+      estimatedItemHeight: effectiveEstimatedItemHeight,
+    }),
+    [itemCount, viewportStart, itemIds, effectiveEstimatedItemHeight, visibleChildren.length, layoutVersion],
+  );
+
+  const applyMeasuredHeightUpdates = useCallback((updates: Map<string, number>) => {
+    let changed = false;
+    for (const [itemId, nextHeight] of updates) {
+      const prevHeight = heightMapRef.current.get(itemId);
+      if (prevHeight == null || Math.abs(prevHeight - nextHeight) > 0.5) {
+        if (prevHeight == null) {
+          measuredHeightSumRef.current += nextHeight;
+          measuredCountRef.current += 1;
+        } else {
+          measuredHeightSumRef.current += nextHeight - prevHeight;
+        }
+        heightMapRef.current.set(itemId, nextHeight);
+        changed = true;
+      }
+    }
+    return changed;
+  }, []);
+
+  const flushMeasuredHeights = useCallback(() => {
+    measureRafRef.current = null;
+    const updates = new Map<string, number>();
+    for (const itemId of pendingMeasureIdsRef.current) {
+      const element = itemElementsRef.current.get(itemId);
+      if (!element) continue;
+      const nextHeight = Math.max(1, element.getBoundingClientRect().height);
+      updates.set(itemId, nextHeight);
+    }
+    pendingMeasureIdsRef.current.clear();
+
+    if (updates.size === 0) return;
+
+    const el = containerRef.current;
+    if (stickToBottom && followStateRef.current === 'FOLLOWING' && el) {
+      const targetScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      if (Math.abs(el.scrollTop - targetScrollTop) >= 1) {
+        isProgrammaticScrollRef.current = true;
+        el.scrollTop = targetScrollTop;
+      }
+    }
+
+    if (userScrollingRef.current && followStateRef.current !== 'FOLLOWING') {
+      for (const [itemId, nextHeight] of updates) {
+        stagedHeightUpdatesRef.current.set(itemId, nextHeight);
+      }
+      pendingLayoutApplyRef.current = true;
+      return;
+    }
+
+    for (const [itemId, nextHeight] of stagedHeightUpdatesRef.current) {
+      updates.set(itemId, nextHeight);
+    }
+    stagedHeightUpdatesRef.current.clear();
+    const changed = applyMeasuredHeightUpdates(updates);
+    if (!changed) return;
+
+    setLayoutVersion((version) => version + 1);
+  }, [applyMeasuredHeightUpdates, stickToBottom]);
+
+  const scheduleMeasuredHeightsFlush = useCallback(() => {
+    if (measureRafRef.current != null) return;
+    measureRafRef.current = requestAnimationFrame(flushMeasuredHeights);
+  }, [flushMeasuredHeights]);
 
   const calculateViewport = useCallback(() => {
     const el = containerRef.current;
     if (!el || !onViewport) return;
-
-    const scrollTop = el.scrollTop;
-    const clientHeight = el.clientHeight;
-
-    const start = Math.max(0, Math.floor(scrollTop / DEFAULT_ITEM_HEIGHT) - overscan);
-    const visibleCount = Math.ceil(clientHeight / DEFAULT_ITEM_HEIGHT);
-    const end = Math.min(itemCount, start + visibleCount + overscan * 2);
-
-    // 只在范围真正变化时发送
+    const nextRange = calculateViewportRange({
+      itemCount,
+      scrollTop: el.scrollTop,
+      clientHeight: el.clientHeight,
+      overscan,
+      viewportStart,
+      visibleItemIds: itemIds,
+      indexToId: indexToIdRef.current,
+      heightMap: heightMapRef.current,
+      estimatedItemHeight: getEstimatedItemHeight(
+        measuredHeightSumRef.current,
+        measuredCountRef.current,
+        estimatedItemHeight,
+      ),
+    });
     const prev = sentViewportRef.current;
-    if (prev.start === start && prev.end === end) return;
+    if (prev.start === nextRange.start && prev.end === nextRange.end) return;
 
-    sentViewportRef.current = { start, end };
-    setViewportStart(start);
-    onViewport({ start, end });
-  }, [itemCount, onViewport]);
+    sentViewportRef.current = { start: nextRange.start, end: nextRange.end };
+    onViewport({ start: nextRange.start, end: nextRange.end });
+  }, [estimatedItemHeight, itemCount, itemIds, layoutVersion, onViewport, overscan, viewportStart]);
 
-  // leading + trailing throttle
+  const scheduleUserScrollIdle = useCallback(() => {
+    userScrollingRef.current = true;
+    if (userScrollIdleTimerRef.current) {
+      clearTimeout(userScrollIdleTimerRef.current);
+    }
+    userScrollIdleTimerRef.current = setTimeout(() => {
+      userScrollingRef.current = false;
+      userScrollIdleTimerRef.current = null;
+      if (pendingLayoutApplyRef.current) {
+        pendingLayoutApplyRef.current = false;
+        const changed = applyMeasuredHeightUpdates(stagedHeightUpdatesRef.current);
+        stagedHeightUpdatesRef.current.clear();
+        if (changed) {
+          setLayoutVersion((version) => version + 1);
+        }
+      }
+    }, USER_SCROLL_IDLE_MS);
+  }, [applyMeasuredHeightUpdates]);
+
   const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const scrollCause = resolveScrollCause({
+      isProgrammaticScroll: isProgrammaticScrollRef.current,
+      hasPendingUserIntent: pendingUserScrollIntentRef.current,
+      isPointerDragging: pointerDraggingRef.current,
+    });
+
+    if (scrollCause === 'USER') {
+      scheduleUserScrollIdle();
+    }
+
+    if (stickToBottom) {
+      followStateRef.current = resolveFollowStateOnScroll({
+        cause: scrollCause,
+        previousState: followStateRef.current,
+        previousScrollTop: lastScrollTopRef.current,
+        currentScrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+      });
+    }
+    lastScrollTopRef.current = el.scrollTop;
+
     const now = Date.now();
     const elapsed = now - lastFireRef.current;
 
     if (trailingRef.current) clearTimeout(trailingRef.current);
 
     if (elapsed >= VIEWPORT_THROTTLE_MS) {
-      // leading: 距上次已超过间隔，立即触发
       lastFireRef.current = now;
       calculateViewport();
     }
-    // trailing: 确保滚动结束后也触发一次
     trailingRef.current = setTimeout(() => {
       lastFireRef.current = Date.now();
       calculateViewport();
     }, VIEWPORT_THROTTLE_MS);
 
-    // sync scroll: 回报滚动位置（仅用户主动滚动时）
     if (onScrollHandler && !isProgrammaticScrollRef.current) {
-      const el = containerRef.current;
-      if (el) {
-        onScrollHandler({ scrollTop: el.scrollTop });
-      }
+      onScrollHandler({ scrollTop: el.scrollTop });
     }
+    pendingUserScrollIntentRef.current = false;
     isProgrammaticScrollRef.current = false;
-  }, [calculateViewport, onScrollHandler]);
+  }, [calculateViewport, onScrollHandler, scheduleUserScrollIdle, stickToBottom]);
 
-  // 初始 viewport 计算（组件挂载后）
   useEffect(() => {
-    // 等一帧让容器有尺寸
-    requestAnimationFrame(() => calculateViewport());
+    const rafId = requestAnimationFrame(() => calculateViewport());
+    return () => cancelAnimationFrame(rafId);
   }, [calculateViewport]);
 
-  // itemCount 变化时重新计算（可能需要调整 viewport）
   useEffect(() => {
+    if (!shouldAutoRefreshViewport({
+      stickToBottom,
+      followState: followStateRef.current,
+    })) {
+      return;
+    }
     calculateViewport();
-  }, [itemCount, calculateViewport]);
+  }, [itemCount, itemIds, layoutVersion, calculateViewport, stickToBottom]);
 
-  // sync scroll: 收到后端 scrollTop 时 programmatically 滚动
   useEffect(() => {
     if (scrollTopProp == null) return;
     const el = containerRef.current;
@@ -116,32 +536,167 @@ export function VirtualList({
     if (Math.abs(el.scrollTop - scrollTopProp) < 1) return;
     isProgrammaticScrollRef.current = true;
     el.scrollTop = scrollTopProp;
+    lastScrollTopRef.current = scrollTopProp;
   }, [scrollTopProp]);
 
-  const offsetTop = viewportStart * DEFAULT_ITEM_HEIGHT;
+  useEffect(() => {
+    const indexToId = indexToIdRef.current;
+    const idToIndex = idToIndexRef.current;
+
+    for (const [index, itemId] of Array.from(indexToId.entries())) {
+      if (index >= itemCount) {
+        indexToId.delete(index);
+        if (idToIndex.get(itemId) === index) {
+          idToIndex.delete(itemId);
+        }
+      }
+    }
+
+    itemIds.forEach((itemId, offset) => {
+      const index = viewportStart + offset;
+      const previousId = indexToId.get(index);
+      if (previousId && previousId !== itemId) {
+        idToIndex.delete(previousId);
+      }
+      const previousIndex = idToIndex.get(itemId);
+      if (previousIndex != null && previousIndex !== index) {
+        indexToId.delete(previousIndex);
+      }
+      indexToId.set(index, itemId);
+      idToIndex.set(itemId, index);
+    });
+  }, [itemCount, itemIds, viewportStart]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const itemId = (entry.target as HTMLElement).dataset.itemId;
+        if (itemId) {
+          pendingMeasureIdsRef.current.add(itemId);
+        }
+      }
+      scheduleMeasuredHeightsFlush();
+    });
+    resizeObserverRef.current = observer;
+    return () => {
+      observer.disconnect();
+      resizeObserverRef.current = null;
+      if (measureRafRef.current != null) {
+        cancelAnimationFrame(measureRafRef.current);
+        measureRafRef.current = null;
+      }
+    };
+  }, [scheduleMeasuredHeightsFlush]);
+
+  useEffect(() => {
+    if (!stickToBottom || followStateRef.current !== 'FOLLOWING') return;
+    const el = containerRef.current;
+    if (!el) return;
+    const targetScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (Math.abs(el.scrollTop - targetScrollTop) < 1) return;
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = targetScrollTop;
+    lastScrollTopRef.current = targetScrollTop;
+    calculateViewport();
+    // 依赖 layoutVersion：流式追加内容只改变同一 item 高度，itemCount/itemIds 不变，
+    // 必须靠 layoutVersion 触发，否则 spacer 长高后 scrollTop 不会被回推到新底部。
+  }, [calculateViewport, itemCount, itemIds, stickToBottom, layoutVersion]);
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      const el = containerRef.current;
+      if (!el || !USER_SCROLL_KEYS.has(event.key)) return;
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement !== el && !el.contains(activeElement)) {
+        return;
+      }
+      pendingUserScrollIntentRef.current = true;
+    };
+    const clearPointerDragging = () => {
+      pointerDraggingRef.current = false;
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown, true);
+    window.addEventListener('pointercancel', clearPointerDragging, true);
+    window.addEventListener('pointerup', clearPointerDragging, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown, true);
+      window.removeEventListener('pointercancel', clearPointerDragging, true);
+      window.removeEventListener('pointerup', clearPointerDragging, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (trailingRef.current) {
+        clearTimeout(trailingRef.current);
+      }
+      if (userScrollIdleTimerRef.current) {
+        clearTimeout(userScrollIdleTimerRef.current);
+      }
+    };
+  }, []);
+
+  const bindItemRef = useCallback((itemId: string) => {
+    return (element: HTMLDivElement | null) => {
+      const observer = resizeObserverRef.current;
+      const previous = itemElementsRef.current.get(itemId);
+      if (previous && observer) {
+        observer.unobserve(previous);
+      }
+      if (!element) {
+        itemElementsRef.current.delete(itemId);
+        return;
+      }
+      itemElementsRef.current.set(itemId, element);
+      observer?.observe(element);
+      pendingMeasureIdsRef.current.add(itemId);
+      scheduleMeasuredHeightsFlush();
+    };
+  }, [scheduleMeasuredHeightsFlush]);
 
   return (
     <div
       ref={containerRef}
       className="mutgui-virtual-list mutgui-scrollbar"
       onScroll={handleScroll}
+      onPointerDownCapture={(event) => {
+        if (event.pointerType !== 'mouse' || event.button !== 0) return;
+        pendingUserScrollIntentRef.current = true;
+        pointerDraggingRef.current = true;
+      }}
+      onTouchMoveCapture={() => {
+        pendingUserScrollIntentRef.current = true;
+      }}
+      onWheelCapture={() => {
+        pendingUserScrollIntentRef.current = true;
+      }}
       style={style}
     >
-      {/* 占位区域（撑起滚动条） */}
-      <div style={{ height: estimatedTotalHeight, pointerEvents: 'none' }} />
-      {/* 可见 item — children 由框架从 $children 渲染而来 */}
+      <div style={{ height: layout.totalHeight, pointerEvents: 'none' }} />
       <div
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
-          transform: `translateY(${offsetTop}px)`,
+          transform: `translateY(${layout.offsetTop}px)`,
         }}
       >
-        {Children.map(children, (child) => (
-          <div style={{ minHeight: DEFAULT_ITEM_HEIGHT }}>{child}</div>
-        ))}
+        {visibleChildren.map((child, index) => {
+          const itemId = itemIds[index] ?? `__virtual-${viewportStart + index}`;
+          return (
+            <div
+              key={itemId}
+              ref={bindItemRef(itemId)}
+              data-item-id={itemId}
+            >
+              {child}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

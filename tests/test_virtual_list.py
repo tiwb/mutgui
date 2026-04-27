@@ -60,6 +60,10 @@ def test_virtual_list_initial_render_empty_viewport() -> None:
     tree = vl.render()
     assert tree.items[0]["$component"] == "mutgui.VirtualList"
     assert tree.items[0]["itemCount"] == 100
+    assert tree.items[0]["itemIds"] == []
+    assert tree.items[0]["viewportStart"] == 0
+    assert tree.items[0]["stickToBottom"] is False
+    assert tree.items[0]["estimatedItemHeight"] == 32
     assert tree.items[0]["$children"] == []
 
 
@@ -71,6 +75,7 @@ def test_virtual_list_on_viewport_creates_views() -> None:
     vl._on_viewport(start=0, end=3, viewport_id=1)
     tree = vl.render()
 
+    assert tree.items[0]["itemIds"] == ["item-0", "item-1", "item-2"]
     children = tree.items[0]["$children"]
     assert len(children) == 3
     # children 是 View 实例
@@ -297,10 +302,17 @@ def test_render_viewport_per_vp() -> None:
 
     vl._on_viewport(start=0, end=3, viewport_id=1)
     vl._on_viewport(start=5, end=8, viewport_id=2)
-    vl.render()
+    tree = vl.render()
 
     assert vl.viewport_item_ids[1] == {"item-0", "item-1", "item-2"}
     assert vl.viewport_item_ids[2] == {"item-5", "item-6", "item-7"}
+    wire_tree = tree.items
+    vp1_tree = vl.render_viewport(wire_tree, 1)
+    vp2_tree = vl.render_viewport(wire_tree, 2)
+    assert vp1_tree[0]["viewportStart"] == 0
+    assert vp2_tree[0]["viewportStart"] == 5
+    assert vp1_tree[0]["itemIds"] == ["item-0", "item-1", "item-2"]
+    assert vp2_tree[0]["itemIds"] == ["item-5", "item-6", "item-7"]
 
 
 def test_per_vp_push_filtering_e2e() -> None:
@@ -437,6 +449,40 @@ def test_sync_scroll_render_props() -> None:
     assert "scrollTop" in props
     assert props["scrollTop"] == 0
     assert "onScroll" in props
+
+
+def test_virtual_list_custom_props_render() -> None:
+    """新 props 会透传到前端组件。"""
+    adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
+    vl = VirtualList(
+        id="list",
+        adapter=adapter,
+        stick_to_bottom=True,
+        estimated_item_height=120,
+    )
+
+    tree = vl.render()
+    props = tree.items[0]
+    assert props["stickToBottom"] is True
+    assert props["estimatedItemHeight"] == 120
+
+
+def test_sync_scroll_and_stick_to_bottom_are_mutually_exclusive() -> None:
+    """sync_scroll 与 stick_to_bottom 同开时抛清晰错误。"""
+    adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
+
+    try:
+        VirtualList(
+            id="list",
+            adapter=adapter,
+            sync_scroll=True,
+            stick_to_bottom=True,
+        )
+    except ValueError as exc:
+        assert "sync_scroll" in str(exc)
+        assert "stick_to_bottom" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_sync_scroll_disabled_no_props() -> None:

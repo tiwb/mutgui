@@ -121,7 +121,7 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 
 ### 框架内置
 
-- **VirtualList**：虚拟滚动列表，支持 Adapter 模式（`item_count`/`item_id`/`create_item_view`）、per-ViewPort 视口跟踪、可选滚动同步、32px 默认行高、5 项 overscan、50ms 节流
+- **VirtualList**：虚拟滚动列表，支持 Adapter 模式（`item_count`/`item_id`/`create_item_view`）、per-ViewPort 视口跟踪、可选滚动同步、可变高度测量、stick-to-bottom、32px 默认估算高度、5 项 overscan、50ms 滚动节流
 
 ### Ant Design 插件
 
