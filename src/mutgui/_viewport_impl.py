@@ -11,6 +11,7 @@ from typing import Any, cast
 import mutobj
 from mutobj import impl
 
+from ._viewport_context import set_current_viewport, reset_current_viewport
 from ._view_impl import ViewObservers, ViewRenderState
 from .channel import Channel
 from .view import View
@@ -31,7 +32,7 @@ class ViewPortRuntime(mutobj.Extension[ViewPort]):
 
 
 def _ext(vp: ViewPort) -> ViewPortRuntime:
-    return ViewPortRuntime.get_or_create(vp)  # type: ignore[return-value]
+    return ViewPortRuntime.get_or_create(vp)
 
 
 # ---------------------------------------------------------------------------
@@ -70,8 +71,25 @@ async def viewport_initialize(self: ViewPort) -> None:
 async def viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     ext = _ext(self)
     assert ext.view is not None
-    event["_viewport_id"] = ext.channel.channel_id  # type: ignore[union-attr]
-    await ext.view.handle_event(event)
+    assert ext.channel is not None
+    event["_viewport_id"] = ext.channel.channel_id
+    token = set_current_viewport(self)
+    try:
+        await ext.view.handle_event(event)
+    finally:
+        reset_current_viewport(token)
+
+
+@impl(ViewPort.send_command)
+async def viewport_send_command(self: ViewPort, name: str, /, **args: Any) -> None:
+    ext = _ext(self)
+    assert ext.channel is not None
+    await ext.channel.send({
+        "type": "command",
+        "viewId": ext.path,
+        "name": name,
+        "args": args,
+    })
 
 
 @impl(ViewPort.detach)
@@ -160,7 +178,7 @@ async def _vp_push_render(vp: ViewPort) -> None:
             child_vp = old_child_vps.pop(child_id)
         else:
             child_path = ext.path + [child_id]
-            child_vp = ViewPort(child_view, ext.channel, _path=child_path)  # type: ignore[arg-type]
+            child_vp = ViewPort(child_view, ext.channel, _path=child_path)
         ext.child_viewports[child_id] = child_vp
 
         # 递归推送子 View 的 wire_tree
@@ -171,5 +189,10 @@ async def _vp_push_render(vp: ViewPort) -> None:
         old_vp.detach()
 
 
+def _vp_child_viewport(vp: ViewPort, child_id: str | int) -> ViewPort | None:
+    return _ext(vp).child_viewports.get(child_id)
+
+
 # 挂到 ViewPort 实例上供 _view_impl._deferred_render 调用
-ViewPort._push_render = _vp_push_render  # type: ignore[attr-defined]
+setattr(ViewPort, "_push_render", _vp_push_render)
+setattr(ViewPort, "_child_viewport", _vp_child_viewport)

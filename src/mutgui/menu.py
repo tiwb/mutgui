@@ -30,7 +30,7 @@ class MenuView(View):
 
     async def close(self) -> None:
         """关闭菜单 — 从宿主 View 移除自身。"""
-        ...
+        raise NotImplementedError
 
 
 class MenuTrigger(EventHandler):
@@ -59,7 +59,7 @@ class MenuTrigger(EventHandler):
 
     async def handle(self, view: View, event: Event) -> bool:
         """创建 MenuView 并挂载到宿主 View。"""
-        ...
+        raise NotImplementedError
 
     def to_wire(self) -> dict[str, Any]:
         wire: dict[str, Any] = {

@@ -12,6 +12,11 @@ from typing import Any, Sequence, TYPE_CHECKING, cast
 import mutobj
 from mutobj import impl
 
+from ._viewport_context import (
+    get_current_viewport,
+    reset_current_viewport,
+    set_current_viewport,
+)
 from .events import Event, EventFilter, EventHandler
 from .view import View, ViewBlock
 
@@ -45,7 +50,7 @@ class ViewRenderState(mutobj.Extension[View]):
 
 
 def render_ext(view: View) -> ViewRenderState:
-    return ViewRenderState.get_or_create(view)  # type: ignore[return-value]
+    return ViewRenderState.get_or_create(view)
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +69,19 @@ async def view_on_event(self: View, event: Event) -> bool:
     if handler is not None:
         return await handler.handle(self, event)
     return False
+
+
+@impl(View.viewport.getter)  # type: ignore[attr-defined]
+def view_viewport(self: View) -> ViewPort:
+    viewport = get_current_viewport()
+    if viewport is None:
+        raise RuntimeError("View.viewport 只能在 ViewPort 事件上下文中访问")
+    return viewport
+
+
+@impl(View.send_command)
+async def view_send_command(self: View, name: str, /, **args: Any) -> None:
+    await self.viewport.send_command(name, **args)
 
 
 @impl(View.invalidate)
@@ -133,8 +151,25 @@ async def _route_event(
         child_id = source[0]
         child_view = ext.children.get(child_id)
         if child_view is not None:
-            await _route_event(child_view, source[1:], event_name, data,
-                               viewport_id=viewport_id)
+            current_vp = get_current_viewport()
+            child_vp = current_vp
+            if current_vp is not None:
+                resolver = getattr(current_vp, "_child_viewport", None)
+                if callable(resolver):
+                    resolved = resolver(child_id)
+                    if resolved is not None:
+                        child_vp = resolved
+
+            if child_vp is current_vp or child_vp is None:
+                await _route_event(child_view, source[1:], event_name, data,
+                                   viewport_id=viewport_id)
+            else:
+                token = set_current_viewport(child_vp)
+                try:
+                    await _route_event(child_view, source[1:], event_name, data,
+                                       viewport_id=viewport_id)
+                finally:
+                    reset_current_viewport(token)
     elif len(source) == 1:
         component_id = str(source[0])
         event = Event(component_id, event_name, data, viewport_id=viewport_id)
@@ -226,8 +261,7 @@ def _process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
     node_id: str | int = node.get("$id", "")
     for key, val in node.items():
         if key == "$children" and isinstance(val, list):
-            children = cast(list[Any], val)
-            result[key] = _process_items(view, children)
+            result[key] = _process_items(view, val)
         elif isinstance(val, EventHandler):
             ext.handlers[(node_id, key)] = val
             result[key] = val.to_wire()

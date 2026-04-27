@@ -15,7 +15,7 @@
  *   </script>
  *
  * 组件库通过额外的 <script> 标签加载，加载后自动调用
- * MutguiApp.registerComponents() 注册。
+ * MutguiApp.registerComponents()/registerCommands() 注册。
  *
  * Plugin 协议:
  *   plugin = (ctx) => void
@@ -28,6 +28,7 @@ import ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { registerComponents } from './core/registry';
+import { registerCommands, resolveCommand } from './core/commands';
 import { MutguiView } from './core/renderer';
 import { VirtualList } from './components/virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
@@ -64,6 +65,17 @@ registerComponents({
   VirtualList,
 });
 
+registerCommands({
+  __name__: 'mutgui',
+  redirect: ({ url, replace }: { url: string; replace?: boolean }) => {
+    if (replace) {
+      window.location.replace(url);
+      return;
+    }
+    window.location.href = url;
+  },
+});
+
 function createConnection(ws: WebSocket): MutguiConnection {
   const subs = new Map<string, RenderCallback>();
   const cache = new Map<string, unknown[]>();
@@ -76,6 +88,17 @@ function createConnection(ws: WebSocket): MutguiConnection {
       cache.set(key, msg.tree);
       const cb = subs.get(key);
       if (cb) cb(msg.tree);
+      return;
+    }
+
+    if (msg.type === 'command') {
+      const viewId: ViewPath = msg.viewId || [];
+      const cmd = resolveCommand(msg.name);
+      if (!cmd) {
+        console.warn(`[mutgui] Unknown command: ${String(msg.name)}`, msg);
+        return;
+      }
+      cmd((msg.args || {}) as Record<string, unknown>, { viewId });
     }
   });
 
@@ -179,6 +202,7 @@ function mount(
 (window as unknown as Record<string, unknown>).MutguiApp = {
   mount,
   registerComponents,
+  registerCommands,
   React,
   ReactDOM,
   jsxRuntime,

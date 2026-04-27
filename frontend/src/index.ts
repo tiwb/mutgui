@@ -3,6 +3,8 @@
 import './index.css';
 
 export { registerComponents, resolve } from './core/registry';
+export { registerCommands, resolveCommand } from './core/commands';
+export type { CommandContext, MutguiCommand, CommandSource } from './core/commands';
 export { MutguiView, renderTree } from './core/renderer';
 export type { ComponentSchema } from './core/renderer';
 export {
