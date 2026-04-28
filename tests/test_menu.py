@@ -41,10 +41,31 @@ def test_menu_trigger_to_wire_with_context() -> None:
 
 
 def test_menu_trigger_to_wire_with_placement() -> None:
-    mt = MenuTrigger(_Menu, placement="bottom")
+    mt = MenuTrigger(_Menu, placement="bottom-start")
     assert mt.to_wire() == {
-        "$handler": {"$menu": True, "$placement": "bottom"},
+        "$handler": {"$menu": True, "$placement": "bottom-start"},
     }
+
+
+def test_menu_trigger_to_wire_with_additional_placements() -> None:
+    mt = MenuTrigger(_Menu, placement="right-start")
+    assert mt.to_wire() == {
+        "$handler": {"$menu": True, "$placement": "right-start"},
+    }
+
+    mt = MenuTrigger(_Menu, placement="top-end")
+    assert mt.to_wire() == {
+        "$handler": {"$menu": True, "$placement": "top-end"},
+    }
+
+
+def test_menu_trigger_rejects_invalid_placement() -> None:
+    try:
+        MenuTrigger(_Menu, placement="bottom")
+    except ValueError as exc:
+        assert "invalid menu placement" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid placement")
 
 
 def test_menu_trigger_to_wire_skips_backend_inject() -> None:

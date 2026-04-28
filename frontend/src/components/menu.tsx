@@ -20,12 +20,17 @@ import { createPortal } from 'react-dom';
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { resolvePath } from '../core/resolve-path';
 import type { ViewPath, MutguiConnection } from '../core/context';
+import {
+  computeMenuLayout,
+  recomputePosition,
+  resolveAnchor,
+  type Anchor,
+  type Placement,
+} from './menu-layout';
 
 // ---------------------------------------------------------------------------
 // 类型
 // ---------------------------------------------------------------------------
-
-export type Placement = 'cursor' | 'bottom' | 'right';
 
 interface TriggerInfo {
   placement: Placement;
@@ -46,6 +51,36 @@ interface TriggerInfo {
  * 用默认位置（视口中心）。
  */
 let pendingTrigger: TriggerInfo | null = null;
+const MENU_JUST_OPENED_ATTR = 'data-menu-just-opened';
+let menuJustOpenedToken = 0;
+
+function markMenuJustOpened(): () => void {
+  if (typeof document === 'undefined' || !document.body) {
+    return () => {};
+  }
+
+  menuJustOpenedToken += 1;
+  const token = menuJustOpenedToken;
+  const clear = () => {
+    if (menuJustOpenedToken !== token) return;
+    document.body.removeAttribute(MENU_JUST_OPENED_ATTR);
+  };
+  const handlePointerMove = () => {
+    clear();
+  };
+
+  document.body.setAttribute(MENU_JUST_OPENED_ATTR, '');
+  window.addEventListener('pointermove', handlePointerMove, {
+    capture: true,
+    once: true,
+  });
+
+  return () => {
+    if (menuJustOpenedToken !== token) return;
+    window.removeEventListener('pointermove', handlePointerMove, true);
+    clear();
+  };
+}
 
 /** 菜单 ID → 实际触发信息（Menu mount 时记录，关闭时清理）。 */
 const activeTriggers = new Map<string, TriggerInfo>();
@@ -166,7 +201,12 @@ export function createMenuTriggerHandler(
       const target = evt?.currentTarget as Element | undefined;
       const rect = target?.getBoundingClientRect?.();
       trigger = rect
-        ? { placement, x: rect.left, y: rect.bottom, triggerRect: rect }
+        ? {
+            placement,
+            x: rect.left,
+            y: rect.top,
+            triggerRect: rect,
+          }
         : { placement, x: 0, y: 0 };
     }
 
@@ -222,6 +262,8 @@ interface MenuProps {
   children?: React.ReactNode;
 }
 
+const HIDDEN_POSITION = -100000;
+
 const DEFAULT_TRIGGER: TriggerInfo = {
   placement: 'cursor',
   x: window.innerWidth / 2,
@@ -232,6 +274,7 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
   ensureGlobalListeners();
 
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [layoutReady, setLayoutReady] = useState(false);
 
   // 取出触发信息（mount 时一次性）
   const triggerRef = useRef<TriggerInfo | null>(null);
@@ -243,9 +286,11 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
   const trigger = triggerRef.current;
 
   const [pos, setPos] = useState<{ left: number; top: number }>({
-    left: trigger.x,
-    top: trigger.y,
+    left: HIDDEN_POSITION,
+    top: HIDDEN_POSITION,
   });
+  const [sizeLimit, setSizeLimit] = useState<{ maxHeight?: number; maxWidth?: number }>({});
+  const effectiveAnchorRef = useRef<Anchor | null>(null);
 
   // 关闭函数：发 $close 给后端，后端 push 新 tree 自动卸载
   const closeRef = useRef<() => void>(() => {
@@ -272,41 +317,101 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
     };
   }, [menuId]);
 
-  // 边缘检测 — 渲染后调整位置
+  useEffect(() => {
+    return markMenuJustOpened();
+  }, [menuId]);
+
+  // mount 时锁定 anchor + 视口约束
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let left = trigger.x;
-    let top = trigger.y;
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const anchor = resolveAnchor(
+      trigger.placement,
+      trigger.triggerRect,
+      trigger.placement === 'cursor' ? { x: trigger.x, y: trigger.y } : undefined,
+    );
+    const naturalRect = el.getBoundingClientRect();
+    const layout = computeMenuLayout({
+      anchor,
+      menuSize: { width: naturalRect.width, height: naturalRect.height },
+      viewport,
+    });
+    effectiveAnchorRef.current = layout.effectiveAnchor;
 
-    if (trigger.placement === 'right' && trigger.triggerRect) {
-      const trg = trigger.triggerRect;
-      left = trg.right;
-      top = trg.top;
-      if (left + rect.width > vw) left = trg.left - rect.width;
-    } else if (trigger.placement === 'bottom' && trigger.triggerRect) {
-      const trg = trigger.triggerRect;
-      left = trg.left;
-      top = trg.bottom;
-      if (top + rect.height > vh) top = trg.top - rect.height;
+    if (layout.maxHeight === undefined) {
+      el.style.removeProperty('max-height');
     } else {
-      if (left + rect.width > vw) left = vw - rect.width - 4;
-      if (top + rect.height > vh) top = vh - rect.height - 4;
+      el.style.maxHeight = `${layout.maxHeight}px`;
     }
-    if (left < 0) left = 4;
-    if (top < 0) top = 4;
-    setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }));
+    if (layout.maxWidth === undefined) {
+      el.style.removeProperty('max-width');
+    } else {
+      el.style.maxWidth = `${layout.maxWidth}px`;
+    }
+    el.style.overflow = 'auto';
+
+    const constrainedRect = el.getBoundingClientRect();
+    const finalPos = recomputePosition(
+      layout.effectiveAnchor,
+      { width: constrainedRect.width, height: constrainedRect.height },
+      viewport,
+    );
+    el.style.left = `${finalPos.left}px`;
+    el.style.top = `${finalPos.top}px`;
+    el.style.visibility = 'visible';
+
+    setPos((prev) =>
+      prev.left === finalPos.left && prev.top === finalPos.top
+        ? prev
+        : { left: finalPos.left, top: finalPos.top },
+    );
+    setSizeLimit((prev) =>
+      prev.maxHeight === layout.maxHeight && prev.maxWidth === layout.maxWidth
+        ? prev
+        : { maxHeight: layout.maxHeight, maxWidth: layout.maxWidth },
+    );
+    setLayoutReady(true);
   }, [trigger]);
+
+  // 尺寸变化时只按锁定 anchor 重算位置，不重新 flip
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      const anchor = effectiveAnchorRef.current;
+      if (!anchor) return;
+      const rect = el.getBoundingClientRect();
+      const next = recomputePosition(
+        anchor,
+        { width: rect.width, height: rect.height },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
+      el.style.left = `${next.left}px`;
+      el.style.top = `${next.top}px`;
+      setPos((prev) =>
+        prev.left === next.left && prev.top === next.top ? prev : next,
+      );
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return createPortal(
     <div
       ref={menuRef}
       className="mutgui-menu mutgui-scrollbar"
       data-menu-id={menuId}
-      style={{ left: pos.left, top: pos.top }}
+      style={{
+        left: pos.left,
+        top: pos.top,
+        maxHeight: sizeLimit.maxHeight,
+        maxWidth: sizeLimit.maxWidth,
+        overflow: 'auto',
+        visibility: layoutReady ? 'visible' : 'hidden',
+      }}
     >
       {children}
     </div>,

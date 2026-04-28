@@ -18,6 +18,21 @@ if TYPE_CHECKING:
     from .events import Event
 
 
+_VALID_PLACEMENTS = {
+    "cursor",
+    "top-start",
+    "top-center",
+    "top-end",
+    "bottom-start",
+    "bottom-center",
+    "bottom-end",
+    "left-start",
+    "left-end",
+    "right-start",
+    "right-end",
+}
+
+
 class MenuView(View):
     """菜单 View — render() 输出菜单内容。
 
@@ -41,7 +56,12 @@ class MenuTrigger(EventHandler):
 
     参数:
         menu_factory: 接收 context kwargs，返回 MenuView 实例
-        placement: 定位策略 ('cursor' | 'bottom' | 'right')
+        placement: 定位策略：
+            'cursor'
+            'top-start' | 'top-center' | 'top-end'
+            'bottom-start' | 'bottom-center' | 'bottom-end'
+            'left-start' | 'left-end'
+            'right-start' | 'right-end'
         **context_extract: context 提取路径（resolvePath 语法）
     """
 
@@ -53,6 +73,9 @@ class MenuTrigger(EventHandler):
         **context_extract: str,
     ) -> None:
         super().__init__()
+        if placement not in _VALID_PLACEMENTS:
+            allowed = ", ".join(sorted(_VALID_PLACEMENTS))
+            raise ValueError(f"invalid menu placement: {placement!r}; expected one of: {allowed}")
         self.menu_factory = menu_factory
         self.placement = placement
         self.extract = context_extract

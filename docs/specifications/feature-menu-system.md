@@ -138,7 +138,12 @@ class MenuTrigger(EventHandler):
 
     参数:
         menu_factory: 返回 MenuView 实例的工厂函数
-        placement: 定位策略 ('cursor' | 'bottom' | 'right')
+        placement: 定位策略：
+            'cursor'
+            'top-start' | 'top-center' | 'top-end'
+            'bottom-start' | 'bottom-center' | 'bottom-end'
+            'left-start' | 'left-end'
+            'right-start' | 'right-end'
         **context_extract: context 提取路径（resolvePath 语法）
     """
 
@@ -169,10 +174,10 @@ def to_wire(self):
 {"$handler": {"$menu": true, "item_id": "$0.target.dataset.itemId"}}
 
 // 下拉菜单，无 context
-{"$handler": {"$menu": true, "$placement": "bottom"}}
+{"$handler": {"$menu": true, "$placement": "bottom-start"}}
 
 // 子菜单，定位在右侧
-{"$handler": {"$menu": true, "$placement": "right"}}
+{"$handler": {"$menu": true, "$placement": "right-start"}}
 ```
 
 前端看到 `$handler` 里有 `$menu` → 走菜单逻辑而非普通事件：
@@ -191,10 +196,10 @@ def to_wire(self):
 "onContextMenu": MenuTrigger(self.make_tab_menu, item_id="$0.target.dataset.id")
 
 # 下拉按钮菜单
-"onClick": MenuTrigger(self.make_add_menu, placement="bottom")
+"onClick": MenuTrigger(self.make_add_menu, placement="bottom-start")
 
 # 子菜单（hover 展开）
-"onMouseEnter": MenuTrigger(self.make_submenu, placement="right")
+"onMouseEnter": MenuTrigger(self.make_submenu, placement="right-start")
 ```
 
 #### 后端处理流程
@@ -213,8 +218,8 @@ MenuTrigger.handle() 在后端的处理：
 前端注册一个 `Menu` 容器组件，负责：
 
 - **Portal 渲染**：通过 `ReactDOM.createPortal` 渲染到 body 顶层（React 动态创建容器，无需 HTML 预写）
-- **定位**：根据 placement 决定位置（cursor → 鼠标坐标，bottom → 触发元素下方，right → 父菜单右侧）
-- **边缘检测**：菜单超出视口时自动调整位置
+- **定位**：根据 `{side}-{align}` placement 决定锚点与菜单对齐角；`cursor` 仍表示鼠标点右下弹出
+- **自动适配**：mount 时执行主轴 flip、交叉轴 shift 和 size 约束；后续尺寸变化只按锁定锚点重算位置，不重新 flip
 
 #### 关闭检测
 
@@ -269,10 +274,18 @@ registerComponents({
 | placement | 触发方式 | 定位基准 |
 |-----------|---------|---------|
 | `cursor` (默认) | contextmenu | 鼠标坐标 |
-| `bottom` | click | 触发元素正下方，左对齐 |
-| `right` | mouseenter | 父菜单项右侧，顶部对齐 |
+| `top-start` / `top-center` / `top-end` | click / submenu | 触发元素上边，分别左/中/右对齐 |
+| `bottom-start` / `bottom-center` / `bottom-end` | click / dropdown | 触发元素下边，分别左/中/右对齐 |
+| `left-start` / `left-end` | submenu / edge demo | 触发元素左边，上/下对齐 |
+| `right-start` / `right-end` | submenu / edge demo | 触发元素右边，上/下对齐 |
 
-所有定位均包含边缘检测：超出视口时自动翻转方向。
+所有定位均采用统一布局管线：
+
+1. 主轴优先 flip 到空间更大的方向
+2. 交叉轴用 shift 贴边（保留 4px margin）
+3. 仍放不下时给出 `maxHeight` / `maxWidth`，由菜单内部滚动兜底
+4. 菜单 mount 后内容尺寸变化时，只按锁定锚点重算位置，保证弹出角稳定
+5. 菜单刚打开的一帧会临时抑制 `:hover` 高亮，直到用户第一次移动指针，避免点击/右键打开时首项被即时命中成 hover
 
 ### 时序
 
@@ -314,7 +327,7 @@ contextmenu/click 事件
 
 - [x] 后端 MenuView + MenuTrigger 定义 — `src/mutgui/menu.py` 新建，MenuView(View) 声明类 + MenuTrigger(EventHandler) 声明类 + to_wire() 序列化
 - [x] 后端 MenuTrigger.handle() 实现 — `src/mutgui/_menu_impl.py`，菜单创建、_overlay_children 注入机制、关闭事件处理和 MenuView 销毁
-- [x] 前端 Menu / Menu.Item / Menu.Divider 组件 — `frontend/src/menu.tsx` 新建，Menu 使用 createPortal 渲染到 body、定位逻辑（cursor/bottom/right）、边缘检测
+- [x] 前端 Menu / Menu.Item / Menu.Divider 组件 — `frontend/src/menu.tsx` 新建，Menu 使用 createPortal 渲染到 body，支持 placement 锚点模型、flip/shift/size 与 ResizeObserver 重算
 - [x] 前端 $menu handler 识别 — 修改 `frontend/src/renderer.tsx`，createHandler 中识别 `$menu` 标记，走菜单触发逻辑（记住坐标、发事件、等 push、渲染）
 - [x] 前端关闭检测 — document pointerdown + ESC 监听，关闭时发 `$close` 事件通知后端
 - [x] 前端组件注册 — `frontend/src/standalone.tsx` 注册 mutgui.Menu / mutgui.Menu.Item / mutgui.Menu.Divider

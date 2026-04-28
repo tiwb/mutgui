@@ -41,6 +41,11 @@
     color: var(--mutgui-menu-hover-text, var(--mutgui-text));
   }
 
+  body[data-menu-just-opened] .mutgui-menu-item:hover:not(.disabled) {
+    background: transparent;
+    color: inherit;
+  }
+
   .mutgui-menu-item.disabled {
     color: var(--mutgui-text-dim);
     cursor: default;

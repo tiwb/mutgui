@@ -1,4 +1,4 @@
-"""菜单系统 demo — 右键菜单、下拉菜单、子菜单、带搜索的菜单。"""
+"""菜单系统 demo — 右键菜单、placement、flip 与尺寸稳定性。"""
 from __future__ import annotations
 
 import mutobj
@@ -9,6 +9,20 @@ from mutgui import (
 )
 
 from demo.framework import MutguiRoute, DemoApp
+
+
+SIDE_PLACEMENTS = [
+    "top-start",
+    "top-center",
+    "top-end",
+    "left-start",
+    "left-end",
+    "right-start",
+    "right-end",
+    "bottom-start",
+    "bottom-center",
+    "bottom-end",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +77,7 @@ class AddDropdownMenu(MenuView):
              "hasSubmenu": True, "closeOnClick": False,
              "onMouseEnter": MenuTrigger(
                  lambda: TemplateSubmenu(page=self.page),
-                 placement="right",
+                 placement="right-start",
              )},
             {"$component": "mutgui.Menu.Divider"},
             {"$component": "mutgui.Menu.Item", "$id": "import",
@@ -162,6 +176,143 @@ class CommandPalette(MenuView):
             self.page.log(f"Run: {name}")
 
 
+class PlacementPreviewMenu(MenuView):
+    """显示当前 placement 的简单菜单。"""
+
+    placement_label: str = "cursor"
+    page: "MenuDemoPage | None" = None
+
+    def render(self) -> ViewBlock:
+        return ViewBlock([
+            {"$component": "div", "$id": "meta",
+             "style": {
+                 "padding": "8px 10px",
+                 "fontSize": "12px",
+                 "color": "var(--mutgui-text-dim)",
+             },
+             "children": f"placement = {self.placement_label}"},
+            {"$component": "mutgui.Menu.Divider"},
+            {"$component": "mutgui.Menu.Item", "$id": "preview-open",
+             "label": f"Open via {self.placement_label}",
+             "onClick": Callback(self._on_pick)},
+            {"$component": "mutgui.Menu.Item", "$id": "preview-align",
+             "label": "Anchor follows the button corner"},
+        ])
+
+    def _on_pick(self) -> None:
+        if self.page:
+            self.page.log(f"Preview {self.placement_label}")
+
+
+class EdgeFlipMenu(MenuView):
+    """用于边缘 flip / size 演示的大菜单。"""
+
+    title: str = "flip"
+    page: "MenuDemoPage | None" = None
+
+    def render(self) -> ViewBlock:
+        items: list[dict] = [
+            {"$component": "div", "$id": "title",
+             "style": {
+                 "padding": "8px 10px",
+                 "fontSize": "12px",
+                 "color": "var(--mutgui-text-dim)",
+             },
+             "children": f"Edge flip demo — {self.title}"},
+            {"$component": "mutgui.Menu.Divider"},
+        ]
+        for index in range(1, 11):
+            items.append({
+                "$component": "mutgui.Menu.Item",
+                "$id": f"edge-{index}",
+                "label": f"Long menu item {index}",
+                "shortcut": f"Alt+{index}",
+                "onClick": Callback(lambda n=index: self._on_pick(n)),
+            })
+        return ViewBlock(items)
+
+    def _on_pick(self, index: int) -> None:
+        if self.page:
+            self.page.log(f"Edge flip item {self.title}:{index}")
+
+
+class ResizeStableMenu(MenuView):
+    """演示菜单尺寸变化时锚点稳定。"""
+
+    placement_label: str = "bottom-start"
+    page: "MenuDemoPage | None" = None
+    extra_count: int = 4
+
+    def render(self) -> ViewBlock:
+        items: list[dict] = [
+            {"$component": "div", "$id": "header",
+             "style": {
+                 "padding": "8px 10px 4px 10px",
+                 "fontSize": "12px",
+                 "color": "var(--mutgui-text-dim)",
+             },
+             "children": f"Resize stability — {self.placement_label}"},
+            {"$component": "div", "$id": "controls",
+             "style": {
+                 "display": "flex",
+                 "gap": "8px",
+                 "alignItems": "center",
+                 "padding": "0 10px 8px 10px",
+             },
+             "$children": [
+                 {"$component": "button", "$id": "dec",
+                  "style": {
+                      "width": "28px",
+                      "height": "28px",
+                      "border": "1px solid var(--mutgui-border)",
+                      "background": "var(--mutgui-surface)",
+                      "color": "var(--mutgui-text)",
+                      "borderRadius": "4px",
+                      "cursor": "pointer",
+                  },
+                  "children": "−",
+                  "onClick": Callback(self._decrease)},
+                 {"$component": "div", "$id": "count",
+                  "style": {"minWidth": "96px", "fontSize": "12px"},
+                  "children": f"{self.extra_count} dynamic items"},
+                 {"$component": "button", "$id": "inc",
+                  "style": {
+                      "width": "28px",
+                      "height": "28px",
+                      "border": "1px solid var(--mutgui-border)",
+                      "background": "var(--mutgui-surface)",
+                      "color": "var(--mutgui-text)",
+                      "borderRadius": "4px",
+                      "cursor": "pointer",
+                  },
+                  "children": "+",
+                  "onClick": Callback(self._increase)},
+             ]},
+            {"$component": "mutgui.Menu.Divider"},
+        ]
+        for index in range(self.extra_count):
+            items.append({
+                "$component": "mutgui.Menu.Item",
+                "$id": f"dyn-{index}",
+                "label": f"Dynamic item {index + 1}",
+                "onClick": Callback(lambda n=index + 1: self._on_pick(n)),
+            })
+        return ViewBlock(items)
+
+    def _increase(self) -> None:
+        self.extra_count += 1
+        self.invalidate()
+
+    def _decrease(self) -> None:
+        if self.extra_count > 1:
+            self.extra_count -= 1
+            self.invalidate()
+
+    def _on_pick(self, index: int) -> None:
+        if self.page:
+            self.page.log(f"Resize stability {self.placement_label}:{index}")
+
+
 # ---------------------------------------------------------------------------
 # Demo 页面
 # ---------------------------------------------------------------------------
@@ -175,10 +326,52 @@ class MenuDemoPage(View):
         self.invalidate()
 
     def render(self) -> ViewBlock:
+        placement_buttons = [
+            {"$component": "button", "$id": f"placement-{placement}",
+             "onClick": MenuTrigger(
+                 lambda placement=placement: PlacementPreviewMenu(
+                     placement_label=placement,
+                     page=self,
+                 ),
+                 placement=placement,
+             ),
+             "style": {
+                 "padding": "8px 10px",
+                 "border": "1px solid var(--mutgui-border)",
+                 "background": "var(--mutgui-surface)",
+                 "color": "var(--mutgui-text)",
+                 "borderRadius": "4px",
+                 "cursor": "pointer",
+                 "fontSize": "12px",
+             },
+             "children": placement}
+            for placement in SIDE_PLACEMENTS
+        ]
+        resize_buttons = [
+            {"$component": "button", "$id": f"stable-{placement}",
+             "onClick": MenuTrigger(
+                 lambda placement=placement: ResizeStableMenu(
+                     placement_label=placement,
+                     page=self,
+                 ),
+                 placement=placement,
+             ),
+             "style": {
+                 "padding": "8px 10px",
+                 "border": "1px solid var(--mutgui-border)",
+                 "background": "var(--mutgui-surface)",
+                 "color": "var(--mutgui-text)",
+                 "borderRadius": "4px",
+                 "cursor": "pointer",
+                 "fontSize": "12px",
+             },
+             "children": placement}
+            for placement in SIDE_PLACEMENTS
+        ]
         return ViewBlock([{
             "$component": "div", "$id": "wrap",
             "style": {"padding": "24px", "fontFamily": "system-ui",
-                      "maxWidth": "900px", "margin": "0 auto"},
+                       "maxWidth": "900px", "margin": "0 auto"},
             "$children": [
                 {"$component": "h2", "$id": "h", "children": "Menu System Demo"},
 
@@ -220,14 +413,14 @@ class MenuDemoPage(View):
                      {"$component": "h4", "$id": "dd-h",
                       "children": "Dropdown menu (with submenu)"},
                      {"$component": "button", "$id": "add-btn",
-                      "onClick": MenuTrigger(
-                          lambda: AddDropdownMenu(page=self),
-                          placement="bottom",
-                      ),
-                      "style": {
-                          "padding": "8px 16px", "marginTop": "8px",
-                          "border": "1px solid var(--mutgui-accent)",
-                          "background": "var(--mutgui-accent)",
+                       "onClick": MenuTrigger(
+                           lambda: AddDropdownMenu(page=self),
+                           placement="bottom-start",
+                       ),
+                       "style": {
+                           "padding": "8px 16px", "marginTop": "8px",
+                           "border": "1px solid var(--mutgui-accent)",
+                           "background": "var(--mutgui-accent)",
                           "color": "var(--mutgui-text)",
                           "borderRadius": "4px", "cursor": "pointer",
                       },
@@ -241,24 +434,157 @@ class MenuDemoPage(View):
                      {"$component": "h4", "$id": "cmd-h",
                       "children": "Searchable menu (Command Palette)"},
                      {"$component": "button", "$id": "cmd-btn",
-                      "onClick": MenuTrigger(
-                          lambda: CommandPalette(page=self),
-                          placement="bottom",
-                      ),
-                      "style": {
-                          "padding": "8px 16px", "marginTop": "8px",
-                          "border": "1px solid var(--mutgui-border)",
-                          "background": "var(--mutgui-surface)",
+                       "onClick": MenuTrigger(
+                           lambda: CommandPalette(page=self),
+                           placement="bottom-start",
+                       ),
+                       "style": {
+                           "padding": "8px 16px", "marginTop": "8px",
+                           "border": "1px solid var(--mutgui-border)",
+                           "background": "var(--mutgui-surface)",
                           "color": "var(--mutgui-text)",
                           "borderRadius": "4px", "cursor": "pointer",
-                      },
-                      "children": "⌘ Open Palette"},
-                 ]},
+                       },
+                       "children": "⌘ Open Palette"},
+                  ]},
 
-                # 操作日志
-                {"$component": "div", "$id": "log-section",
-                 "style": {"marginTop": "24px"},
-                 "$children": [
+                 # placement 矩阵
+                 {"$component": "div", "$id": "placement-section",
+                  "style": {"marginTop": "24px"},
+                  "$children": [
+                      {"$component": "h4", "$id": "placement-h",
+                       "children": "Placement matrix"},
+                      {"$component": "div", "$id": "placement-help",
+                       "style": {
+                           "marginTop": "8px",
+                           "fontSize": "12px",
+                           "color": "var(--mutgui-text-dim)",
+                       },
+                       "children": "Right-click list covers cursor; buttons below cover the 10 side-align placements."},
+                      {"$component": "div", "$id": "placement-grid",
+                       "style": {
+                           "display": "grid",
+                           "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
+                           "gap": "8px",
+                           "marginTop": "10px",
+                       },
+                       "$children": placement_buttons},
+                  ]},
+
+                 # 边缘 flip 演示
+                 {"$component": "div", "$id": "flip-section",
+                  "style": {"marginTop": "24px"},
+                  "$children": [
+                      {"$component": "h4", "$id": "flip-h",
+                       "children": "Edge flip"},
+                      {"$component": "div", "$id": "flip-box",
+                       "style": {
+                           "position": "relative",
+                           "height": "240px",
+                           "marginTop": "8px",
+                           "border": "1px dashed var(--mutgui-border)",
+                           "borderRadius": "8px",
+                           "background": "var(--mutgui-surface)",
+                       },
+                       "$children": [
+                           {"$component": "button", "$id": "flip-left-top",
+                            "onClick": MenuTrigger(
+                                lambda: EdgeFlipMenu(title="left-start", page=self),
+                                placement="left-start",
+                            ),
+                            "style": {
+                                "position": "absolute",
+                                "left": "12px",
+                                "top": "12px",
+                                "padding": "8px 10px",
+                                "border": "1px solid var(--mutgui-border)",
+                                "background": "var(--mutgui-bg)",
+                                "color": "var(--mutgui-text)",
+                                "borderRadius": "4px",
+                                "cursor": "pointer",
+                            },
+                            "children": "left-start @ top-left"},
+                           {"$component": "button", "$id": "flip-right-top",
+                            "onClick": MenuTrigger(
+                                lambda: EdgeFlipMenu(title="top-end", page=self),
+                                placement="top-end",
+                            ),
+                            "style": {
+                                "position": "absolute",
+                                "right": "12px",
+                                "top": "12px",
+                                "padding": "8px 10px",
+                                "border": "1px solid var(--mutgui-border)",
+                                "background": "var(--mutgui-bg)",
+                                "color": "var(--mutgui-text)",
+                                "borderRadius": "4px",
+                                "cursor": "pointer",
+                            },
+                            "children": "top-end @ top-right"},
+                           {"$component": "button", "$id": "flip-left-bottom",
+                            "onClick": MenuTrigger(
+                                lambda: EdgeFlipMenu(title="bottom-start", page=self),
+                                placement="bottom-start",
+                            ),
+                            "style": {
+                                "position": "absolute",
+                                "left": "12px",
+                                "bottom": "12px",
+                                "padding": "8px 10px",
+                                "border": "1px solid var(--mutgui-border)",
+                                "background": "var(--mutgui-bg)",
+                                "color": "var(--mutgui-text)",
+                                "borderRadius": "4px",
+                                "cursor": "pointer",
+                            },
+                            "children": "bottom-start @ bottom-left"},
+                           {"$component": "button", "$id": "flip-right-bottom",
+                            "onClick": MenuTrigger(
+                                lambda: EdgeFlipMenu(title="right-end", page=self),
+                                placement="right-end",
+                            ),
+                            "style": {
+                                "position": "absolute",
+                                "right": "12px",
+                                "bottom": "12px",
+                                "padding": "8px 10px",
+                                "border": "1px solid var(--mutgui-border)",
+                                "background": "var(--mutgui-bg)",
+                                "color": "var(--mutgui-text)",
+                                "borderRadius": "4px",
+                                "cursor": "pointer",
+                            },
+                            "children": "right-end @ bottom-right"},
+                       ]},
+                  ]},
+
+                 # 尺寸稳定性演示
+                 {"$component": "div", "$id": "stable-section",
+                  "style": {"marginTop": "24px"},
+                  "$children": [
+                      {"$component": "h4", "$id": "stable-h",
+                       "children": "Resize stability"},
+                      {"$component": "div", "$id": "stable-help",
+                       "style": {
+                           "marginTop": "8px",
+                           "fontSize": "12px",
+                           "color": "var(--mutgui-text-dim)",
+                       },
+                       "children": "Open any placement, then use +/- inside the menu to change item count and watch the anchored corner stay fixed."},
+                      {"$component": "div", "$id": "stable-grid",
+                       "style": {
+                           "display": "grid",
+                           "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
+                           "gap": "8px",
+                           "marginTop": "10px",
+                       },
+                       "$children": resize_buttons},
+                  ]},
+
+                 # 操作日志
+                 {"$component": "div", "$id": "log-section",
+                  "style": {"marginTop": "24px"},
+                  "$children": [
                      {"$component": "h4", "$id": "log-h",
                       "children": "Action log"},
                      {"$component": "pre", "$id": "log",
