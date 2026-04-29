@@ -10,7 +10,44 @@ interface RuntimeManifest {
 }
 
 type MutguiPlugin = (ctx: unknown) => void;
-type MountFn = (el: HTMLElement, wsUrl: string, plugins?: MutguiPlugin[]) => void;
+interface RuntimeConnection {
+  handleMessage(message: unknown): void;
+}
+
+interface CoreModule {
+  createConnection(sendRaw: (data: string) => void): RuntimeConnection;
+  mountWithConnection(el: HTMLElement, connection: RuntimeConnection, plugins?: MutguiPlugin[]): void;
+  mount(el: HTMLElement, wsUrl: string, plugins?: MutguiPlugin[]): void;
+}
+
+interface RuntimeCssMessage {
+  type: 'runtime.css';
+  href: string;
+}
+
+interface RuntimeImportMessage {
+  type: 'runtime.import';
+  module: string;
+}
+
+interface RuntimeInstallMessage {
+  type: 'runtime.install';
+  module: string;
+}
+
+interface RuntimeMountMessage {
+  type: 'runtime.mount';
+}
+
+type RuntimeMessage =
+  | RuntimeCssMessage
+  | RuntimeImportMessage
+  | RuntimeInstallMessage
+  | RuntimeMountMessage
+  | { type: string; [key: string]: unknown };
+
+const importedModules = new Map<string, Promise<unknown>>();
+const loadedCss = new Set<string>();
 
 function readManifest(): RuntimeManifest {
   const el = document.getElementById('mutgui-manifest');
@@ -36,6 +73,31 @@ function buildWsUrl(path: string): string {
   return `${protocol}//${location.host}${path}`;
 }
 
+function ensureCss(href: string): void {
+  if (loadedCss.has(href)) {
+    return;
+  }
+  const existing = document.querySelector(`link[href="${href}"]`);
+  if (existing) {
+    loadedCss.add(href);
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+  loadedCss.add(href);
+}
+
+function importModule(name: string): Promise<unknown> {
+  let pending = importedModules.get(name);
+  if (!pending) {
+    pending = import(/* @vite-ignore */ name);
+    importedModules.set(name, pending);
+  }
+  return pending;
+}
+
 function readPlugins(el: HTMLElement, table: Map<string, MutguiPlugin>): MutguiPlugin[] {
   const names = (el.dataset.plugins ?? '')
     .split(',')
@@ -50,37 +112,131 @@ function readPlugins(el: HTMLElement, table: Map<string, MutguiPlugin>): MutguiP
   });
 }
 
+class RuntimeSession {
+  private readonly plugins: MutguiPlugin[] = [];
+
+  private readonly installed = new Set<string>();
+
+  private connection: RuntimeConnection | null = null;
+
+  private mounted = false;
+
+  private chain: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly el: HTMLElement,
+    private readonly wsUrl: string,
+    private readonly mountId: string,
+  ) {}
+
+  start(): void {
+    this.el.innerHTML = '<div style="color:var(--mutgui-text-dim);font-size:12px">Connecting...</div>';
+    const ws = new WebSocket(this.wsUrl);
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({ type: 'mount.attach', mountId: this.mountId, protocol: 1 }));
+    });
+    ws.addEventListener('close', () => {
+      if (!this.mounted) {
+        this.el.innerHTML = '<div style="color:var(--mutgui-text-dim);font-size:12px">Disconnected</div>';
+      }
+    });
+    ws.addEventListener('message', (event) => {
+      const message = JSON.parse(event.data) as RuntimeMessage;
+      this.chain = this.chain.then(() => this.handleMessage(ws, message));
+      this.chain.catch((error: unknown) => this.fail(error));
+    });
+  }
+
+  private async handleMessage(ws: WebSocket, message: RuntimeMessage): Promise<void> {
+    switch (message.type) {
+      case 'runtime.css': {
+        const { href } = message as RuntimeCssMessage;
+        ensureCss(href);
+        return;
+      }
+      case 'runtime.import': {
+        const { module } = message as RuntimeImportMessage;
+        await importModule(module);
+        return;
+      }
+      case 'runtime.install': {
+        const { module } = message as RuntimeInstallMessage;
+        if (this.installed.has(module)) {
+          return;
+        }
+        const mod = await importModule(module) as { default?: MutguiPlugin; install?: MutguiPlugin };
+        const install = mod.install ?? mod.default;
+        if (typeof install !== 'function') {
+          throw new Error(`Runtime install module ${module} is missing a default/install function`);
+        }
+        this.plugins.push(install);
+        this.installed.add(module);
+        return;
+      }
+      case 'runtime.mount': {
+        if (this.mounted) {
+          return;
+        }
+        const core = await importModule('@mutgui/core') as CoreModule;
+        this.connection = core.createConnection((data) => ws.send(data));
+        core.mountWithConnection(this.el, this.connection, this.plugins);
+        this.mounted = true;
+        return;
+      }
+      default:
+        if (!this.connection) {
+          throw new Error(`Received ${message.type} before runtime.mount`);
+        }
+        this.connection.handleMessage(message);
+    }
+  }
+
+  private fail(error: unknown): void {
+    const message = error instanceof Error ? error.stack ?? error.message : String(error);
+    this.el.innerHTML = `<pre style="color:red">${message}</pre>`;
+  }
+}
+
+async function startFromManifest(targets: HTMLElement[]): Promise<void> {
+  const manifest = readManifest();
+  for (const href of manifest.css) {
+    ensureCss(href);
+  }
+  const pluginTable = new Map<string, MutguiPlugin>();
+  for (const entry of manifest.entries) {
+    const mod = await importModule(entry.name) as { default?: MutguiPlugin };
+    if (entry.kind === 'plugin') {
+      pluginTable.set(entry.name, mod.default as MutguiPlugin);
+    }
+  }
+
+  const core = await importModule('@mutgui/core') as CoreModule;
+  for (const el of targets) {
+    core.mount(el, resolveWsUrl(el.dataset.wsUrl), readPlugins(el, pluginTable));
+  }
+}
+
+function startFromRuntimeStream(targets: HTMLElement[]): void {
+  if (targets.length !== 1) {
+    throw new Error('Runtime stream mode currently expects exactly one [data-mutgui-app] target');
+  }
+  const el = targets[0];
+  const mountId = el.id || 'mutgui-root';
+  new RuntimeSession(el, resolveWsUrl(el.dataset.wsUrl), mountId).start();
+}
+
 async function start(): Promise<void> {
   const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-mutgui-app]'));
   if (targets.length === 0) {
     throw new Error('No <div data-mutgui-app> found on page');
   }
 
-  const manifest = readManifest();
-
-  for (const href of manifest.css) {
-    if (document.querySelector(`link[href="${href}"]`)) {
-      continue;
-    }
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    document.head.appendChild(link);
+  if (document.getElementById('mutgui-manifest')) {
+    await startFromManifest(targets);
+    return;
   }
 
-  const pluginTable = new Map<string, MutguiPlugin>();
-  for (const entry of manifest.entries) {
-    const mod = await import(/* @vite-ignore */ entry.name);
-    if (entry.kind === 'plugin') {
-      pluginTable.set(entry.name, mod.default as MutguiPlugin);
-    }
-  }
-
-  const core = await import('@mutgui/core');
-  const mount = core.mount as MountFn;
-  for (const el of targets) {
-    mount(el, resolveWsUrl(el.dataset.wsUrl), readPlugins(el, pluginTable));
-  }
+  startFromRuntimeStream(targets);
 }
 
 start().catch((err: unknown) => {

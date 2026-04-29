@@ -295,7 +295,7 @@ class VirtualListChatView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", VirtualListChatView(), title="VirtualList Chat Stream"),
+    MutguiRoute("/", VirtualListChatView(), title="VirtualList Chat Stream", layout="plain"),
 ])
 
 

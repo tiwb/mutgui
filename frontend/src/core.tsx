@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
@@ -38,34 +38,43 @@ registerCommands({
   },
 });
 
-function createConnection(ws: WebSocket): MutguiConnection {
+type InboundMessage =
+  | { type: 'render'; viewId?: ViewPath; tree: unknown[] }
+  | { type: 'command'; viewId?: ViewPath; name: string; args?: Record<string, unknown> };
+
+export interface RuntimeConnection extends MutguiConnection {
+  handleMessage(message: unknown): void;
+}
+
+export function createConnection(sendRaw: (data: string) => void): RuntimeConnection {
   const subs = new Map<string, RenderCallback>();
   const cache = new Map<string, unknown[]>();
 
-  ws.addEventListener('message', (e) => {
-    const msg = JSON.parse(e.data);
+  const handleMessage = (message: unknown) => {
+    const msg = message as Partial<InboundMessage>;
     if (msg.type === 'render') {
-      const viewId: ViewPath = msg.viewId || [];
+      const viewId: ViewPath = msg.viewId ?? [];
       const key = JSON.stringify(viewId);
-      cache.set(key, msg.tree);
+      cache.set(key, msg.tree ?? []);
       const cb = subs.get(key);
-      if (cb) cb(msg.tree);
+      if (cb) cb(msg.tree ?? []);
       return;
     }
 
     if (msg.type === 'command') {
-      const viewId: ViewPath = msg.viewId || [];
-      const cmd = resolveCommand(msg.name);
+      const viewId: ViewPath = msg.viewId ?? [];
+      const cmd = resolveCommand(msg.name ?? '');
       if (!cmd) {
         console.warn(`[mutgui] Unknown command: ${String(msg.name)}`, msg);
         return;
       }
       cmd((msg.args || {}) as Record<string, unknown>, { viewId });
     }
-  });
+  };
 
   return {
-    send: (data: string) => ws.send(data),
+    handleMessage,
+    send: (data: string) => sendRaw(data),
     subscribe: (viewId: ViewPath, callback: RenderCallback) => {
       const key = JSON.stringify(viewId);
       subs.set(key, callback);
@@ -77,13 +86,24 @@ function createConnection(ws: WebSocket): MutguiConnection {
 }
 
 interface AppProps {
+  connection: MutguiConnection;
+}
+
+function App({ connection }: AppProps) {
+  return (
+    <ConnectionProvider value={connection}>
+      <MutguiView />
+    </ConnectionProvider>
+  );
+}
+
+interface ConnectedAppProps {
   wsUrl: string;
   onStatus?: (status: string) => void;
 }
 
-function App({ wsUrl, onStatus }: AppProps) {
+function ConnectedApp({ wsUrl, onStatus }: ConnectedAppProps) {
   const [status, setStatus] = useState('Connecting...');
-  const connRef = useRef<MutguiConnection | null>(null);
   const [conn, setConn] = useState<MutguiConnection | null>(null);
 
   const updateStatus = (s: string) => {
@@ -93,8 +113,10 @@ function App({ wsUrl, onStatus }: AppProps) {
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
-    const connection = createConnection(ws);
-    connRef.current = connection;
+    const connection = createConnection((data) => ws.send(data));
+    ws.addEventListener('message', (e) => {
+      connection.handleMessage(JSON.parse(e.data));
+    });
     ws.onopen = () => {
       updateStatus('Connected');
       setConn(connection);
@@ -107,11 +129,7 @@ function App({ wsUrl, onStatus }: AppProps) {
     return <div style={{ color: 'var(--mutgui-text-dim)', fontSize: 12 }}>{status}</div>;
   }
 
-  return (
-    <ConnectionProvider value={conn}>
-      <MutguiView />
-    </ConnectionProvider>
-  );
+  return <App connection={conn} />;
 }
 
 export type RootWrapper = (children: ReactNode) => ReactNode;
@@ -144,18 +162,33 @@ function applyPlugins(plugins: MutguiPlugin[]): RootWrapper[] {
   return wrappers;
 }
 
+function wrapWithPlugins(children: ReactNode, plugins?: MutguiPlugin[]): ReactNode {
+  const wrappers = applyPlugins(plugins ?? []);
+  let tree = children;
+  for (let i = wrappers.length - 1; i >= 0; i--) {
+    tree = wrappers[i](tree);
+  }
+  return tree;
+}
+
+export function mountWithConnection(
+  el: HTMLElement,
+  connection: MutguiConnection,
+  plugins?: MutguiPlugin[],
+): void {
+  createRoot(el).render(wrapWithPlugins(<App connection={connection} />, plugins));
+}
+
 export function mount(
   el: HTMLElement,
   wsUrl: string,
   plugins?: MutguiPlugin[],
   options?: { onStatus?: (status: string) => void },
 ): void {
-  const wrappers = applyPlugins(plugins ?? []);
-  let tree: ReactNode = <App wsUrl={wsUrl} onStatus={options?.onStatus} />;
-  for (let i = wrappers.length - 1; i >= 0; i--) {
-    tree = wrappers[i](tree);
-  }
-  createRoot(el).render(tree);
+  createRoot(el).render(wrapWithPlugins(
+    <ConnectedApp wsUrl={wsUrl} onStatus={options?.onStatus} />,
+    plugins,
+  ));
 }
 
 export { registerComponents, resolve } from './core/registry';

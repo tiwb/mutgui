@@ -1,22 +1,16 @@
-"""自定义主题 demo — 演示如何写自己的 Plugin 实现主题定制。
+"""自定义主题 demo — 演示后端安装一个自定义主题扩展实现主题定制。
 
-mutgui 框架本身不认识"主题",只提供通用的 Plugin 协议:
-  - ctx.addCss(css)         注入 CSS
-  - ctx.addBodyClass(name)  加 body class
-  - ctx.wrapRoot(wrap)      在 React 根外包一层(通常是 antd ConfigProvider)
-
-本 demo 在 HTML 里内联写了一个 MyPurpleTheme plugin,做了三件事:
+mutgui 框架本身不认识"主题"，但后端可以在运行时要求前端安装一个扩展模块。
+本 demo 使用 `@mutgui/theme-purple` 扩展模块，效果与之前内联脚本版等价：
   1. 注入 CSS 覆盖 --mutgui-* token 为紫色系
-  2. 加 body class .my-purple 激活覆盖
-  3. 用 antd ConfigProvider 配紫色 token,让 antd 组件一起变紫
-
-这就是内置 mutgui-theme-dark.js 的等价路径 —— 用户可以照此写任意主题。
+  2. 给 body 添加类名激活覆盖
+  3. 用 antd ConfigProvider 配紫色 token，让 antd 组件一起变紫
 """
 from __future__ import annotations
 
 from mutgui import View, ViewBlock, Callback
 
-from demo.framework import DemoApp, MutguiRoute, mutgui_mount_div, mutgui_runtime_assets
+from demo.framework import DemoApp, MutguiRoute
 
 
 class ThemingDemoView(View):
@@ -26,11 +20,11 @@ class ThemingDemoView(View):
         return ViewBlock([
             {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3, "children": "Custom Theme Demo"},
-            {"$component": "antd.Typography.Paragraph", "$id": "desc",
-             "children": (
-                 "这个页面用的是自定义紫色 Plugin(不是内置的 mutgui-theme-dark)。 "
-                 "Plugin 源码就写在页面 HTML 里,展示如何定制主题。"
-             )},
+             {"$component": "antd.Typography.Paragraph", "$id": "desc",
+              "children": (
+                  "这个页面用的是自定义紫色主题扩展（不是内置的 mutgui-theme-dark）。 "
+                  "页面 HTML 不再内联前端脚本，而是由后端在连接建立后下发安装该扩展的指令。"
+              )},
             {"$component": "antd.Typography.Title", "$id": "t2",
              "level": 5, "children": "antd 控件跟着主题走"},
             {"$component": "antd.Form", "$id": "form", "layout": "vertical",
@@ -63,78 +57,14 @@ class ThemingDemoView(View):
         self.click_count += 1
         self.invalidate()
 
-
-# 自定义 HTML,内联写一个 MyPurpleTheme plugin
-THEMING_HTML = """\
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>mutgui — Custom Theme</title>
-</head>
-<body>
-  <div style="max-width: 720px; margin: 40px auto; font-family: sans-serif;">
-    __MOUNT_DIV__
-  </div>
-__RUNTIME_ASSETS__
-  <script type="module">
-    import React from 'react';
-    import { ConfigProvider, theme } from 'antd';
-    import { mount } from '@mutgui/core';
-
-    // 一个自定义的紫色主题 Plugin
-    // Plugin 签名: (ctx) => void,ctx 暴露 addCss / addBodyClass / wrapRoot 三个能力
-    const MyPurpleTheme = (ctx) => {
-      // 1. 注入 CSS — 覆盖 mutgui 的 --mutgui-* token 为紫色系
-      ctx.addCss(`
-        body.my-purple,
-        body.my-purple .mutgui-root {
-          color-scheme: dark;
-          --mutgui-accent:    oklch(0.65 0.22 310);
-          --mutgui-bg:        oklch(0.20 0.04 300);
-          --mutgui-surface:   oklch(0.26 0.05 300);
-          --mutgui-text:      oklch(0.92 0.02 310);
-          --mutgui-text-dim:  oklch(0.70 0.04 310);
-          --mutgui-border:    oklch(0.40 0.06 300);
-        }
-        body.my-purple {
-          background: var(--mutgui-bg);
-          color: var(--mutgui-text);
-        }
-      `);
-
-      // 2. 加 body class 激活上面的规则
-      ctx.addBodyClass('my-purple');
-
-      // 3. 用 antd ConfigProvider 配置 antd 的主题(紫色 + darkAlgorithm)
-      const antdTheme = {
-        algorithm: theme.darkAlgorithm,
-        token: { colorPrimary: '#b07cff' },
-      };
-      ctx.wrapRoot((children) =>
-        React.createElement(ConfigProvider, { theme: antdTheme }, children)
-      );
-    };
-
-    mount(
-      document.getElementById('app'),
-      `ws://${location.host}${location.pathname}`,
-      [MyPurpleTheme]
-    );
-  </script>
-</body>
-</html>
-""".replace(
-    "__MOUNT_DIV__",
-    mutgui_mount_div(plugins=(), extra_attrs='id="app"'),
-).replace(
-    "__RUNTIME_ASSETS__",
-    mutgui_runtime_assets(),
-)
-
-
 app = DemoApp([
-    MutguiRoute("/", ThemingDemoView(), title="Custom Theme", html=THEMING_HTML),
+    MutguiRoute(
+        "/",
+        ThemingDemoView(),
+        title="Custom Theme",
+        layout="plain",
+        runtime_installs=("@mutgui/theme-purple",),
+    ),
 ])
 
 

@@ -216,7 +216,7 @@ class VirtualListView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", VirtualListView(), title="VirtualList"),
+    MutguiRoute("/", VirtualListView(), title="VirtualList", layout="plain"),
 ])
 
 if __name__ == "__main__":

@@ -34,7 +34,6 @@ class CommandDemoView(View):
                 "style": {
                     "padding": "24px",
                     "fontFamily": "system-ui",
-                    "maxWidth": "760px",
                     "margin": "0 auto",
                     "display": "flex",
                     "flexDirection": "column",
@@ -92,7 +91,7 @@ class CommandDemoView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", CommandDemoView(), title="Command Channel"),
+    MutguiRoute("/", CommandDemoView(), title="Command Channel", layout="plain"),
 ])
 
 

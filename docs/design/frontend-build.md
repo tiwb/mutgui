@@ -31,25 +31,23 @@ src/mutgui/static/
 
 ## 页面加载协议
 
-Python 后端不再拼接一串 IIFE `<script>`，而是在渲染 HTML 时内联两段 JSON，再加载一个 bootstrap：
+Python 后端不再拼接一串 IIFE `<script>`，而是在渲染 HTML 时内联 import map，再加载一个 bootstrap：
 
 ```html
-<div data-mutgui-app
-     data-ws-url="/ws"
-     data-plugins="@mutgui/theme-dark"></div>
+<div data-mutgui-app data-ws-url="/ws"></div>
 
 <script type="importmap">{"imports": ...}</script>
-<script id="mutgui-manifest" type="application/json">{"importMap": ..., "css": ..., "entries": ...}</script>
 <script src="/static/modules/mutgui/boot.js"></script>
 ```
 
 加载时序：
 
 1. import map 先注册
-2. `boot.js` 读取内联 manifest
-3. boot 先插入 runtime manifest `css` 列表里的 eager 样式
-4. boot `import()` 各个 entry（如 `@mutgui/antd`、`@mutgui/theme-dark`）
-5. boot `import('@mutgui/core')` 并对每个 `data-mutgui-app` 执行 `mount()`
+2. `boot.js` 建立 websocket，并发送 `{"type":"mount.attach",...}`
+3. 后端按顺序下发 `runtime.css` / `runtime.import` / `runtime.install`
+4. boot 执行这些运行时指令
+5. 后端发送 `runtime.mount` 后，boot `import('@mutgui/core')` 并复用同一连接执行 mount
+6. 后续 `render` / `command` / 事件继续走同一条 websocket
 
 `data-ws-url` 可以是：
 
@@ -57,14 +55,14 @@ Python 后端不再拼接一串 IIFE `<script>`，而是在渲染 HTML 时内联
 - 站内路径（如 `/ws`、`/ws/demo-1`）
 - 省略；省略时默认使用当前 `location.pathname`
 
-`data-plugins` 是逗号分隔的 plugin 模块名。模块全局只加载一次，但是否作用于某个 mount 由该属性决定。
+页面不再依赖 `data-plugins` 做运行时装配。是否安装 dark theme、custom theme 等扩展，由后端在 websocket 建立后显式发送 `runtime.install` 决定。
 
 ## CSS 规则
 
 mutgui 现在把 CSS 明确分成两类：
 
-1. **eager 全局样式**：例如 `@mutgui/core` 的基础样式。构建后进入 runtime manifest 的 `css` 列表，由 boot 统一插 `<link>`.
-2. **plugin 条件样式**：例如 theme-dark 的少量覆盖样式。保留 `?inline`，由 plugin 在运行时通过 `ctx.addCss()` 注入。
+1. **eager 全局样式**：例如 `@mutgui/core` 的基础样式。后端在连接建立后通过 `runtime.css` 指示 boot 注入 `<link>`.
+2. **扩展条件样式**：例如 theme-dark / theme-purple 的覆盖样式。保留 `?inline`，由扩展安装函数在运行时通过 `ctx.addCss()` 注入。
 
 所以：
 
@@ -85,7 +83,7 @@ registerComponents({
 });
 ```
 
-plugin 也是标准 ESM 默认导出：
+运行时扩展也是标准 ESM 默认导出：
 
 ```ts
 import React from 'react';
@@ -120,8 +118,9 @@ Python 侧在运行时还会给每个静态资源 URL 追加 `?v=<mtime_ns>`，�
 
 ### Python runtime 场景
 
-- 只需要 `static/manifest.json` + `boot.js` 协议，不要再引用旧的 `mutgui.js` / `mutgui-antd.js`
+- 运行时页面只需要 import map + `boot.js` 协议，不要再引用旧的 `mutgui.js` / `mutgui-antd.js`
 - 静态资源应挂到 `/static/modules/<python-package>/`
+- `static/manifest.json` 仍作为后端生成 import map / eager CSS 的元数据来源，但不是页面必须内联的启动载荷
 
 ### 本地 TS / vite 场景
 

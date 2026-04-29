@@ -36,10 +36,9 @@ def _html_template(view_id: str) -> str:
 <html>
 <head><meta charset="utf-8"><title>mutgui test</title></head>
 <body>
-  <div id="app" data-mutgui-app data-ws-url="/ws/{view_id}" data-plugins=""></div>
+  <div id="app" data-mutgui-app data-ws-url="/ws/{view_id}"></div>
   <script type="importmap">{_json_script(import_map)}</script>
-  <script id="mutgui-manifest" type="application/json">{_json_script(runtime_manifest)}</script>
-  <script src="{REGISTRY.url_prefix("mutgui")}boot.js"></script>
+  <script src="{REGISTRY.url_for("mutgui", "boot.js")}"></script>
 </body>
 </html>
 """
@@ -97,6 +96,15 @@ class TestApp:
                     await ws.close(code=4004, reason="View not found")
                     return
                 await ws.accept()
+                first = await ws.receive_json()
+                if first.get("type") != "mount.attach":
+                    await ws.close(code=4400, reason="expected mount.attach")
+                    return
+                runtime_manifest = REGISTRY.runtime_manifest()
+                for href in runtime_manifest["css"]:
+                    await ws.send_json({"type": "runtime.css", "href": href})
+                await ws.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
+                await ws.send_json({"type": "runtime.mount"})
                 channel = _TestChannel(ws)
                 vp = ViewPort(view, channel)
                 test_app._viewports.append(vp)

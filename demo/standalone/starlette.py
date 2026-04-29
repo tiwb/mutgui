@@ -75,6 +75,16 @@ viewports: list[ViewPort] = []
 
 async def ws_handler(websocket: WebSocket) -> None:
     await websocket.accept()
+    first = await websocket.receive_json()
+    if first.get("type") != "mount.attach":
+        await websocket.close(code=4400, reason="expected mount.attach")
+        return
+    runtime_manifest = REGISTRY.runtime_manifest()
+    for href in runtime_manifest["css"]:
+        await websocket.send_json({"type": "runtime.css", "href": href})
+    await websocket.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
+    await websocket.send_json({"type": "runtime.install", "module": "@mutgui/theme-dark"})
+    await websocket.send_json({"type": "runtime.mount"})
     vp = ViewPort(view, StarletteChannel(websocket))
     viewports.append(vp)
     await vp.initialize()
@@ -109,13 +119,12 @@ def _index_html() -> str:
   <meta charset="utf-8">
   <title>mutgui + Starlette</title>
 </head>
-<body>
+  <body>
   <div style="max-width: 600px; margin: 40px auto; font-family: sans-serif;">
     <div id="app" data-mutgui-app data-ws-url="/ws"></div>
   </div>
   <script type="importmap">{_json_script(import_map)}</script>
-  <script id="mutgui-manifest" type="application/json">{_json_script(runtime_manifest)}</script>
-  <script src="{REGISTRY.url_prefix("mutgui")}boot.js"></script>
+  <script src="{REGISTRY.url_for("mutgui", "boot.js")}"></script>
 </body>
 </html>
 """

@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from typing import Literal
 
 from mutgui import ModuleRegistry, View as GUIView
 
-DEFAULT_PLUGINS = ("@mutgui/theme-dark",)
+DEFAULT_RUNTIME_IMPORTS = ("@mutgui/antd",)
+DEFAULT_RUNTIME_INSTALLS = ("@mutgui/theme-dark",)
+LayoutMode = Literal["plain", "centered", "fullscreen"]
 
 MODULE_REGISTRY = ModuleRegistry()
 MODULE_REGISTRY.add_from_package("mutgui")
+DEFAULT_RUNTIME_CSS = tuple(MODULE_REGISTRY.runtime_manifest()["css"])
 
 
 def _json_script(value: object) -> str:
@@ -20,43 +24,57 @@ def _json_script(value: object) -> str:
 def mutgui_runtime_assets() -> str:
     runtime_manifest = MODULE_REGISTRY.runtime_manifest()
     import_map = {"imports": runtime_manifest["importMap"]}
-    return "\n".join([
-        f'  <script type="importmap">{_json_script(import_map)}</script>',
-        f'  <script id="mutgui-manifest" type="application/json">{_json_script(runtime_manifest)}</script>',
-    ])
+    return f'  <script type="importmap">{_json_script(import_map)}</script>'
 
 
 def mutgui_boot_script() -> str:
-    return f'  <script src="{MODULE_REGISTRY.url_prefix("mutgui")}boot.js"></script>'
+    return f'  <script src="{MODULE_REGISTRY.url_for("mutgui", "boot.js")}"></script>'
 
 
 def mutgui_mount_div(
     *,
     ws_path: str | None = None,
-    plugins: Sequence[str] = DEFAULT_PLUGINS,
     extra_attrs: str = "",
 ) -> str:
     attrs = ["data-mutgui-app"]
     if ws_path is not None:
         attrs.append(f'data-ws-url="{ws_path}"')
-    if plugins:
-        attrs.append(f'data-plugins="{",".join(plugins)}"')
     if extra_attrs:
         attrs.append(extra_attrs.strip())
     return f"<div {' '.join(attrs)}></div>"
+
+
+def _head_extra_for_layout(layout: LayoutMode) -> str:
+    if layout == "fullscreen":
+        return """
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html, body, #app { height: 100%; margin: 0; }
+    body { overflow: hidden; }
+  </style>"""
+    return ""
+
+
+def _body_markup_for_layout(mount_div: str, layout: LayoutMode) -> str:
+    if layout == "centered":
+        return f"""  <div style="max-width: 960px; margin: 40px auto; font-family: sans-serif;">
+    {mount_div}
+  </div>"""
+    return f"  {mount_div}"
 
 
 def mutgui_page(
     title: str,
     ws_path: str | None = None,
     *,
-    plugins: Sequence[str] = DEFAULT_PLUGINS,
+    layout: LayoutMode = "plain",
 ) -> str:
     """生成标准 mutgui HTML 页面。
 
     ws_path 为 None 时使用当前页面路径（同路径 WebSocket）。
     """
-    mount_div = mutgui_mount_div(ws_path=ws_path, plugins=plugins, extra_attrs='id="app"')
+    mount_div = mutgui_mount_div(ws_path=ws_path, extra_attrs='id="app"')
+    body_markup = _body_markup_for_layout(mount_div, layout)
 
     return f"""\
 <!DOCTYPE html>
@@ -64,11 +82,10 @@ def mutgui_page(
 <head>
   <meta charset="utf-8">
   <title>{title} — mutgui</title>
+{_head_extra_for_layout(layout)}
 </head>
 <body>
-  <div style="max-width: 960px; margin: 40px auto; font-family: sans-serif;">
-    {mount_div}
-  </div>
+{body_markup}
 {mutgui_runtime_assets()}
 {mutgui_boot_script()}
 </body>
@@ -94,17 +111,36 @@ class MutguiRoute:
         *,
         title: str | None = None,
         html: str | None = None,
+        layout: LayoutMode = "plain",
+        runtime_imports: Sequence[str] = DEFAULT_RUNTIME_IMPORTS,
+        runtime_installs: Sequence[str] = DEFAULT_RUNTIME_INSTALLS,
+        runtime_css: Sequence[str] = DEFAULT_RUNTIME_CSS,
     ) -> None:
         super().__init__()
         self.path = path
         self.view = view
         self._title = title or "mutgui"
         self._html = html
+        self._layout = layout
+        self._runtime_imports = tuple(runtime_imports)
+        self._runtime_installs = tuple(runtime_installs)
+        self._runtime_css = tuple(runtime_css)
 
     def get_html(self) -> str:
         if self._html is not None:
             return self._html
-        return mutgui_page(self._title)
+        return mutgui_page(self._title, layout=self._layout)
+
+    def runtime_messages(self) -> list[dict[str, str]]:
+        messages: list[dict[str, str]] = []
+        for href in self._runtime_css:
+            messages.append({"type": "runtime.css", "href": href})
+        for name in self._runtime_imports:
+            messages.append({"type": "runtime.import", "module": name})
+        for name in self._runtime_installs:
+            messages.append({"type": "runtime.install", "module": name})
+        messages.append({"type": "runtime.mount"})
+        return messages
 
 
 class DemoApp:

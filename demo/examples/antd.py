@@ -87,7 +87,7 @@ class AntdFormView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", AntdFormView(), title="Ant Design Controls"),
+    MutguiRoute("/", AntdFormView(), title="Ant Design Controls", layout="plain"),
 ])
 
 if __name__ == "__main__":

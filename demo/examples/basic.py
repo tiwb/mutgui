@@ -26,7 +26,7 @@ class CounterView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", CounterView(), title="Basic"),
+    MutguiRoute("/", CounterView(), title="Basic", layout="plain"),
 ])
 
 if __name__ == "__main__":

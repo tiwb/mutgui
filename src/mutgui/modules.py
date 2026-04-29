@@ -35,6 +35,12 @@ class ModuleRegistry:
         version = file_path.stat().st_mtime_ns
         return f"{self.url_prefix(package_name)}{rel_path}?v={version}"
 
+    def url_for(self, package_name: str, rel_path: str) -> str:
+        for current_name, static_dir, _manifest in self._packages:
+            if current_name == package_name:
+                return self._versioned_url(package_name, static_dir, rel_path)
+        raise KeyError(f"Unknown package in ModuleRegistry: {package_name}")
+
     def static_mounts(self) -> list[tuple[str, Path]]:
         return [
             (self.url_prefix(package_name).rstrip("/"), static_dir)

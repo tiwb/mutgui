@@ -124,7 +124,7 @@ class NestingView(View):
 
 
 app = DemoApp([
-    MutguiRoute("/", NestingView(), title="View Nesting"),
+    MutguiRoute("/", NestingView(), title="View Nesting", layout="plain"),
 ])
 
 if __name__ == "__main__":

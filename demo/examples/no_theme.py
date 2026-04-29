@@ -1,11 +1,10 @@
-"""No-theme demo — 演示不加载任何主题 plugin 时的框架默认行为。
+"""No-theme demo — 演示不安装任何主题扩展时的框架默认行为。
 
 mutgui 框架本身不提供主题。base.css 的 token 默认值为亮色,
 对齐浏览器默认、antd / MUI / Chakra 等主流组件库默认。
 
 这个 demo:
-  - 不加载 mutgui-theme-dark.js
-  - mount 传 [] (或省略)
+  - 后端不下发任何主题安装消息
   - antd 无 ConfigProvider → 默认亮色 (antd 自带的 light 主题)
   - mutgui 的 --mutgui-* token 用 base.css 的亮色默认值
   - body 无特殊 class,浏览器默认白底黑字
@@ -17,13 +16,7 @@ from __future__ import annotations
 
 from mutgui import View, ViewBlock, Callback
 
-from demo.framework import (
-    DemoApp,
-    MutguiRoute,
-    mutgui_boot_script,
-    mutgui_mount_div,
-    mutgui_runtime_assets,
-)
+from demo.framework import DemoApp, MutguiRoute
 
 
 class NoThemeView(View):
@@ -35,10 +28,10 @@ class NoThemeView(View):
              "level": 3, "children": "No Theme — mutgui 零预设"},
             {"$component": "antd.Typography.Paragraph", "$id": "desc",
              "children": (
-                 "此页面不加载任何主题 Plugin。mount 传 [] 空数组, "
+                 "此页面不安装任何主题扩展。后端只下发基础 CSS 和组件库导入, "
                  "mutgui 框架不认识'主题',token 默认为亮色, "
                  "antd 无 ConfigProvider 也默认亮色,两者自然一致。"
-             )},
+              )},
             {"$component": "antd.Form", "$id": "form", "layout": "vertical",
              "$children": [
                  {"$component": "antd.Form.Item", "$id": "fi", "label": "Input",
@@ -54,37 +47,17 @@ class NoThemeView(View):
             {"$component": "antd.Typography.Paragraph", "$id": "hint",
              "type": "secondary",
              "style": {"marginTop": 24, "fontSize": 13},
-             "children": (
-                 "对比 /theming/ 可以看到相同业务代码在不同 plugin 下的效果。"
-             )},
+              "children": (
+                  "对比 /theming/ 可以看到相同业务代码在不同运行时扩展下的效果。"
+              )},
         ])
 
     def _on_click(self) -> None:
         self.click_count += 1
         self.invalidate()
 
-
-# 自定义 HTML: 不启用任何 plugin
-NO_THEME_HTML = f"""\
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>mutgui — No Theme</title>
-</head>
-<body>
-  <div style="max-width: 720px; margin: 40px auto; font-family: sans-serif;">
-    {mutgui_mount_div(plugins=(), extra_attrs='id="app"')}
-  </div>
-{mutgui_runtime_assets()}
-{mutgui_boot_script()}
-</body>
-</html>
-"""
-
-
 app = DemoApp([
-    MutguiRoute("/", NoThemeView(), title="No Theme", html=NO_THEME_HTML),
+    MutguiRoute("/", NoThemeView(), title="No Theme", layout="plain", runtime_installs=()),
 ])
 
 

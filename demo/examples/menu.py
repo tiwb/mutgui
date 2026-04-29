@@ -8,13 +8,7 @@ from mutgui import (
     MenuView, MenuTrigger,
 )
 
-from demo.framework import (
-    DemoApp,
-    MutguiRoute,
-    mutgui_boot_script,
-    mutgui_mount_div,
-    mutgui_runtime_assets,
-)
+from demo.framework import DemoApp, MutguiRoute
 
 
 SIDE_PLACEMENTS = [
@@ -376,8 +370,7 @@ class MenuDemoPage(View):
         ]
         return ViewBlock([{
             "$component": "div", "$id": "wrap",
-            "style": {"padding": "24px", "fontFamily": "system-ui",
-                       "maxWidth": "900px", "margin": "0 auto"},
+            "style": {"padding": "24px", "fontFamily": "system-ui", "margin": "0 auto"},
             "$children": [
                 {"$component": "h2", "$id": "h", "children": "Menu System Demo"},
 
@@ -608,41 +601,8 @@ class MenuDemoPage(View):
             ],
         }])
 
-
-MENU_HTML = """\
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>mutgui — Menu System</title>
-  <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    h2 { margin: 0 0 8px 0; }
-    h4 { margin: 0; font-size: 13px; color: var(--mutgui-text-dim); }
-  </style>
-</head>
-<body>
-  __MOUNT_DIV__
-__RUNTIME_ASSETS__
-__BOOT_SCRIPT__
-</body>
-</html>
-""".replace(
-    "__MOUNT_DIV__",
-    mutgui_mount_div(extra_attrs='id="app"'),
-).replace(
-    "__RUNTIME_ASSETS__",
-    mutgui_runtime_assets(),
-).replace(
-    "__BOOT_SCRIPT__",
-    mutgui_boot_script(),
-)
-
-
 app = DemoApp([
-    MutguiRoute("/", MenuDemoPage(), title="Menu System", html=MENU_HTML),
+    MutguiRoute("/", MenuDemoPage(), title="Menu System", layout="plain"),
 ])
 
 if __name__ == "__main__":

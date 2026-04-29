@@ -8,13 +8,7 @@ from mutgui import (
     DockPanel, PanelDef, SplitNode, TabSetNode,
 )
 
-from demo.framework import (
-    DemoApp,
-    MutguiRoute,
-    mutgui_boot_script,
-    mutgui_mount_div,
-    mutgui_runtime_assets,
-)
+from demo.framework import DemoApp, MutguiRoute
 
 
 class SimplePanelView(View):
@@ -106,40 +100,8 @@ class DockView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([self.dock])
 
-
-DOCK_HTML = """\
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>mutgui — DockPanel</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #app { height: 100vh; }
-  </style>
-</head>
-<body>
-  __MOUNT_DIV__
-__RUNTIME_ASSETS__
-__BOOT_SCRIPT__
-</body>
-</html>
-""".replace(
-    "__MOUNT_DIV__",
-    mutgui_mount_div(extra_attrs='id="app" style="height: 100vh;"'),
-).replace(
-    "__RUNTIME_ASSETS__",
-    mutgui_runtime_assets(),
-).replace(
-    "__BOOT_SCRIPT__",
-    mutgui_boot_script(),
-)
-
-
 app = DemoApp([
-    MutguiRoute("/", DockView(), title="DockPanel", html=DOCK_HTML),
+    MutguiRoute("/", DockView(), title="DockPanel", layout="fullscreen"),
 ])
 
 if __name__ == "__main__":
