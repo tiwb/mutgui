@@ -74,14 +74,18 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 - `resolveCommand(name)`：按与组件解析链一致的命名空间规则解析命令
 - `import { registerCommands } from '@mutgui/core'`：前端扩展模块的标准入口
 
-当前 core 内置 `mutgui.redirect({ url, replace? })`，用于整页跳转。
+当前 core 内置三个浏览器导航命令：
+
+- `mutgui.redirect({ url, replace? })`：整页跳转 / replace 跳转
+- `mutgui.history({ delta })`：映射到 `history.go(delta)`，`-1`/`1` 对应 back/forward
+- `mutgui.reload()`：重新加载当前页面
 
 ### 不重放语义
 
 - render 消息会在 ViewPort 初始化/重连时按最新树重放
 - command 消息不会缓存，也不会因 `invalidate()` 或新 ViewPort 初始化而重发
 
-这保证了 redirect 等副作用不会因为重连或重新渲染被重复执行。
+这保证了 redirect、history、reload 等副作用不会因为重连或重新渲染被重复执行。
 
 ## 多客户端
 

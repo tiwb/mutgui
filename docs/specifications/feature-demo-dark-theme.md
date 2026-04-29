@@ -356,7 +356,7 @@ body.mutgui-dark .mutgui-root {
 - `dock.py` 的 11 个装饰色板保留（合法的多 panel 区分色）
 - `mahjong.py` 的语义红/蓝装饰色保留（业务语义色，plugin 不该管）
 
-### 新增 demo：`demo/examples/theming.py`
+### 新增 demo：`demo/examples/theming.py`（历史记录，后续已移除）
 
 演示 plugin 机制：
 - 默认加载 `[MutguiThemeDark]` 是深色
@@ -391,7 +391,7 @@ body.mutgui-dark .mutgui-root {
   - [x] `menu.py` —— 保留 search input / empty hint / context tab / 两个按钮 / log `<pre>` 的 token 引用
   - [x] `mahjong.py` —— 保留功能色 token 引用
   - [x] `dock.py` —— `SimplePanelView` 默认背景走 `var(--mutgui-surface)`,有指定装饰色时用装饰色。11 个装饰色板保留
-- [x] **新增 theming.py demo**（演示 plugin 机制和定制化：内联写紫色 Plugin，展示用户自定义主题的完整路径）
+- [x] **新增 theming.py demo**（历史记录：演示 plugin 机制和定制化；该 demo 后续已移除）
 - [x] **新增 no_theme.py demo**（演示框架零预设：不加载 theme plugin，mount 传空数组，观察亮色页面）
 - [x] **全量构建**：
   - [x] `npm run build:standalone`(已串联 antd + theme-dark)
@@ -404,5 +404,4 @@ body.mutgui-dark .mutgui-root {
 - demo 作为 plugin 消费者，加载一个 plugin 就完成深色切换（包括 antd）的体验是否符合预期
 - 是否真正做到"demo 几乎不写颜色 CSS"
 - Plugin 协议的 ctx 三方法（addCss / addBodyClass / wrapRoot）对暗色主题够用吗？未来 i18n / error-boundary plugin 能否走同协议
-- `theming.py` 演示的定制路径是否清晰
-
+- 历史上的 `theming.py` 演示定制路径是否清晰

@@ -140,7 +140,7 @@ MutguiApp.registerCommands({
 
 - `mutgui.redirect({url, replace?})` — 整页跳转，覆盖 mutbot 当前 Redirect 组件用例
 
-其余命令（`setTitle`、`copyToClipboard`、`scrollTo` 等）**先不内置**，等出现实际用例再加。本 spec 只承诺 redirect 一个，避免一次设计太多。
+其余命令（`setTitle`、`copyToClipboard`、`scrollTo` 等）**先不内置**，等出现实际用例再加。本 spec 起点只承诺 redirect 一个，避免一次设计太多。后续导航族扩展见 `docs/specifications/feature-navigation-commands.md`。
 
 ### 重放语义（与组件方案的关键差异）
 

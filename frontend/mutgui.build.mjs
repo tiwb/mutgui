@@ -56,18 +56,11 @@ export default defineFrontendProject({
       peers: ['react', 'react/jsx-runtime', 'antd', '@mutgui/core'],
       kind: 'plugin',
     },
-    {
-      importName: '@mutgui/theme-purple',
-      entry: 'src/plugins/theme-purple/index.ts',
-      outFile: 'mutgui-theme-purple.js',
-      peers: ['react', 'react/jsx-runtime', 'antd', '@mutgui/core'],
-      kind: 'plugin',
-    },
   ],
   boot: {
     entry: 'src/boot.ts',
     outFile: 'boot.js',
     globalName: 'MutguiBoot',
   },
-  legacyFiles: ['mutgui.js', 'mutgui-antd.js', 'mutgui-theme-dark.js'],
+  legacyFiles: ['mutgui.js', 'mutgui-antd.js', 'mutgui-theme-dark.js', 'libs/mutgui-theme-purple.js'],
 });

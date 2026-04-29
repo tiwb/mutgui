@@ -5,6 +5,7 @@ import './index.css';
 
 import { registerComponents } from './core/registry';
 import { registerCommands, resolveCommand } from './core/commands';
+import { runHistoryCommand, runRedirectCommand, runReloadCommand } from './core/navigation';
 import { MutguiView } from './core/renderer';
 import { VirtualList } from './components/virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
@@ -29,12 +30,14 @@ registerComponents({
 
 registerCommands({
   __name__: 'mutgui',
-  redirect: ({ url, replace }: { url: string; replace?: boolean }) => {
-    if (replace) {
-      window.location.replace(url);
-      return;
-    }
-    window.location.href = url;
+  redirect: (args: { url: string; replace?: boolean }) => {
+    runRedirectCommand(args);
+  },
+  history: (args: { delta: number }) => {
+    runHistoryCommand(args);
+  },
+  reload: () => {
+    runReloadCommand();
   },
 });
 

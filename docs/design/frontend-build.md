@@ -62,7 +62,7 @@ Python 后端不再拼接一串 IIFE `<script>`，而是在渲染 HTML 时内联
 mutgui 现在把 CSS 明确分成两类：
 
 1. **eager 全局样式**：例如 `@mutgui/core` 的基础样式。后端在连接建立后通过 `runtime.css` 指示 boot 注入 `<link>`.
-2. **扩展条件样式**：例如 theme-dark / theme-purple 的覆盖样式。保留 `?inline`，由扩展安装函数在运行时通过 `ctx.addCss()` 注入。
+2. **扩展条件样式**：例如 theme-dark 这类覆盖样式。保留 `?inline`，由扩展安装函数在运行时通过 `ctx.addCss()` 注入。
 
 所以：
 

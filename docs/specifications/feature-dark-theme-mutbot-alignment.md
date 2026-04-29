@@ -107,7 +107,7 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 
 ### Plugin 边界守护
 
-`dark.css` 和 `theming.py` 的 body 规则块原本有 `min-height: 100vh` 和 `margin: 0`。这两项属于**业务视觉决定**（想让背景撑满视口 / 清零浏览器默认 margin），不应进 plugin。
+`dark.css` 和当时的 `theming.py`（该 demo 后续已移除）的 body 规则块原本有 `min-height: 100vh` 和 `margin: 0`。这两项属于**业务视觉决定**（想让背景撑满视口 / 清零浏览器默认 margin），不应进 plugin。
 
 依赖 CSS"body 背景传播"规则（body 的 background 自动传到视口），`min-height: 100vh` 对"紫色/黑色铺满视口"本来就没有必要。删掉这两行后紫色和暗底依然铺满视口，且不再触发多余的 html 滚动条。
 
@@ -147,7 +147,7 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 - 去掉 11 个面板的彩色背景 dict，统一走 panel content 的 `--mutgui-bg`
 - `<body>` 不设 class（html 有全局 scrollbar 规则即可）
 
-`theming.py`：
+历史上的 `theming.py`：
 - 删除 MyPurpleTheme plugin 里的 `min-height: 100vh` 和 `margin: 0`
 
 ## 实施步骤清单
@@ -161,7 +161,7 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 - [x] `--mutgui-scrollbar-thumb` token（亮/暗主题各自设值），删除 `-hover` token
 - [x] 三个组件硬编码挂 `mutgui-scrollbar` class：VirtualList / Menu / DockPanel content
 - [x] dark plugin 清理 body 规则中的业务决定（`min-height` / `margin`）
-- [x] theming demo plugin 同样清理
+- [x] 当时的 theming demo plugin 同样清理（该 demo 已在后续版本移除）
 - [x] 安装 vitest，写 `tests/css-contracts.test.ts`（铁律 A/B/C）
 - [x] `vitest.config.ts` 配置
 - [x] `package.json` 加 `test` 脚本；`build:standalone` 前置 `vitest run`

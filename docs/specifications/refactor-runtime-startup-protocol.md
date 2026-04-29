@@ -9,8 +9,8 @@
 1. `mutgui` 当前通过 HTML 内联 runtime manifest 告诉 `boot.js` 该加载哪些 CSS / entry / plugin，启动装配决策偏前端，不符合“后端驱动 UI”的方向。
 2. 页面启动必须收敛到 **单 websocket 连接**，不能再出现“boot 一套连接、render 再开一套连接”的模型。
 3. 浏览器原生 import map 约束保留：import map 继续内联到 HTML，不改成 HTTP / websocket 获取。
-4. demo 中 `menu` / `dock` / `no_theme` / `theming` 等自定义 HTML 页面，应尽量只保留页面壳子定制，运行时装配改为后端控制。
-5. `theming` demo 需要从“HTML 内联脚本手写 plugin + 手动 mount”改成真正的后端选择扩展模块。
+4. demo 中 `menu` / `dock` / `theming` 等自定义 HTML 页面，应尽量只保留页面壳子定制，运行时装配改为后端控制。
+5. 官方主题示例收敛为 `theming`：只演示后端控制的 `none` / `dark` 切换，不再保留自定义紫色主题。
 
 ## 关键参考
 
@@ -143,10 +143,9 @@ demo framework 需要把运行时装配显式声明到后端：
   - `plain`：不额外包 960px 容器，mount div 直接落在 body
   - `centered`：文档式居中容器
   - `fullscreen`：`html/body/#app` 占满窗口
-- `no_theme`：
-  - 不安装任何主题扩展
 - `theming`：
-  - 使用新的 `@mutgui/theme-purple` 扩展模块，由后端下发 `runtime.install`
+  - 页面可在后端控制的 `none` / `dark` 两种模式间切换
+  - 切换通过 `mutgui.reload()` 触发重连，新的 runtime 消息决定是否安装 `@mutgui/theme-dark`
 - `basic` / `antd` / `command` / `menu`：
   - 使用 `plain`，不由 framework 默认强加 960px 外层容器
 - `dock`：
@@ -159,15 +158,12 @@ demo framework 需要把运行时装配显式声明到后端：
 | mutgui demo/basic | 单连接启动，无 HTML manifest，页面可正常 render 与交互 | `mount.attach` + `runtime.mount` + render 流 | ✅ 必须 |
 | mutgui demo/menu | 使用默认模板 `plain` layout，不再额外包 960px 容器 | 页面级 runtime 配置 + 单连接启动 + route layout | ✅ 必须 |
 | mutgui demo/dock | 使用 `fullscreen` layout 占满窗口 | 页面级 runtime 配置 + 单连接启动 + route layout | ✅ 必须 |
-| mutgui demo/no_theme | 页面不启任何主题扩展，保留默认亮色行为 | 后端 runtime 配置可显式关闭扩展 | ✅ 必须 |
-| mutgui demo/theming | 不再内联前端脚本手动 mount，而是后端安装自定义主题模块 | 新扩展模块 + 后端 `runtime.install` | ✅ 必须 |
-
+| mutgui demo/theming | 页面可在后端控制下切换 none/dark，并通过 reload 重连重新装配主题 | 后端主题状态 + `runtime.install` + `mutgui.reload()` | ✅ 必须 |
 ## 实施步骤清单
 
 - [x] 新增本轮启动协议设计文档，并明确单连接运行时消息时序
 - [x] 重构 `boot.js` 与 `@mutgui/core`，让启动和正常渲染共用同一 websocket
 - [x] 把 demo framework 改为后端声明运行时装配，移除 HTML manifest / `data-plugins` 的主职责
-- [x] 将 `theming` demo 改为后端安装自定义主题扩展模块
 - [x] 完成 mutgui 构建、demo 启动与浏览器验收
 
 ## 测试验证
@@ -179,5 +175,4 @@ demo framework 需要把运行时装配显式声明到后端：
   - `basic` 页面正常加载，按钮点击后从 `Clicked 0 times` 变为 `Clicked 1 times`
   - `menu` 页面正常加载，`#app` 直接位于 body 下，不再被默认 960px 容器包裹
   - `dock` 页面正常加载，`body margin === 0`、`overflow === hidden`、`#app` 占满窗口
-  - `no_theme` 页面正常加载，`document.body.className === ""`
-  - `theming` 页面正常加载，`document.body.className === "mutgui-purple"`
+  - `theming` 页面正常加载；默认 `none` 时 `document.body.className === ""`，切到 `dark` 后重连安装 `theme-dark`

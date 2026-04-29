@@ -88,7 +88,7 @@ class DockView(View):
                     ),
                 ),
             ),
-            ratio=0.04,
+            ratio=0.2,
         )
 
         self.dock = DockPanel(id="dock", panels=panels, layout=layout,
