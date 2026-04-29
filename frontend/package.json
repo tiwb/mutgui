@@ -5,19 +5,21 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "build-preset.mjs"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./build-preset": "./build-preset.mjs"
   },
   "scripts": {
     "dev": "vite",
-    "build": "node ./scripts/build.mjs && vite build && tsc --emitDeclarationOnly",
-    "build:runtime": "node ./scripts/build.mjs",
+    "build": "node ./build.mjs && vite build && tsc --emitDeclarationOnly",
+    "build:runtime": "node ./build.mjs",
     "test": "vitest run",
     "preview": "vite preview"
   },

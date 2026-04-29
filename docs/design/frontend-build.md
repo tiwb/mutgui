@@ -106,7 +106,9 @@ export default plugin;
 ## 构建约定
 
 - 唯一入口命令：`npm --prefix frontend run build`
-- `scripts/build.mjs` 负责 vendor/runtime 产物与 `manifest.json`
+- `frontend/build.mjs` 是唯一执行入口
+- `frontend/mutgui.build.mjs` 只声明 mutgui 自己的 vendor / runtime / boot target
+- `frontend/build-preset.mjs` 封装共享规则，并通过 `@mutgui/core/build-preset` 暴露给下游项目复用
 - `vite build` 仍负责 `frontend/dist/index.js`
 - `tsc --emitDeclarationOnly` 负责 `dist/*.d.ts`
 
