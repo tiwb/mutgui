@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -24,7 +23,7 @@ from starlette.routing import Route, WebSocketRoute, Mount
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
-from mutgui import View, ViewBlock, Callback, Channel, ViewPort
+from mutgui import ModuleRegistry, View, ViewBlock, Callback, Channel, ViewPort
 
 
 # ---------------------------------------------------------------------------
@@ -49,12 +48,12 @@ class HelloView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "Typography.Title", "$id": "title",
+            {"$component": "antd.Typography.Title", "$id": "title",
              "level": 3, "children": "mutgui + Starlette"},
-            {"$component": "Typography.Text", "$id": "desc",
+            {"$component": "antd.Typography.Text", "$id": "desc",
              "type": "secondary",
              "children": "This demo uses Starlette + uvicorn, not mutio.net."},
-            {"$component": "Button", "$id": "btn",
+            {"$component": "antd.Button", "$id": "btn",
              "type": "primary", "size": "large",
              "style": {"marginTop": 16},
              "children": f"Clicked {self.count} times",
@@ -92,7 +91,18 @@ async def ws_handler(websocket: WebSocket) -> None:
         viewports.remove(vp)
 
 
-INDEX_HTML = """\
+REGISTRY = ModuleRegistry()
+REGISTRY.add_from_package("mutgui")
+
+
+def _json_script(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+
+
+def _index_html() -> str:
+    runtime_manifest = REGISTRY.runtime_manifest()
+    import_map = {"imports": runtime_manifest["importMap"]}
+    return f"""\
 <!DOCTYPE html>
 <html>
 <head>
@@ -101,27 +111,28 @@ INDEX_HTML = """\
 </head>
 <body>
   <div style="max-width: 600px; margin: 40px auto; font-family: sans-serif;">
-    <div id="app"></div>
+    <div id="app" data-mutgui-app data-ws-url="/ws"></div>
   </div>
-  <script src="/static/mutgui.js"></script>
-  <script src="/static/mutgui-antd.js"></script>
-  <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}/ws`)</script>
+  <script type="importmap">{_json_script(import_map)}</script>
+  <script id="mutgui-manifest" type="application/json">{_json_script(runtime_manifest)}</script>
+  <script src="{REGISTRY.url_prefix("mutgui")}boot.js"></script>
 </body>
 </html>
 """
 
 
 async def index(_request: Any) -> HTMLResponse:
-    return HTMLResponse(INDEX_HTML)
+    return HTMLResponse(_index_html())
 
 
-STATIC_DIR = Path(__file__).resolve().parents[2] / "src" / "mutgui" / "static"
-
-app = Starlette(routes=[
+routes = [
     Route("/", index),
     WebSocketRoute("/ws", ws_handler),
-    Mount("/static", StaticFiles(directory=str(STATIC_DIR))),
-])
+]
+for path, directory in REGISTRY.static_mounts():
+    routes.append(Mount(path, StaticFiles(directory=str(directory))))
+
+app = Starlette(routes=routes)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

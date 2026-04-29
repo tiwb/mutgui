@@ -1,59 +1,21 @@
-/**
- * mutgui 独立入口 — 核心渲染器 + React，不含组件库。
- *
- * 用法（纯 HTML）：
- *   <div id="app"></div>
- *   <script src="/static/mutgui.js"></script>
- *   <script src="/static/mutgui-antd.js"></script>
- *   <script src="/static/mutgui-theme-dark.js"></script>  <!-- 可选 plugin -->
- *   <script>
- *     MutguiApp.mount(
- *       document.getElementById('app'),
- *       `ws://${location.host}/ws`,
- *       [MutguiThemeDark]   // 可选 plugin 数组
- *     )
- *   </script>
- *
- * 组件库通过额外的 <script> 标签加载，加载后自动调用
- * MutguiApp.registerComponents()/registerCommands() 注册。
- *
- * Plugin 协议:
- *   plugin = (ctx) => void
- *   ctx.addCss(css)         注入 <style> 到 document.head
- *   ctx.addBodyClass(name)  给 document.body 加 class
- *   ctx.wrapRoot(wrap)      根渲染树外包一层 React(Provider 等)
- */
-import React, { useState, useEffect, useRef, type ReactNode } from 'react';
-import ReactDOM from 'react-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import * as jsxRuntime from 'react/jsx-runtime';
+
+import './index.css';
+
 import { registerComponents } from './core/registry';
 import { registerCommands, resolveCommand } from './core/commands';
 import { MutguiView } from './core/renderer';
 import { VirtualList } from './components/virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
-import { Menu, MenuItem, MenuDivider } from './components/menu';
+import { Menu, MenuDivider, MenuItem } from './components/menu';
 import {
   ConnectionProvider,
   type MutguiConnection,
-  type ViewPath,
   type RenderCallback,
+  type ViewPath,
 } from './core/context';
-// 内联读取 CSS 源码（Vite ?inline query），在 mount 时注入 <style>
-// 确保 standalone IIFE 产物自带样式，用户零配置
-import mutguiStyles from './index.css?inline';
 
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected || typeof document === 'undefined') return;
-  stylesInjected = true;
-  const style = document.createElement('style');
-  style.setAttribute('data-mutgui', 'styles');
-  style.textContent = mutguiStyles;
-  document.head.appendChild(style);
-}
-
-// 注册框架内置组件（命名空间源，$component 必须写成 "mutgui.XXX"）
 registerComponents({
   __name__: 'mutgui',
   DockPanel,
@@ -107,7 +69,6 @@ function createConnection(ws: WebSocket): MutguiConnection {
     subscribe: (viewId: ViewPath, callback: RenderCallback) => {
       const key = JSON.stringify(viewId);
       subs.set(key, callback);
-      // 回放缓存：render 消息可能在 subscribe 之前到达
       const cached = cache.get(key);
       if (cached) callback(cached);
       return () => subs.delete(key);
@@ -153,13 +114,14 @@ function App({ wsUrl, onStatus }: AppProps) {
   );
 }
 
-// Plugin 协议类型
 export type RootWrapper = (children: ReactNode) => ReactNode;
+
 export interface PluginContext {
   addCss(css: string): void;
   addBodyClass(className: string): void;
   wrapRoot(wrap: RootWrapper): void;
 }
+
 export type MutguiPlugin = (ctx: PluginContext) => void;
 
 function applyPlugins(plugins: MutguiPlugin[]): RootWrapper[] {
@@ -171,39 +133,44 @@ function applyPlugins(plugins: MutguiPlugin[]): RootWrapper[] {
       style.textContent = css;
       document.head.appendChild(style);
     },
-    addBodyClass(name) {
-      document.body.classList.add(name);
+    addBodyClass(className) {
+      document.body.classList.add(className);
     },
     wrapRoot(wrap) {
       wrappers.push(wrap);
     },
   };
-  for (const p of plugins) p(ctx);
+  for (const plugin of plugins) plugin(ctx);
   return wrappers;
 }
 
-function mount(
+export function mount(
   el: HTMLElement,
   wsUrl: string,
   plugins?: MutguiPlugin[],
   options?: { onStatus?: (status: string) => void },
-) {
-  injectStyles();
+): void {
   const wrappers = applyPlugins(plugins ?? []);
   let tree: ReactNode = <App wsUrl={wsUrl} onStatus={options?.onStatus} />;
-  // 数组中靠前的 plugin 在外层,靠后的在内层
   for (let i = wrappers.length - 1; i >= 0; i--) {
     tree = wrappers[i](tree);
   }
   createRoot(el).render(tree);
 }
 
-// 暴露到全局：核心 API + React 供组件库 JS 共享
-(window as unknown as Record<string, unknown>).MutguiApp = {
-  mount,
-  registerComponents,
-  registerCommands,
-  React,
-  ReactDOM,
-  jsxRuntime,
-};
+export { registerComponents, resolve } from './core/registry';
+export { registerCommands, resolveCommand } from './core/commands';
+export type { CommandContext, MutguiCommand, CommandSource } from './core/commands';
+export { MutguiView, renderTree } from './core/renderer';
+export type { ComponentSchema } from './core/renderer';
+export {
+  ConnectionProvider,
+  ScopeProvider,
+  useScope,
+  useConnection,
+  arrayEquals,
+} from './core/context';
+export type { ViewPath, MutguiConnection, RenderCallback } from './core/context';
+export { resolvePath } from './core/resolve-path';
+export { VirtualList } from './components/virtual-list';
+export { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';

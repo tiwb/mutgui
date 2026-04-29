@@ -16,8 +16,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc --emitDeclarationOnly",
-    "build:standalone": "vitest run && vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts",
+    "build": "node ./scripts/build.mjs && vite build && tsc --emitDeclarationOnly",
+    "build:runtime": "node ./scripts/build.mjs",
     "test": "vitest run",
     "preview": "vite preview"
   },

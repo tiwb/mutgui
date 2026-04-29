@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from mutgui import View, ViewBlock, Callback
 
-from demo.framework import MutguiRoute, DemoApp
+from demo.framework import DemoApp, MutguiRoute, mutgui_mount_div, mutgui_runtime_assets
 
 
 class ThemingDemoView(View):
@@ -74,11 +74,14 @@ THEMING_HTML = """\
 </head>
 <body>
   <div style="max-width: 720px; margin: 40px auto; font-family: sans-serif;">
-    <div id="app"></div>
+    __MOUNT_DIV__
   </div>
-  <script src="/static/mutgui.js"></script>
-  <script src="/static/mutgui-antd.js"></script>
-  <script>
+__RUNTIME_ASSETS__
+  <script type="module">
+    import React from 'react';
+    import { ConfigProvider, theme } from 'antd';
+    import { mount } from '@mutgui/core';
+
     // 一个自定义的紫色主题 Plugin
     // Plugin 签名: (ctx) => void,ctx 暴露 addCss / addBodyClass / wrapRoot 三个能力
     const MyPurpleTheme = (ctx) => {
@@ -104,17 +107,16 @@ THEMING_HTML = """\
       ctx.addBodyClass('my-purple');
 
       // 3. 用 antd ConfigProvider 配置 antd 的主题(紫色 + darkAlgorithm)
-      const { antd, React } = MutguiApp;
       const antdTheme = {
-        algorithm: antd.theme.darkAlgorithm,
+        algorithm: theme.darkAlgorithm,
         token: { colorPrimary: '#b07cff' },
       };
       ctx.wrapRoot((children) =>
-        React.createElement(antd.ConfigProvider, { theme: antdTheme }, children)
+        React.createElement(ConfigProvider, { theme: antdTheme }, children)
       );
     };
 
-    MutguiApp.mount(
+    mount(
       document.getElementById('app'),
       `ws://${location.host}${location.pathname}`,
       [MyPurpleTheme]
@@ -122,7 +124,13 @@ THEMING_HTML = """\
   </script>
 </body>
 </html>
-"""
+""".replace(
+    "__MOUNT_DIV__",
+    mutgui_mount_div(plugins=(), extra_attrs='id="app"'),
+).replace(
+    "__RUNTIME_ASSETS__",
+    mutgui_runtime_assets(),
+)
 
 
 app = DemoApp([

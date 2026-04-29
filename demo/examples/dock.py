@@ -8,7 +8,13 @@ from mutgui import (
     DockPanel, PanelDef, SplitNode, TabSetNode,
 )
 
-from demo.framework import MutguiRoute, DemoApp
+from demo.framework import (
+    DemoApp,
+    MutguiRoute,
+    mutgui_boot_script,
+    mutgui_mount_div,
+    mutgui_runtime_assets,
+)
 
 
 class SimplePanelView(View):
@@ -115,14 +121,21 @@ DOCK_HTML = """\
   </style>
 </head>
 <body>
-  <div id="app"></div>
-  <script src="/static/mutgui.js"></script>
-  <script src="/static/mutgui-antd.js"></script>
-  <script src="/static/mutgui-theme-dark.js"></script>
-  <script>MutguiApp.mount(document.getElementById('app'), `ws://${location.host}${location.pathname}`, [MutguiThemeDark])</script>
+  __MOUNT_DIV__
+__RUNTIME_ASSETS__
+__BOOT_SCRIPT__
 </body>
 </html>
-"""
+""".replace(
+    "__MOUNT_DIV__",
+    mutgui_mount_div(extra_attrs='id="app" style="height: 100vh;"'),
+).replace(
+    "__RUNTIME_ASSETS__",
+    mutgui_runtime_assets(),
+).replace(
+    "__BOOT_SCRIPT__",
+    mutgui_boot_script(),
+)
 
 
 app = DemoApp([

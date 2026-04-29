@@ -13,9 +13,7 @@ from mutio.net.server import (
 )
 
 from ._channel import WebSocketChannel
-from ._routes import MutguiRoute, DemoApp
-
-STATIC_DIR = Path(__file__).resolve().parents[2] / "src" / "mutgui" / "static"
+from ._routes import MODULE_REGISTRY, MutguiRoute, DemoApp
 
 
 async def _handle_ws(
@@ -109,10 +107,22 @@ def _gallery_html(names: list[str]) -> str:
 """
 
 
+def _static_views() -> tuple[type[StaticView], ...]:
+    views: list[type[StaticView]] = []
+    for index, (path, directory) in enumerate(MODULE_REGISTRY.static_mounts()):
+        views.append(type(
+            f"_StaticFiles{index}",
+            (StaticView,),
+            {"path": path, "directory": str(directory)},
+        ))
+    return tuple(views)
+
+
 class _GalleryServer(Server):
     """Gallery 服务器 — 懒加载 example，直接分发路由。"""
     host = "127.0.0.1"
     port = 8080
+    views = _static_views()
 
     _examples_dir: Path
     _demo_names: list[str]
@@ -183,11 +193,6 @@ class _GalleryServer(Server):
         await super().route(scope, receive, send)
 
 
-class _StaticFiles(StaticView):
-    path = "/static"
-    directory = str(STATIC_DIR)
-
-
 def run_gallery(
     examples_dir: Path | None = None,
     *,
@@ -214,6 +219,7 @@ def run_single(
     class _SingleServer(Server):
         host = "127.0.0.1"
         port = 8080
+        views = _static_views()
 
         async def route(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
             from mutio.net._server_impl import _send_response, _make_ws_connection

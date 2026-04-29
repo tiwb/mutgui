@@ -11,6 +11,7 @@ from .dock_panel import (
     DockPanel, PanelDef, SplitNode, TabSetNode, ActionDef,
 )
 from .menu import MenuView, MenuTrigger
+from .modules import ModuleRegistry
 
 __all__ = [
     "View",
@@ -31,4 +32,5 @@ __all__ = [
     "ActionDef",
     "MenuView",
     "MenuTrigger",
+    "ModuleRegistry",
 ]

@@ -17,7 +17,13 @@ from __future__ import annotations
 
 from mutgui import View, ViewBlock, Callback
 
-from demo.framework import MutguiRoute, DemoApp
+from demo.framework import (
+    DemoApp,
+    MutguiRoute,
+    mutgui_boot_script,
+    mutgui_mount_div,
+    mutgui_runtime_assets,
+)
 
 
 class NoThemeView(View):
@@ -58,8 +64,8 @@ class NoThemeView(View):
         self.invalidate()
 
 
-# 自定义 HTML: 不加载 theme plugin 脚本,mount 传 []
-NO_THEME_HTML = """\
+# 自定义 HTML: 不启用任何 plugin
+NO_THEME_HTML = f"""\
 <!DOCTYPE html>
 <html>
 <head>
@@ -68,17 +74,10 @@ NO_THEME_HTML = """\
 </head>
 <body>
   <div style="max-width: 720px; margin: 40px auto; font-family: sans-serif;">
-    <div id="app"></div>
+    {mutgui_mount_div(plugins=(), extra_attrs='id="app"')}
   </div>
-  <script src="/static/mutgui.js"></script>
-  <script src="/static/mutgui-antd.js"></script>
-  <script>
-    MutguiApp.mount(
-      document.getElementById('app'),
-      `ws://${location.host}${location.pathname}`,
-      []
-    );
-  </script>
+{mutgui_runtime_assets()}
+{mutgui_boot_script()}
 </body>
 </html>
 """

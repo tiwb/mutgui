@@ -4,6 +4,10 @@
 **日期**：2026-04-19
 **类型**：功能设计
 
+> **后续说明（2026-04-29）**：本文定义的**命名空间注册与组件解析规则仍然有效**，但底层加载方式已从 IIFE + `window.MutguiApp.*` 升级为 **ESM + import map + `boot.js`**。运行时加载协议以 [`feature-component-lib-extension.md`](feature-component-lib-extension.md) 和 [`../design/frontend-build.md`](../design/frontend-build.md) 为准。
+>
+> 除组件解析语义外，正文里关于 `standalone.tsx`、`vite.antd.ts`、`window.MutguiApp`、HTML `<script>` 链的描述都应视为**第一版历史记录**，不再作为当前实现依据。
+
 ## 需求
 
 当前 mutgui 的组件系统与 Ant Design 强绑定：`antd.ts` 手动注册 20+ 个组件，standalone 包（933KB）内含完整 antd。但 mutgui 的核心协议（`$component` 字符串 → React 渲染）本身与任何前端组件库无关。

@@ -2,18 +2,61 @@
 
 from __future__ import annotations
 
-from mutgui import View as GUIView
+import json
+from collections.abc import Sequence
+
+from mutgui import ModuleRegistry, View as GUIView
+
+DEFAULT_PLUGINS = ("@mutgui/theme-dark",)
+
+MODULE_REGISTRY = ModuleRegistry()
+MODULE_REGISTRY.add_from_package("mutgui")
 
 
-def mutgui_page(title: str, ws_path: str | None = None) -> str:
+def _json_script(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+
+
+def mutgui_runtime_assets() -> str:
+    runtime_manifest = MODULE_REGISTRY.runtime_manifest()
+    import_map = {"imports": runtime_manifest["importMap"]}
+    return "\n".join([
+        f'  <script type="importmap">{_json_script(import_map)}</script>',
+        f'  <script id="mutgui-manifest" type="application/json">{_json_script(runtime_manifest)}</script>',
+    ])
+
+
+def mutgui_boot_script() -> str:
+    return f'  <script src="{MODULE_REGISTRY.url_prefix("mutgui")}boot.js"></script>'
+
+
+def mutgui_mount_div(
+    *,
+    ws_path: str | None = None,
+    plugins: Sequence[str] = DEFAULT_PLUGINS,
+    extra_attrs: str = "",
+) -> str:
+    attrs = ["data-mutgui-app"]
+    if ws_path is not None:
+        attrs.append(f'data-ws-url="{ws_path}"')
+    if plugins:
+        attrs.append(f'data-plugins="{",".join(plugins)}"')
+    if extra_attrs:
+        attrs.append(extra_attrs.strip())
+    return f"<div {' '.join(attrs)}></div>"
+
+
+def mutgui_page(
+    title: str,
+    ws_path: str | None = None,
+    *,
+    plugins: Sequence[str] = DEFAULT_PLUGINS,
+) -> str:
     """生成标准 mutgui HTML 页面。
 
-    ws_path 为 None 时使用 location.pathname（同路径 WebSocket）。
+    ws_path 为 None 时使用当前页面路径（同路径 WebSocket）。
     """
-    if ws_path is None:
-        ws_url = "`ws://${location.host}${location.pathname}`"
-    else:
-        ws_url = f"`ws://${{location.host}}{ws_path}`"
+    mount_div = mutgui_mount_div(ws_path=ws_path, plugins=plugins, extra_attrs='id="app"')
 
     return f"""\
 <!DOCTYPE html>
@@ -24,12 +67,10 @@ def mutgui_page(title: str, ws_path: str | None = None) -> str:
 </head>
 <body>
   <div style="max-width: 960px; margin: 40px auto; font-family: sans-serif;">
-    <div id="app"></div>
+    {mount_div}
   </div>
-  <script src="/static/mutgui.js"></script>
-  <script src="/static/mutgui-antd.js"></script>
-  <script src="/static/mutgui-theme-dark.js"></script>
-  <script>MutguiApp.mount(document.getElementById('app'), {ws_url}, [MutguiThemeDark])</script>
+{mutgui_runtime_assets()}
+{mutgui_boot_script()}
 </body>
 </html>
 """

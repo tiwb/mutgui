@@ -11,7 +11,7 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'antd'],
+      external: ['react', 'react-dom/client', 'react/jsx-runtime', 'antd'],
       output: {
         // CSS 独立产出为 dist/styles.css（而非 index.css 默认名）
         assetFileNames: (asset) => {
@@ -21,5 +21,6 @@ export default defineConfig({
       },
     },
     cssCodeSplit: false,
+    target: 'es2022',
   },
 });

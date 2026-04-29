@@ -72,7 +72,7 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 
 - `registerCommands(source)`：注册命令源，后注册优先
 - `resolveCommand(name)`：按与组件解析链一致的命名空间规则解析命令
-- `window.MutguiApp.registerCommands(...)`：standalone 全局注册入口
+- `import { registerCommands } from '@mutgui/core'`：前端扩展模块的标准入口
 
 当前 core 内置 `mutgui.redirect({ url, replace? })`，用于整页跳转。
 
@@ -111,11 +111,12 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 
 | 构建目标 | 命令 | 产物 | 内容 |
 |----------|------|------|------|
-| 核心包 | `npm run build:standalone` | `static/mutgui.js` | React + mutgui 渲染器（IIFE） |
-| antd 插件 | `npm run build:antd` | `static/mutgui-antd.js` | Ant Design 组件（IIFE，React external） |
-| npm 库包 | `npm run build` | `dist/index.js` | ES module，React external |
+| runtime bootstrap | `npm run build` | `static/boot.js` | 读取内联 manifest、注入 eager CSS、动态 import runtime 模块 |
+| runtime libs | `npm run build` | `static/libs/*.js` | `@mutgui/core`、`@mutgui/antd`、`@mutgui/theme-dark` |
+| runtime vendor | `npm run build` | `static/vendor/*.js` | React / ReactDOM client / jsx-runtime / antd 的 ESM 单文件 |
+| dist 库包 | `npm run build` | `dist/index.js` | 本地 TS / vite 消费入口 |
 
-核心包暴露 `window.MutguiApp`：`mount()`、`registerComponents()`、`registerCommands()`、`React`、`ReactDOM`、`jsxRuntime`。组件库插件通过 `<script>` 标签加载后自动调用 `registerComponents()` / `registerCommands()` 注册。
+Python 页面不再依赖 `window.MutguiApp` 全局对象，而是通过内联 import map + `boot.js` 启动 runtime。
 
 ## 内置组件
 
@@ -150,8 +151,9 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 自定义组件库的标准接入方式：
 
 ```typescript
-// libs/my-components.ts
-(window as any).MutguiApp.registerComponents({
+import { registerComponents } from '@mutgui/core';
+
+registerComponents({
   __name__: 'mylib',
   MyButton,
   MyCard,
@@ -159,9 +161,10 @@ Command 是 **fire-and-forget**：不返回值，不进入 render cache。
 ```
 
 ```html
-<script src="/static/mutgui.js"></script>
-<script src="/static/libs/my-components.js"></script>
-<script>MutguiApp.mount(...)</script>
+<div data-mutgui-app data-ws-url="/ws"></div>
+<script type="importmap">{"imports": ...}</script>
+<script id="mutgui-manifest" type="application/json">{"importMap": ..., "css": ..., "entries": ...}</script>
+<script src="/static/modules/mutgui/boot.js"></script>
 ```
 
-后端通过 `$component: "mylib.MyButton"` 或 `$component: "MyButton"` 引用。
+后端通过 `$component: "mylib.MyButton"` 引用。裸名字不会命中命名空间组件库。

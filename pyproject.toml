@@ -52,7 +52,7 @@ where = ["src"]
 include = ["mutgui*"]
 
 [tool.setuptools.package-data]
-mutgui = ["py.typed"]
+mutgui = ["py.typed", "static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
