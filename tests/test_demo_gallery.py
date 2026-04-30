@@ -30,9 +30,10 @@ def test_mutgui_route_html_includes_mobile_viewport_meta() -> None:
 
 def test_gallery_html_includes_mobile_viewport_and_tappable_links() -> None:
     html = _gallery_html([
-        (DemoCollection("games", "Games", Path("D:\\ai\\mutgui\\demo\\games"), "demo.games"), ["mahjong"]),
+        (DemoCollection("games", "Games", Path("D:\\ai\\mutgui\\demo\\games"), "demo.games"), ["mahjong", "gomoku"]),
     ])
 
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
     assert 'display: block; padding: 14px 16px;' in html
     assert 'href="/games/mahjong/"' in html
+    assert 'href="/games/gomoku/"' in html
