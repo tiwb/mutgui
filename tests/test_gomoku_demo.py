@@ -1,5 +1,7 @@
 """gomoku demo 测试。"""
 
+import random
+
 from demo.games.gomoku import BOARD_SIZE, GomokuGame, GomokuView, Move, Stone, app
 
 
@@ -49,6 +51,37 @@ def test_ai_blocks_opponent_immediate_five() -> None:
     assert game.run_ai_step() is True
     assert game.cell(7, 4) is Stone.WHITE
     assert game.current_stone is Stone.BLACK
+
+
+def test_ai_blocks_open_three_before_it_becomes_forced_loss() -> None:
+    game = make_game()
+    game._rng = random.Random(0)
+    game.board[7][6] = Stone.BLACK
+    game.board[7][7] = Stone.BLACK
+    game.board[7][8] = Stone.BLACK
+    game.board[6][6] = Stone.WHITE
+    game.board[6][7] = Stone.WHITE
+    game.history = [
+        Move(7, 6, Stone.BLACK),
+        Move(6, 6, Stone.WHITE),
+        Move(7, 7, Stone.BLACK),
+        Move(6, 7, Stone.WHITE),
+        Move(7, 8, Stone.BLACK),
+    ]
+    game.current_stone = Stone.WHITE
+    game.ai_stones = {Stone.WHITE}
+
+    assert game.run_ai_step() is True
+    assert game.last_move() is not None
+    assert (game.last_move().row, game.last_move().col) in {(7, 5), (7, 9)}
+
+
+def test_ai_opening_prefers_exact_center() -> None:
+    game = make_game()
+    game.ai_stones = {Stone.BLACK}
+
+    assert game.run_ai_step() is True
+    assert game.last_move() == Move(7, 7, Stone.BLACK)
 
 
 def test_view_renders_controls_and_full_board_grid() -> None:

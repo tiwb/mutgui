@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -16,8 +17,8 @@ from demo.framework import DemoApp, MutguiRoute
 BOARD_SIZE = 15
 WIN_LENGTH = 5
 AI_MOVE_DELAY_SECONDS = 1.0
-BOARD_CELL_SIZE = "clamp(24px, 6vw, 38px)"
-STONE_SIZE = "clamp(18px, 4.6vw, 28px)"
+BOARD_CELL_SIZE = "clamp(22px, 5.8vw, 38px)"
+STONE_SIZE = "clamp(16px, 4.2vw, 28px)"
 
 
 class Stone(Enum):
@@ -60,6 +61,7 @@ class GomokuGame:
         self.ai_stones: set[Stone] = set()
         self._on_change: list[Callable[[], None]] = []
         self._ai_task: asyncio.Task[None] | None = None
+        self._rng = random.Random()
         self.ai = GomokuAi(self)
         self.reset()
 
@@ -212,25 +214,25 @@ class GomokuAi:
         candidates = self._candidate_positions()
         if not candidates:
             return None
+        if not game.history:
+            center = BOARD_SIZE // 2
+            return (center, center)
 
-        for row, col in candidates:
-            if self._would_win(row, col, game.current_stone):
-                return (row, col)
+        winning_moves = [(row, col) for row, col in candidates if self._would_win(row, col, game.current_stone)]
+        if winning_moves:
+            return self._choose_among(winning_moves)
 
         opponent = game.current_stone.other
-        for row, col in candidates:
-            if self._would_win(row, col, opponent):
-                return (row, col)
+        forced_blocks = [(row, col) for row, col in candidates if self._would_win(row, col, opponent)]
+        if forced_blocks:
+            return self._choose_among(forced_blocks)
 
-        center = BOARD_SIZE // 2
-        return max(
-            candidates,
-            key=lambda pos: (
-                self._score_position(pos[0], pos[1], game.current_stone),
-                self._score_position(pos[0], pos[1], opponent) * 0.9,
-                -self._distance_to_center(pos[0], pos[1], center),
-            ),
+        ranked = sorted(
+            ((self._evaluate_move(row, col, game.current_stone), (row, col)) for row, col in candidates),
+            reverse=True,
+            key=lambda item: item[0],
         )
+        return self._pick_ranked_move(ranked)
 
     def _candidate_positions(self) -> list[CellPos]:
         game = self.game
@@ -239,12 +241,35 @@ class GomokuAi:
             return [(center, center)]
 
         candidates: set[CellPos] = set()
-        for move in game.history:
-            for row in range(max(0, move.row - 2), min(BOARD_SIZE, move.row + 3)):
-                for col in range(max(0, move.col - 2), min(BOARD_SIZE, move.col + 3)):
-                    if game.board[row][col] is None:
-                        candidates.add((row, col))
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                if game.board[row][col] is None:
+                    continue
+                for next_row in range(max(0, row - 2), min(BOARD_SIZE, row + 3)):
+                    for next_col in range(max(0, col - 2), min(BOARD_SIZE, col + 3)):
+                        if game.board[next_row][next_col] is None:
+                            candidates.add((next_row, next_col))
         return sorted(candidates)
+
+    def _choose_among(self, positions: list[CellPos]) -> CellPos | None:
+        if not positions:
+            return None
+        return self.game._rng.choice(positions)
+
+    def _pick_ranked_move(self, ranked: list[tuple[tuple[float, float, float, float], CellPos]]) -> CellPos | None:
+        if not ranked:
+            return None
+        best_score = ranked[0][0]
+        close_moves = [ranked[0][1]]
+        for score, pos in ranked[1:4]:
+            if score[0] != best_score[0]:
+                break
+            if score[1] < best_score[1] - 120:
+                continue
+            if score[2] < best_score[2] - 160:
+                continue
+            close_moves.append(pos)
+        return self._choose_among(close_moves)
 
     def _would_win(self, row: int, col: int, stone: Stone) -> bool:
         game = self.game
@@ -255,6 +280,33 @@ class GomokuAi:
             return game._find_winning_line(row, col, stone) is not None
         finally:
             game.board[row][col] = None
+
+    def _evaluate_move(self, row: int, col: int, stone: Stone) -> tuple[float, float, float, float]:
+        game = self.game
+        opponent = stone.other
+        own_score = self._score_position(row, col, stone)
+        block_score = self._score_position(row, col, opponent)
+        center = BOARD_SIZE // 2
+
+        game.board[row][col] = stone
+        try:
+            opponent_immediate_wins = 0
+            opponent_best_score = 0.0
+            self_followup_score = 0.0
+            for next_row, next_col in self._candidate_positions():
+                if self._would_win(next_row, next_col, opponent):
+                    opponent_immediate_wins += 1
+                opponent_best_score = max(opponent_best_score, self._score_position(next_row, next_col, opponent))
+                self_followup_score = max(self_followup_score, self._score_position(next_row, next_col, stone))
+        finally:
+            game.board[row][col] = None
+
+        return (
+            -float(opponent_immediate_wins),
+            -opponent_best_score,
+            self_followup_score + block_score * 1.2,
+            own_score - self._distance_to_center(row, col, center) * 0.01,
+        )
 
     def _score_position(self, row: int, col: int, stone: Stone) -> float:
         game = self.game
@@ -407,7 +459,7 @@ class GomokuView(View):
                     "justifyContent": "center",
                     "width": "max-content",
                     "margin": "0 auto",
-                    "padding": 8,
+                    "padding": 6,
                     "background": "#8c6239",
                     "borderRadius": 12,
                     "boxShadow": "0 8px 24px rgba(0, 0, 0, 0.12)",
