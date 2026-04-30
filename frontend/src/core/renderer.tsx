@@ -221,26 +221,50 @@ function processProps(
     if (key === '$children' && Array.isArray(val)) {
       // $children → 递归渲染为 React children
       props['children'] = renderTree(val as ComponentSchema[]);
-    } else if (
-      val != null &&
-      typeof val === 'object' &&
-      !Array.isArray(val) &&
-      '$handler' in (val as Record<string, unknown>)
-    ) {
-      // $handler 标签 → 生成事件处理函数
-      props[key] = createHandler(
-        val as Record<string, unknown>,
-        scope,
-        nodeId,
-        key,
-        conn,
-      );
     } else {
-      props[key] = val;
+      props[key] = processValue(val, conn, scope, nodeId, key);
     }
   }
 
   return props;
+}
+
+function processValue(
+  value: unknown,
+  conn: MutguiConnection,
+  scope: ViewPath,
+  nodeId: string | number,
+  eventName: string,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item, index) =>
+      processValue(item, conn, scope, nodeId, `${eventName}.${index}`),
+    );
+  }
+
+  if (value != null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+
+    if ('$handler' in record) {
+      return createHandler(record, scope, nodeId, eventName, conn);
+    }
+    if ('$view' in record || '$component' in record) {
+      return renderTree([record as ComponentSchema])[0];
+    }
+
+    const next: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(record)) {
+      const childEvent = eventName ? `${eventName}.${key}` : key;
+      if (key === '$children' && Array.isArray(inner)) {
+        next['children'] = renderTree(inner as ComponentSchema[]);
+      } else {
+        next[key] = processValue(inner, conn, scope, nodeId, childEvent);
+      }
+    }
+    return next;
+  }
+
+  return value;
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .action import (
+    ActionContext,
+    ActionMenu,
+    ActionRef,
+    ActionRegistry,
+    ResolvedAction,
+)
 from .events import Callback
+from .menu import MenuTrigger
 from .view import View, ViewBlock
 
 SPLITTER_SIZE = 4
@@ -54,7 +62,7 @@ class TabSetNode:
     active_id: str | None = None
     bar_position: Literal["top", "bottom", "left", "right"] = "top"
     display_mode: Literal["icon-text", "icon", "icon-active-text"] = "icon-text"
-    actions: list[ActionDef] | None = None
+    actions: list[ActionDef | ActionRef] | None = None
 
 
 LayoutNode = SplitNode | TabSetNode
@@ -190,6 +198,7 @@ class DockPanel(View):
         self.viewport_sizes: dict[int, tuple[int, int]] = {}
         self.viewport_collapsed_active: dict[int, dict[str, str]] = {}
         self.viewport_collapsed_orders: dict[int, dict[str, list[str]]] = {}
+        self.action_context_data: dict[str, Any] = {}
         self._assign_ids(layout)
 
     def _next_id(self, prefix: str) -> str:
@@ -306,14 +315,95 @@ class DockPanel(View):
             "$children": children,
         }
         if node.actions:
-            result["actions"] = [
-                {"id": a.id, "icon": a.icon,
-                 "tooltip": a.tooltip, "position": a.position}
-                for a in node.actions
-            ]
+            result["actions"] = self._build_tabset_actions(node)
         if node.id and node.id in collapsed_ids:
             result["collapsed"] = True
         return result
+
+    def _build_tabset_actions(self, node: TabSetNode) -> list[dict[str, Any]]:
+        context = self._tabset_action_context(node)
+        wire_actions: list[dict[str, Any]] = []
+        buffered_refs: list[ActionRef] = []
+
+        def flush_refs() -> None:
+            nonlocal buffered_refs
+            if not buffered_refs:
+                return
+            resolved = ActionRegistry.resolve(context=context, refs=buffered_refs)
+            for item in resolved:
+                wire_actions.append(self._wire_tabset_action(
+                    item,
+                    context=context,
+                    index=len(wire_actions),
+                ))
+            buffered_refs = []
+
+        for action in node.actions or []:
+            if isinstance(action, ActionDef):
+                flush_refs()
+                wire_actions.append({
+                    "id": action.id,
+                    "icon": action.icon,
+                    "tooltip": action.tooltip,
+                    "position": action.position,
+                    "groupName": "",
+                })
+                continue
+            buffered_refs.append(action)
+        flush_refs()
+        return wire_actions
+
+    def _wire_tabset_action(
+        self,
+        item: ResolvedAction,
+        *,
+        context: ActionContext,
+        index: int,
+    ) -> dict[str, Any]:
+        node: dict[str, Any] = {
+            "id": item.ref_id,
+            "icon": item.icon,
+            "label": item.label,
+            "tooltip": item.tooltip,
+            "position": item.position,
+            "variant": item.variant,
+            "checked": item.checked,
+            "disabled": not item.enabled,
+            "groupName": item.group_name,
+        }
+        if item.variant == "widget" and item.toolbar_view is not None:
+            node["$children"] = item.toolbar_view.render().items
+            return node
+        if item.can_execute and item.enabled:
+            node["onClick"] = Callback(
+                lambda action=item.action, ctx=context:
+                action.execute(ctx),
+            )
+        if item.variant in {"dropdown", "split"}:
+            node["onMenuClick"] = MenuTrigger(
+                lambda action=item.action, ctx=context:
+                    ActionMenu(
+                        owner=self,
+                        source_action=action,
+                        context=ctx.with_updates(surface="menu"),
+                    ),
+                placement="bottom-start",
+            )
+        return node
+
+    def _tabset_action_context(self, node: TabSetNode) -> ActionContext:
+        data = {
+            "dock_panel": self,
+            "tabset_id": node.id,
+            "tabset": node,
+            "active_panel_id": node.active_id,
+        }
+        data.update(self.action_context_data)
+        return ActionContext(
+            owner=self,
+            surface="dock",
+            data=data,
+        )
 
     def _build_split_wire(self, node: SplitNode,
                           collapsed_ids: set[str]) -> dict[str, Any]:
@@ -420,15 +510,17 @@ class DockPanel(View):
     def render_viewport(
         self, wire_tree: list[dict[str, Any]], channel_id: int,
     ) -> list[dict[str, Any]]:
+        from ._view_impl import _process_node
+
         size = self.viewport_sizes.get(channel_id)
         if not size:
             return wire_tree
         collapsed_ids: set[str] = set()
         render_tree = self._compute_layout(
             self.layout, *size, channel_id, collapsed_ids)
-        vp_wire = self._build_wire_node(render_tree, collapsed_ids)
+        vp_wire = _process_node(self, self._build_wire_node(render_tree, collapsed_ids))
         if wire_tree:
-            return [{**wire_tree[0], "$children": [vp_wire]}]
+            return [{**wire_tree[0], "$children": [vp_wire]}, *wire_tree[1:]]
         return wire_tree
 
     def _cleanup_viewports(self) -> None:

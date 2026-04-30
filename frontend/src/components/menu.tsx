@@ -404,6 +404,9 @@ export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
       ref={menuRef}
       className="mutgui-menu mutgui-scrollbar"
       data-menu-id={menuId}
+      onPointerDownCapture={(e) => {
+        e.stopPropagation();
+      }}
       style={{
         left: pos.left,
         top: pos.top,

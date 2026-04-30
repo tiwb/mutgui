@@ -175,6 +175,19 @@ def test_transform_view_refs() -> None:
     assert right_tabset["$children"] == [{"$view": "c"}]
 
 
+def test_transform_preserves_overlay_siblings() -> None:
+    """render_viewport 不能丢掉根节点后面的 overlay siblings。"""
+    dock = _make_dock()
+    dock.viewport_sizes[1] = (800, 600)
+    template = [
+        {"$component": "mutgui.DockPanel", "$id": "dock"},
+        {"$view": "$menu:test"},
+    ]
+    result = dock.render_viewport(template, channel_id=1)
+    assert len(result) == 2
+    assert result[1] == {"$view": "$menu:test"}
+
+
 # ---------------------------------------------------------------------------
 # 事件处理器
 # ---------------------------------------------------------------------------

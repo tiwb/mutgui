@@ -256,15 +256,53 @@ def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
 
 def _process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
     """处理单个组件节点：检测 EventHandler，处理 $children。"""
-    ext = render_ext(view)
     result: dict[str, Any] = {}
     node_id: str | int = node.get("$id", "")
     for key, val in node.items():
         if key == "$children" and isinstance(val, list):
             result[key] = _process_items(view, val)
-        elif isinstance(val, EventHandler):
-            ext.handlers[(node_id, key)] = val
-            result[key] = val.to_wire()
         else:
-            result[key] = val
+            result[key] = _process_value(
+                view, val, node_id=node_id, event_name=key)
     return result
+
+
+def _process_value(
+    view: View,
+    value: Any,
+    *,
+    node_id: str | int,
+    event_name: str,
+) -> Any:
+    ext = render_ext(view)
+    if isinstance(value, View):
+        ext.children[value.id] = value
+        return {"$view": value.id}
+    if isinstance(value, EventHandler):
+        ext.handlers[(node_id, event_name)] = value
+        return value.to_wire()
+    if isinstance(value, list):
+        return [
+            _process_value(
+                view,
+                item,
+                node_id=node_id,
+                event_name=f"{event_name}.{index}",
+            )
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for key, inner in value.items():
+            child_event = f"{event_name}.{key}" if event_name else key
+            if key == "$children" and isinstance(inner, list):
+                result[key] = _process_items(view, inner)
+            else:
+                result[key] = _process_value(
+                    view,
+                    inner,
+                    node_id=node_id,
+                    event_name=child_event,
+                )
+        return result
+    return value

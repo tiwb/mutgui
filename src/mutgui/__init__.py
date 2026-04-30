@@ -11,6 +11,15 @@ from .dock_panel import (
     DockPanel, PanelDef, SplitNode, TabSetNode, ActionDef,
 )
 from .menu import MenuView, MenuTrigger
+from .action import (
+    Action,
+    ActionRef,
+    ActionContext,
+    ActionCategoryProvider,
+    ActionRegistry,
+    ActionMenu,
+    ActionToolbar,
+)
 from .modules import ModuleRegistry
 
 __all__ = [
@@ -30,6 +39,13 @@ __all__ = [
     "SplitNode",
     "TabSetNode",
     "ActionDef",
+    "Action",
+    "ActionRef",
+    "ActionContext",
+    "ActionCategoryProvider",
+    "ActionRegistry",
+    "ActionMenu",
+    "ActionToolbar",
     "MenuView",
     "MenuTrigger",
     "ModuleRegistry",

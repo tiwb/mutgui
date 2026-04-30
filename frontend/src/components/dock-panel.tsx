@@ -18,6 +18,7 @@ import {
   useState,
   Children,
 } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,9 +32,17 @@ interface TabDef {
 
 interface ActionDef {
   id: string;
-  icon: string;
+  icon?: string;
+  label?: string;
   tooltip?: string;
+  groupName?: string;
   position?: 'start' | 'end';
+  variant?: 'button' | 'widget' | 'dropdown' | 'split';
+  checked?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  onMenuClick?: () => void;
+  children?: ReactNode;
 }
 
 interface MergedTabsData {
@@ -682,19 +691,125 @@ export function DockPanelTabSet({
   const endActions =
     actions?.filter((a) => (a.position || 'end') === 'end') || [];
 
-  const renderAction = (action: ActionDef) => (
-    <div
-      key={action.id}
+  const renderActionContent = (action: ActionDef) => {
+    if (action.children !== undefined) return action.children;
+    if (action.icon && action.label) return <>{action.icon} <span>{action.label}</span></>;
+    return action.icon ?? action.label ?? null;
+  };
+
+  const renderActionButton = (
+    action: ActionDef,
+    click?: () => void,
+    extraStyle?: CSSProperties,
+    content?: ReactNode,
+  ) => (
+    <button
+      type="button"
       className="mutgui-dock-action"
       style={{
         padding: isVert ? '8px 6px' : '4px 8px',
+        border: 'none',
+        background: action.checked
+          ? 'color-mix(in oklch, var(--mutgui-accent) 22%, var(--mutgui-bg))'
+          : 'transparent',
+        color: 'inherit',
+        cursor: action.disabled ? 'not-allowed' : 'pointer',
+        opacity: action.disabled ? 0.5 : 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        ...extraStyle,
       }}
-      title={action.tooltip || undefined}
-      onClick={() => onActionClick?.({ tabsetId: nodeId, actionId: action.id })}
+      disabled={action.disabled}
+      title={action.tooltip || action.label || undefined}
+      onClick={click}
     >
-      {action.icon}
-    </div>
+      {content ?? renderActionContent(action)}
+    </button>
   );
+
+  const renderAction = (action: ActionDef) => {
+    const fallbackClick = () => onActionClick?.({ tabsetId: nodeId, actionId: action.id });
+    const mainClick = action.onClick ?? fallbackClick;
+    const menuClick = action.onMenuClick;
+
+    if (action.variant === 'widget') {
+      return (
+        <div
+          key={action.id}
+          title={action.tooltip || action.label || undefined}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: isVert ? undefined : 28,
+          }}
+        >
+          {renderActionContent(action)}
+        </div>
+      );
+    }
+
+    if (action.variant === 'split') {
+      return (
+        <div
+          key={action.id}
+          style={{ display: 'inline-flex', alignItems: 'stretch' }}
+          title={action.tooltip || action.label || undefined}
+        >
+          {renderActionButton(action, mainClick, {
+            borderTopRightRadius: 0,
+            borderBottomRightRadius: 0,
+          })}
+          {renderActionButton(action, menuClick, {
+            borderLeft: '1px solid rgba(0,0,0,0.08)',
+            borderTopLeftRadius: 0,
+            borderBottomLeftRadius: 0,
+            padding: isVert ? '8px 4px' : '4px 6px',
+          }, '▾')}
+        </div>
+      );
+    }
+
+    if (action.variant === 'dropdown') {
+      return (
+        <div key={action.id}>
+          {renderActionButton(action, menuClick ?? mainClick)}
+        </div>
+      );
+    }
+
+    return (
+      <div key={action.id}>
+        {renderActionButton(action, mainClick)}
+      </div>
+    );
+  };
+
+  const renderActionStrip = (items: ActionDef[]) => {
+    const rendered: ReactNode[] = [];
+    let prevGroupName: string | null = null;
+    items.forEach((action) => {
+      const groupName = action.groupName ?? '';
+      if (rendered.length > 0 && groupName !== prevGroupName) {
+        rendered.push(
+          <div
+            key={`divider-${action.id}`}
+            aria-hidden
+            style={{
+              width: isVert ? 20 : 1,
+              height: isVert ? 1 : 20,
+              alignSelf: 'center',
+              background: 'var(--mutgui-border)',
+            }}
+          />,
+        );
+      }
+      rendered.push(renderAction(action));
+      prevGroupName = groupName;
+    });
+    return rendered;
+  };
 
   const tabBar = !hideBar && (
     <div
@@ -711,7 +826,7 @@ export function DockPanelTabSet({
       onDrop={(e) => handleDrop(e, tabs.length)}
       onDragLeave={() => setDragOverIdx(null)}
     >
-      {startActions.map(renderAction)}
+      {renderActionStrip(startActions)}
       <div
         style={{
           display: 'flex',
@@ -746,7 +861,7 @@ export function DockPanelTabSet({
           />
         ))}
       </div>
-      {endActions.map(renderAction)}
+      {renderActionStrip(endActions)}
     </div>
   );
 
