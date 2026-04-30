@@ -399,7 +399,7 @@ Sync scroll **不影响后端的 per-VP 逻辑**。每个 VP 依然独立发 `on
 
 ### 前端构建
 
-- [x] `npm run build:standalone`（重新构建 standalone bundle）
+- [x] `npm run build`（重新构建 standalone bundle）
 
 ### 测试
 
@@ -419,3 +419,4 @@ Sync scroll **不影响后端的 per-VP 逻辑**。每个 VP 依然独立发 `on
 - [x] `events.py`：Callback 后端注入机制从 `inspect.signature` 检测 `_wants_event` 改为 `@` 前缀语法（如 `viewport_id="@event.viewport_id"`），更通用且无 inspect 开销
 - [x] `channel.py` + `_channel_impl.py`：Channel ID 分配从 `__init_subclass__` hack 改为正确的 `@impl(Channel.__init__)` + `super().__init__()` 模式
 - [x] Declaration 文件底部 import：impl 导入从 `__init__.py` 移到各 Declaration 文件底部（`channel.py`、`view.py`、`viewport.py`），确保 Declaration 加载时 impl 必然注册
+

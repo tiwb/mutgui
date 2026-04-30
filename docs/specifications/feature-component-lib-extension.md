@@ -513,7 +513,7 @@ python -m demo
 | 资源路径 | `/static/*.js` 平铺 | `/static/modules/<包名>/...` 按包隔离 |
 | 后端依赖声明 | HTML 模板硬编码 | `ModuleRegistry.add_from_package(...)` |
 | 第三方库共享 | bundle 进各自 IIFE | 独立 ESM 文件，import map 单例 |
-| 构建命令 | `build`(npm 包形态）+ `build:standalone`(IIFE 三件套） | 单一 `npm run build`(vendor + libs + boot + manifest），产物不入 git |
+| 构建命令 | `build`(npm 包形态）+ `build`(IIFE 三件套） | 单一 `npm run build`(vendor + libs + boot + manifest），产物不入 git |
 
 下游项目（mutagent / mutbot / 第三方）本规范不动，仍可继续用旧的 IIFE 加载方式直到它们各自迁移。但 mutgui demo 自身切换到新机制后，旧 IIFE 文件（`mutgui.js` / `mutgui-antd.js` / `mutgui-theme-dark.js`）从 `src/mutgui/static/` 删除，下游若直接引用会失效--这是用户接受的范围。
 
@@ -567,3 +567,4 @@ python -m demo
   - 移除“已知局限”章节
 - `mutgui/docs/design/framework-capabilities.md` - 检查是否提到 `MutguiApp.*`，相应改写
 - `mutgui/docs/specifications/feature-pluggable-component-libs.md` - 命名空间注册机制不变，但底层加载机制相关描述更新
+

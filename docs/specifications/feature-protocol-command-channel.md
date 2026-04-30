@@ -240,8 +240,9 @@ Render 面引入 `$expr` + view state 的真正应用是"绑定" —— 例如�
 ### 构建
 
 - [x] `npm --prefix mutgui/frontend run build` —— 更新 npm 库包产物
-- [x] `npm --prefix mutgui/frontend run build:standalone` —— 更新 demo / PyPI 分发的 standalone 产物
+- [x] `npm --prefix mutgui/frontend run build` —— 更新 demo / PyPI 分发的 standalone 产物
 
 ### 文档
 
 - [x] 更新 `mutgui/docs/design/framework-capabilities.md` —— 在"事件系统"之后新增"命令系统"章节，记录协议形态、后端 / 前端 API、与 Event 的对偶关系、不重放语义
+

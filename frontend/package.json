@@ -19,7 +19,6 @@
   "scripts": {
     "dev": "vite",
     "build": "node ./build.mjs && vite build && tsc --emitDeclarationOnly",
-    "build:runtime": "node ./build.mjs",
     "test": "vitest run",
     "preview": "vite preview"
   },

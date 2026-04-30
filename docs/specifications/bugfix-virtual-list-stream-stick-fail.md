@@ -225,7 +225,7 @@ react-virtuoso 的做法不是简单地看 `isAtBottom` 布尔值，而是区分
 - `pytest`
 - `npm --prefix frontend run test`
 - `npm --prefix frontend run build`
-- `npm --prefix frontend run build:standalone`
+- `npm --prefix frontend run build`
 - 手动验证：`python demo/examples/virtual_list_chat.py`
 
 ## 关键观测代码（chrome-cdp）
@@ -287,3 +287,4 @@ window.__probe = {
 ```
 
 通过 `chrome-cdp pysandbox "playwright.browser_evaluate(function='() => window.__probe.events.map(e => ...)')"` 拉日志。
+

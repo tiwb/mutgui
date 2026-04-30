@@ -161,7 +161,7 @@ demo 本身就是第一个 opt-in 消费者：加 `class="mutgui-theme"` 后一�
 - [x] **Python 端 ViewBlock style 颜色分类处理**：
   - [x] 功能性颜色（log 面板背景、hint 文字等）→ 改用 `--mutgui-surface` / `--mutgui-text-dim` token
   - [x] 装饰性多彩（DockPanel demo 的多 panel 区分色）→ 深色协调硬编码：用 `oklch(0.28 0.04 <hue>)` 保持亮度一致、色相区分，编辑区（`main-py` / `utils-py`）用中性深灰，terminal 用更暗灰
-- [x] **构建 + 运行验证**：`npm run build:standalone` 已通过（216.82 kB），用户启动 `python demo/app.py`，逐个 demo 目测深色一致性 —— 留待用户验证
+- [x] **构建 + 运行验证**：`npm run build` 已通过（216.82 kB），用户启动 `python demo/app.py`，逐个 demo 目测深色一致性 —— 留待用户验证
 - [x] **消费者场景回顾**：实施结尾补充「token 覆盖清单 / 硬编码场景 / API 反馈」三条到文档（对应"消费者场景验证"章节）
 
 ## 消费者场景验证总结
@@ -379,7 +379,7 @@ body.mutgui-dark .mutgui-root {
   - [x] `src/plugins/theme-dark/dark.css` —— body.mutgui-dark 下覆盖 token + 背景前景
   - [x] `src/plugins/theme-dark/index.ts` —— `?inline` 导入 CSS + 调 ctx 三方法 + antd ConfigProvider darkAlgorithm
   - [x] `vite.theme-dark.ts` —— IIFE 构建配置
-  - [x] `package.json` 的 scripts 加 `build:theme-dark`,并把 `build:standalone` 串联构建三份产物
+  - [x] `package.json` 的 scripts 加 `build:theme-dark`,并把 `build` 串联构建三份产物
 - [x] **mutgui-antd.js 暴露 antd 到全局**：`integrations/antd.ts` 在 `MutguiApp.antd` 下挂 antd 完整命名空间,供 plugin 引用
 - [x] **默认 demo 模板改造**：`demo/framework/_routes.py::mutgui_page`
   - [x] 去掉 `class="mutgui-theme"`（上轮残留）
@@ -394,7 +394,7 @@ body.mutgui-dark .mutgui-root {
 - [x] **新增 theming.py demo**（历史记录：演示 plugin 机制和定制化；该 demo 后续已移除）
 - [x] **新增 no_theme.py demo**（演示框架零预设：不加载 theme plugin，mount 传空数组，观察亮色页面）
 - [x] **全量构建**：
-  - [x] `npm run build:standalone`(已串联 antd + theme-dark)
+  - [x] `npm run build`(已串联 antd + theme-dark)
   - [x] 产物:`mutgui.js 217 kB` / `mutgui-antd.js 1524 kB` / `mutgui-theme-dark.js 0.63 kB`
 - [x] **用户验证**：启动 demo 逐个目测暗色一致性（antd 组件也应为深色） —— 用户验证通过
 
@@ -405,3 +405,4 @@ body.mutgui-dark .mutgui-root {
 - 是否真正做到"demo 几乎不写颜色 CSS"
 - Plugin 协议的 ctx 三方法（addCss / addBodyClass / wrapRoot）对暗色主题够用吗？未来 i18n / error-boundary plugin 能否走同协议
 - 历史上的 `theming.py` 演示定制路径是否清晰
+

@@ -303,10 +303,11 @@ mutagent.ui 的 AssistantMessage 自己加「复制」按钮，点击直接 `nav
 
 - `pytest`
 - `npm --prefix frontend run build`
-- `npm --prefix frontend run build:standalone`
+- `npm --prefix frontend run build`
 
 ## 实施反馈
 
 首版（impl-2，commit 38fc11e）实施后手动验证发现两类「滚动不平滑」：流式贴底抖动、用户主动滚动时 visible 段抖动。修复见独立文档 `bugfix-virtual-list-scroll-jitter.md`。
 
 该 bugfix 中的 A2 修复（用户主动滚动期间挂起 layout flush）**取消了本 spec 原决策「不引入额外 setTimeout 防抖」**——原决策只考虑了流式贴底场景下 setTimeout 引入的延迟感，未意识到用户主动滚动期间 flush 会引入抖动；两者作用域正交，可同时满足。详细推演见 bugfix 文档的 A2 章节。
+

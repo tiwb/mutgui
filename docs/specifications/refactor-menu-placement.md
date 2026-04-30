@@ -220,7 +220,7 @@ export function recomputePosition(
 - `python -m pytest tests/test_menu.py`
 - `npm --prefix frontend test`
 - `npm --prefix frontend run build`
-- `npm --prefix frontend run build:standalone`
+- `npm --prefix frontend run build`
 - `python -m pytest` 在当前环境因缺少 `playwright` 依赖而无法完成集成测试收集（`tests/integration/*` 导入失败）
 
 ## 实施记录
@@ -233,3 +233,4 @@ export function recomputePosition(
 ## 待定问题
 
 无（用户已确认接受所有方案，且不保留旧名别名）。
+

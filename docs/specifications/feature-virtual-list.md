@@ -479,7 +479,7 @@ class SimpleItemView(View):
 
 - [x] 新建 `frontend/src/virtual-list.tsx`：VirtualList 组件（滚动容器、估算总高度、viewport 计算、onViewport 防抖、children 定位）
 - [x] 注册组件：在 `frontend/src/antd.ts` 将 VirtualList 加入 registry
-- [x] 构建 standalone bundle（`npm run build:standalone`）
+- [x] 构建 standalone bundle（`npm run build`）
 
 ### 测试
 
@@ -488,3 +488,4 @@ class SimpleItemView(View):
 ### Demo
 
 - [x] 扩展现有 demo/app.py：Submit 改为 Add，预填充 3000 条记录的 VirtualList，点 Add 追加新条目，验证大数据量虚拟滚动 + 动态增长
+

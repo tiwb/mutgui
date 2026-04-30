@@ -118,7 +118,7 @@ onScroll → calculateViewport → setViewportStart → 后端下发新 itemIds
 - [x] **A3 增量维护 estimate**：引入 `measuredHeightSumRef` / `measuredCountRef`，`flushMeasuredHeights` 内增量更新，`getAdaptiveEstimatedHeight` 改 O(1)
 - [x] **A1 stick-to-bottom 同步化**：在 `flushMeasuredHeights` 末尾按 FOLLOWING 状态同步写 `scrollTop`；调整原 `useEffect` 依赖，避免双重锚底
 - [x] **A2 滚动期间挂起 flush**：引入 `userScrollingRef` + 100ms idle timer，`flushMeasuredHeights` 在 userScrolling 期间跳过 `setLayoutVersion`，idle 后补一次
-- [x] **回归 streaming spec 验收清单**：跑 `pytest` + `npm --prefix frontend run build` + `npm --prefix frontend run build:standalone`
+- [x] **回归 streaming spec 验收清单**：跑 `pytest` + `npm --prefix frontend run build` + `npm --prefix frontend run build`
 - [x] **手动验证 chat demo 三场景**（见验收）
 - [x] **streaming spec 末尾加实施反馈交叉引用**，避免后人对"不引入 setTimeout 防抖"决策的理解冲突
 
@@ -139,7 +139,7 @@ onScroll → calculateViewport → setViewportStart → 后端下发新 itemIds
 
 - `pytest`
 - `npm --prefix frontend run build`
-- `npm --prefix frontend run build:standalone`
+- `npm --prefix frontend run build`
 - 手动验证：`python demo/examples/virtual_list_chat.py`
 
 ## 实施反馈
@@ -148,3 +148,4 @@ onScroll → calculateViewport → setViewportStart → 后端下发新 itemIds
 - 最终手动验收发现，一个更底层的问题混入了此前的抖动分析：demo 页中的 antd 组件曾整体失效，`antd.Button` / `antd.Alert` / `antd.Input.TextArea` 被错误回退成原始自定义标签，导致页面 DOM 结构、样式和高度测量都不处于真实运行状态。
 - 根因不是组件名写错，而是前端组件解析器只接受 `function`，把 React object 形态组件（如 antd 的 `forwardRef` / `memo` 组件）误判为“非组件”；修复解析器后，standalone 页面恢复为真实 button / alert / textarea。
 - 在 antd 恢复正常渲染后，用户按原路径再次手动验证，原先观察到的明显滚动乱跳现象消失。由此可判定，之前至少有一部分“抖动”样本属于坏页面状态下的伪问题，而不是正常聊天 UI 上稳定可复现的 VirtualList 缺陷。
+

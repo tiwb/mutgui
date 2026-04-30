@@ -132,10 +132,10 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 3. 历史违规事件（如有）— 本次 A 的注释里写了 2026-04-22 事故
 4. 修改前提（When to change）— 明确需用户授权
 
-**集成到构建**：`build:standalone` 前先跑 `vitest run`，失败直接中断，违反铁律的代码出不了包：
+**集成到构建**：`build` 前先跑 `vitest run`，失败直接中断，违反铁律的代码出不了包：
 
 ```json
-"build:standalone": "vitest run && vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts"
+"build": "vitest run && vite build --config vite.standalone.ts && vite build --config vite.antd.ts && vite build --config vite.theme-dark.ts"
 ```
 
 **首次运行的收益**：测试抓到 `dark.css` 历史上所有规则都裸在文件顶层（从未按铁律归到 @layer），已顺手修复，把整个 body 规则块包进 `@layer mutgui.theme`。
@@ -164,13 +164,13 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 - [x] 当时的 theming demo plugin 同样清理（该 demo 已在后续版本移除）
 - [x] 安装 vitest，写 `tests/css-contracts.test.ts`（铁律 A/B/C）
 - [x] `vitest.config.ts` 配置
-- [x] `package.json` 加 `test` 脚本；`build:standalone` 前置 `vitest run`
+- [x] `package.json` 加 `test` 脚本；`build` 前置 `vitest run`
 - [x] 修复测试抓出的 `dark.css` 历史违规（body 规则块包进 `@layer mutgui.theme`）
 
 ## 测试验证
 
 - ✅ 15 个 CSS 契约测试全部通过
-- ✅ `npm run build:standalone` 构建成功（含测试前置）
+- ✅ `npm run build` 构建成功（含测试前置）
 - ✅ 浏览器实测（Chrome 147）：
   - Dock / VirtualList / Menu / 各 demo 视觉与 mutbot 一致
   - 滚动条全站 thin + 主题色，宿主可通过普通 CSS 覆盖
@@ -188,3 +188,4 @@ mutbot 用"标准 API + webkit fallback"两套并存。Chrome 121+ 有个关键�
 - **OKLCH 换算需要精确**：`#1F1F1F` 写成 `oklch(0.20 0 0)` 看起来差不多，实测观感偏差明显。用脚本精确换算到 `oklch(0.2393 0 0)`。
 - **3 档色 vs 2 档色**：mutbot 的 3 档结构（bg / surface / border）有明确分工，mutgui 之前的 2 档挤压容易产生歧义（tabbar 到底走哪个？splitter 到底走哪个？）。回归 3 档后所有组件的色彩归属都清晰。
 - **Plugin 边界**：Plugin 该管 token 和 color-scheme，不该管 `min-height: 100vh` / `margin: 0` 这种业务视觉选择。`background` 传播规则让后者大多数时候是多余的补丁。
+

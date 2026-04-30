@@ -135,7 +135,7 @@ frontend/src/styles/
 | 构建 | CSS 处理 | 用户动作 |
 |------|---------|---------|
 | **library**（`npm run build`） | 产出独立 `dist/styles.css` | `import "mutgui/styles.css"` |
-| **standalone**（`npm run build:standalone`） | `?inline` query 读取字符串，运行时注入 `<style>` | 零动作 |
+| **standalone**（`npm run build`） | `?inline` query 读取字符串，运行时注入 `<style>` | 零动作 |
 
 **Vite 实现**：
 - library：`build.cssCodeSplit: false`，CSS 自动产出独立文件
@@ -214,7 +214,7 @@ frontend/src/styles/
 ### 构建与验证
 
 - [x] `npm run build` 成功，产物 `dist/styles.css` 存在且包含所有组件样式（3.80 kB，含 `@layer` 声明 + Menu + DockPanel + VirtualList 全部规则）
-- [x] `npm run build:standalone` 成功，`src/mutgui/static/mutgui.js` 内嵌样式（grep 确认 `mutgui-menu` / `mutgui-dock` / `mutgui-virtual-list` / `@layer` 都在 bundle 中）
+- [x] `npm run build` 成功，`src/mutgui/static/mutgui.js` 内嵌样式（grep 确认 `mutgui-menu` / `mutgui-dock` / `mutgui-virtual-list` / `@layer` 都在 bundle 中）
 - [x] menu demo：Menu 默认深色可见、hover 态正确（用户验证通过）
 - [x] dock demo：DockPanel 默认深色可见、拖拽/tab 切换/splitter 正常（用户验证通过）
 - [x] VirtualList（DockPanel 中）滚动/虚拟化正常（用户验证通过）
@@ -225,3 +225,4 @@ frontend/src/styles/
 本次只做了 mutgui 组件**自身**的深色样式。demo 的 page chrome（body / 标题 / 各类示例卡片）仍为浅色硬编码，与 mutgui 组件的深色主题不一致。
 
 计划下一个 spec `feature-demo-dark-theme.md` 专门处理：把 demo 的 page chrome 改为引用 `--mutgui-*` token，作为第一个消费者验证 token API 的完整性。
+

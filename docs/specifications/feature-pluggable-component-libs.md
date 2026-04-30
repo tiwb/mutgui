@@ -198,8 +198,9 @@ registerComponents({ MyChart, MyTable });
 - [x] 更新 `standalone.tsx`：移除 `registerAntd()` 调用，暴露 `React`/`ReactDOM`/`jsxRuntime`/`registerComponents` 到 `window.MutguiApp`，内置注册 `VirtualList`
 - [x] 创建 `vite.antd.ts`：antd 独立构建配置（IIFE，React external）
 - [x] 更新 `vite.standalone.ts`：从 standalone 构建中移除 antd（不再 import antd）
-- [x] 更新 `package.json`：添加 `build:antd` 和 `build:standalone`（新的不含 antd 版本）构建脚本
+- [x] 更新 `package.json`：添加 `build:antd` 和 `build`（新的不含 antd 版本）构建脚本
 - [x] 更新 `index.ts`：导出 `registerComponents` 替代 `register`/`registerAll`/`registerAntd`
 - [x] 更新 `demo/app.py`：HTML 模板添加 `antd.js` 的 script 标签，静态文件挂载 libs 目录
-- [x] 构建验证：执行 `build:standalone` + `build:antd`，确认产物正确
+- [x] 构建验证：执行 `build` + `build:antd`，确认产物正确
 - [x] 运行 demo 端到端验证：启动 demo，确认所有组件正常渲染和交互
+

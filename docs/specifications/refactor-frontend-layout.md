@@ -246,8 +246,9 @@ Standalone 产物路径**变更**：
 - [x] **清理旧产物**：删除 `src/mutgui/static/libs/` 目录（构建前先清，避免旧产物遗留）
 - [x] **构建验证**：
   - [x] `npm run build`（library 模式）成功，`dist/index.js` + `dist/styles.css` 产物齐全（`index.d.ts` 缺失是预先存在的 tsc 配置问题，非本次引入）
-  - [x] `npm run build:standalone` 成功，`src/mutgui/static/mutgui.js` 产物齐全
+  - [x] `npm run build` 成功，`src/mutgui/static/mutgui.js` 产物齐全
   - [x] `npm run build:antd` 成功，`src/mutgui/static/mutgui-antd.js` 产物齐全（新文件名 + 新路径）
 - [x] **同步更新 `docs/design/framework-capabilities.md`** — 描述现状的设计文档里的产物路径
 - [x] **修复 `dist/index.d.ts` 缺失**：`package.json` 的 `build` 脚本由 `tsc && vite build` 改为 `vite build && tsc --emitDeclarationOnly`。根因是两者共用 `dist/`，vite 默认 `emptyOutDir` 会清掉 tsc 产出的 .d.ts。调整顺序 + emit-only 后，`dist/` 同时得到 `index.js` / `styles.css` / `index.d.ts`（及各模块 .d.ts）
 - [x] **运行验证**：用户启动 `python demo/app.py`，在浏览器验证各 demo 正常渲染（已通过）
+

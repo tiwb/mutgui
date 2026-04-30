@@ -366,4 +366,5 @@ contextmenu/click 事件
 
 - `pytest tests/`：140 passed（11 新增 + 129 既有）
 - `tsc --noEmit`：通过
-- `vite build:standalone`：通过，bundle 213.81 kB（gzip 67.42 kB）
+- `vite build`：通过，bundle 213.81 kB（gzip 67.42 kB）
+
