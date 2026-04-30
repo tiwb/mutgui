@@ -52,6 +52,23 @@ class RecentProvider(ActionCategoryProvider):
         ]
 
 
+class LookupOrderAction(Action):
+    action_id = "test.lookup-order"
+    label = "排序查找"
+    order = 7
+
+    def __post_init__(self) -> None:
+        raise RuntimeError("排序不应实例化 action")
+
+
+class LookupOrderProvider(ActionCategoryProvider):
+    categories = ("test.lookup.provider",)
+    order = 3
+
+    def __post_init__(self) -> None:
+        raise RuntimeError("排序不应实例化 provider")
+
+
 class ToolbarWidget(View):
     def render(self) -> ViewBlock:
         return ViewBlock([{
@@ -96,6 +113,14 @@ class SplitAction(Action):
 
     def execute(self, context: ActionContext) -> None:
         pass
+
+    def menu_view(self, context: ActionContext) -> View | None:
+        return SplitMenuView()
+
+
+class MenuOnlyAction(Action):
+    action_id = "test.menu-only"
+    label = "仅菜单"
 
     def menu_view(self, context: ActionContext) -> View | None:
         return SplitMenuView()
@@ -146,6 +171,27 @@ def test_action_toolbar_builds_start_and_end_groups() -> None:
     assert groups[0]["$children"][0]["$id"] == "button-0"
     assert groups[2]["$children"][0]["$id"] == "widget-1"
     assert groups[2]["$children"][1]["$id"] == "split-2"
+
+
+def test_action_toolbar_renders_dropdown_with_arrow() -> None:
+    toolbar = ActionToolbar(
+        id="toolbar",
+        refs=[ActionRef(action=MenuOnlyAction, placement="10")],
+    )
+
+    block = toolbar.render()
+    dropdown = block.items[0]["$children"][2]["$children"][0]
+    assert dropdown["$id"] == "dropdown-0"
+    assert dropdown["$children"][-1]["$id"] == "arrow"
+    assert dropdown["$children"][-1]["children"] == "▾"
+
+
+def test_action_registry_class_level_defaults_do_not_instantiate_for_lookup() -> None:
+    action_classes = ActionRegistry._action_classes()
+    provider_classes = ActionRegistry._provider_classes()
+
+    assert LookupOrderAction in action_classes
+    assert LookupOrderProvider in provider_classes
 
 
 class PlacementDefaultAction(Action):
@@ -358,6 +404,16 @@ def test_action_menu_uses_submenu_for_toolbar_dropdown_like_actions() -> None:
     item = block.items[0]
     assert item["$component"] == "mutgui.Menu.Item"
     assert item["hasSubmenu"] is True
+
+
+def test_action_registry_marks_menu_only_action_as_dropdown() -> None:
+    resolved = ActionRegistry.resolve(
+        context=ActionContext(surface="toolbar"),
+        refs=[ActionRef(action=MenuOnlyAction, placement="10")],
+    )
+
+    assert resolved[0].variant == "dropdown"
+    assert resolved[0].can_execute is False
 
 
 def test_action_menu_keeps_widget_style_actions_inline() -> None:

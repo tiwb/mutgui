@@ -729,6 +729,13 @@ export function DockPanelTabSet({
     </button>
   );
 
+  const renderDropdownActionContent = (action: ActionDef) => (
+    <>
+      {renderActionContent(action)}
+      <span aria-hidden>▾</span>
+    </>
+  );
+
   const renderAction = (action: ActionDef) => {
     const fallbackClick = () => onActionClick?.({ tabsetId: nodeId, actionId: action.id });
     const mainClick = action.onClick ?? fallbackClick;
@@ -774,7 +781,7 @@ export function DockPanelTabSet({
     if (action.variant === 'dropdown') {
       return (
         <div key={action.id}>
-          {renderActionButton(action, menuClick ?? mainClick)}
+          {renderActionButton(action, menuClick ?? mainClick, undefined, renderDropdownActionContent(action))}
         </div>
       );
     }

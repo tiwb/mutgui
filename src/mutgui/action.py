@@ -285,13 +285,12 @@ class ActionRegistry:
         try:
             refs: list[ActionRef] = []
             for action_cls in cls._action_classes():
-                action = action_cls()
-                if category in action.categories:
+                if category in action_cls.categories.make_default():
                     refs.append(ActionRef(action=action_cls))
             for provider_cls in cls._provider_classes():
-                provider = provider_cls()
-                if category not in provider.categories:
+                if category not in provider_cls.categories.make_default():
                     continue
+                provider = provider_cls()
                 refs.extend(provider.refs(context))
 
             resolved: list[ResolvedAction] = []
@@ -319,7 +318,7 @@ class ActionRegistry:
         toolbar_view = action.toolbar_view(context.with_updates(surface="toolbar"))
         menu_view = action.menu_view(context.with_updates(surface="menu"))
         menu_refs = action.menu_actions(context.with_updates(surface="menu"))
-        can_execute = type(action).execute is not Action.execute
+        can_execute = mutobj.impl_has(type(action).execute)
         variant = cls._infer_variant(
             action=action,
             ref=ref,
@@ -417,7 +416,7 @@ class ActionRegistry:
             if sub is not Action
         ]
         return sorted(classes, key=lambda item: (
-            item().order or 0,
+            item.order.make_default() or 0,
             item.__module__,
             item.__qualname__,
         ))
@@ -429,7 +428,7 @@ class ActionRegistry:
             if sub is not ActionCategoryProvider
         ]
         return sorted(classes, key=lambda item: (
-            item().order,
+            item.order.make_default(),
             item.__module__,
             item.__qualname__,
         ))
@@ -741,6 +740,7 @@ class ActionToolbar(View):
                         ),
                     placement="bottom-start",
                 ),
+                show_menu_arrow=True,
             )
 
         return self._button_schema(
@@ -761,12 +761,14 @@ class ActionToolbar(View):
         disabled: bool | None = None,
         label: str | None = None,
         use_icon: bool = True,
+        show_menu_arrow: bool = False,
         left_rounded: bool = True,
         right_rounded: bool = True,
     ) -> dict[str, Any]:
         children = self._button_children(
             item.icon if use_icon else None,
             label or item.label,
+            show_menu_arrow=show_menu_arrow,
         )
         style: dict[str, Any] = {
             "display": "inline-flex",
@@ -808,16 +810,31 @@ class ActionToolbar(View):
         self,
         icon: str | None,
         label: str,
+        *,
+        show_menu_arrow: bool = False,
     ) -> list[dict[str, Any]] | str:
         mode = self._effective_label_mode()
         if icon is not None and mode == "icon-only":
-            return icon
-        if icon and label:
-            return [
+            if not show_menu_arrow:
+                return icon
+            children: list[dict[str, Any]] = [
+                {"$component": "span", "$id": "icon", "children": icon},
+            ]
+        elif icon and label:
+            children = [
                 {"$component": "span", "$id": "icon", "children": icon},
                 {"$component": "span", "$id": "label", "children": label},
             ]
-        return icon or label
+        else:
+            text = icon or label
+            if not show_menu_arrow:
+                return text
+            children = [
+                {"$component": "span", "$id": "label", "children": text},
+            ]
+        if show_menu_arrow:
+            children.append({"$component": "span", "$id": "arrow", "children": "▾"})
+        return children
 
     def _button_title(self, item: ResolvedAction) -> str:
         title = item.tooltip or item.label
