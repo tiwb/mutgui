@@ -12,7 +12,9 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 import os
 from typing import Any
 
@@ -21,9 +23,11 @@ from starlette.applications import Starlette
 from starlette.responses import HTMLResponse
 from starlette.routing import Route, WebSocketRoute, Mount
 from starlette.staticfiles import StaticFiles
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from mutgui import ModuleRegistry, View, ViewBlock, Callback, Channel, ViewPort
+
+logger = logging.getLogger("mutgui.demo.starlette")
 
 
 # ---------------------------------------------------------------------------
@@ -74,31 +78,36 @@ viewports: list[ViewPort] = []
 
 
 async def ws_handler(websocket: WebSocket) -> None:
-    await websocket.accept()
-    first = await websocket.receive_json()
-    if first.get("type") != "mount.attach":
-        await websocket.close(code=4400, reason="expected mount.attach")
-        return
-    runtime_manifest = REGISTRY.runtime_manifest()
-    for href in runtime_manifest["css"]:
-        await websocket.send_json({"type": "runtime.css", "href": href})
-    await websocket.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
-    await websocket.send_json({"type": "runtime.install", "module": "@mutgui/theme-dark"})
-    await websocket.send_json({"type": "runtime.mount"})
-    vp = ViewPort(view, StarletteChannel(websocket))
-    viewports.append(vp)
-    await vp.initialize()
-    await view.rendered()
+    vp: ViewPort | None = None
     try:
+        await websocket.accept()
+        first = await websocket.receive_json()
+        if first.get("type") != "mount.attach":
+            await websocket.close(code=4400, reason="expected mount.attach")
+            return
+        runtime_manifest = REGISTRY.runtime_manifest()
+        for href in runtime_manifest["css"]:
+            await websocket.send_json({"type": "runtime.css", "href": href})
+        await websocket.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
+        await websocket.send_json({"type": "runtime.install", "module": "@mutgui/theme-dark"})
+        await websocket.send_json({"type": "runtime.mount"})
+        vp = ViewPort(view, StarletteChannel(websocket))
+        viewports.append(vp)
+        await vp.initialize()
+        await view.rendered()
         while True:
             raw = await websocket.receive_text()
             event = json.loads(raw)
             await vp.handle_event(event)
+    except WebSocketDisconnect as exc:
+        logger.debug("Starlette demo WebSocket disconnected (code=%s)", exc.code)
     except Exception:
-        pass
+        logger.exception("Starlette demo WebSocket error")
     finally:
-        vp.detach()
-        viewports.remove(vp)
+        if vp is not None:
+            vp.detach()
+            if vp in viewports:
+                viewports.remove(vp)
 
 
 REGISTRY = ModuleRegistry()
@@ -143,6 +152,25 @@ for path, directory in REGISTRY.static_mounts():
 
 app = Starlette(routes=routes)
 
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="mutgui standalone Starlette demo")
+    parser.add_argument("--host", default="127.0.0.1", help="Bind host")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("PORT", 8080)),
+        help="Bind port",
+    )
+    parser.add_argument("--debug", action="store_true", help="Show debug logs in console")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    args = _parse_args()
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        log_level="debug" if args.debug else "info",
+    )

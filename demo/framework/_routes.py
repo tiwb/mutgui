@@ -150,6 +150,12 @@ class DemoApp:
         super().__init__()
         self.routes = routes
 
-    def run(self, *, host: str = "127.0.0.1", port: int = 8080) -> None:
+    def run(
+        self,
+        *,
+        host: str = "127.0.0.1",
+        port: int = 8080,
+        debug: bool = False,
+    ) -> None:
         from ._server import run_single
-        run_single(self, host=host, port=port)
+        run_single(self, host=host, port=port, debug=debug)

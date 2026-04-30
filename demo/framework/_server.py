@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,19 @@ from mutio.net.server import (
 from ._channel import WebSocketChannel
 from ._routes import MODULE_REGISTRY, MutguiRoute, DemoApp
 
+logger = logging.getLogger("mutgui.demo")
+
+
+def _init_demo_logging(*, debug: bool = False) -> None:
+    """初始化 demo 的最小 stdout logging。"""
+    root_logger = logging.getLogger()
+    if root_logger.handlers:
+        return
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.INFO,
+        format="%(levelname)-8s %(name)s: %(message)s",
+    )
+
 
 async def _handle_ws(
     route: MutguiRoute, scope: dict[str, Any], receive: Any, send: Any,
@@ -22,28 +36,30 @@ async def _handle_ws(
     """共享的 WebSocket → ViewPort 生命周期处理。"""
     from mutio.net._server_impl import _make_ws_connection
 
-    ws = _make_ws_connection(scope, receive, send, {})
-    await ws.accept()
-    first_message = await ws.receive_json()
-    if first_message.get("type") != "mount.attach":
-        await ws.close(code=4400, reason="expected mount.attach")
-        return
-    for message in route.runtime_messages():
-        await ws.send_json(message)
-    channel = WebSocketChannel(ws)
-    vp = ViewPort(route.view, channel)
-    await vp.initialize()
-    await route.view.rendered()
+    vp: ViewPort | None = None
     try:
+        ws = _make_ws_connection(scope, receive, send, {})
+        await ws.accept()
+        first_message = await ws.receive_json()
+        if first_message.get("type") != "mount.attach":
+            await ws.close(code=4400, reason="expected mount.attach")
+            return
+        for message in route.runtime_messages():
+            await ws.send_json(message)
+        channel = WebSocketChannel(ws)
+        vp = ViewPort(route.view, channel)
+        await vp.initialize()
+        await route.view.rendered()
         while True:
             event = await ws.receive_json()
             await vp.handle_event(event)
-    except WebSocketDisconnect:
-        pass
+    except WebSocketDisconnect as exc:
+        logger.debug("Demo WebSocket disconnected: route=%s code=%s", route.path, exc.code)
     except Exception:
-        pass
+        logger.exception("Demo WebSocket error on route %s", route.path)
     finally:
-        vp.detach()
+        if vp is not None:
+            vp.detach()
 
 
 def _scan_examples(examples_dir: Path) -> list[str]:
@@ -204,8 +220,10 @@ def run_gallery(
     *,
     host: str = "127.0.0.1",
     port: int = 8080,
+    debug: bool = False,
 ) -> None:
     """启动 Gallery 服务器。"""
+    _init_demo_logging(debug=debug)
     if examples_dir is None:
         examples_dir = Path(__file__).resolve().parent.parent / "examples"
 
@@ -219,8 +237,10 @@ def run_single(
     *,
     host: str = "127.0.0.1",
     port: int = 8080,
+    debug: bool = False,
 ) -> None:
     """启动单个 DemoApp 服务器。"""
+    _init_demo_logging(debug=debug)
 
     class _SingleServer(Server):
         host = "127.0.0.1"
