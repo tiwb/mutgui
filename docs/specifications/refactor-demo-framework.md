@@ -54,7 +54,8 @@ demo/
     nesting.py            # View 嵌套 — 父 View 包含子 View
     virtual_list.py       # VirtualList — 大列表虚拟滚动
     dock.py               # DockPanel — IDE 风格多面板布局
-    mahjong.py            # 多视图 — 同一状态、多路由展示不同视角
+  games/                  # 游戏类 demo
+    mahjong.py            # 多视图麻将 — 同一状态、多路由展示不同视角
   standalone/
     starlette.py          # 独立 Starlette + uvicorn demo
 ```
@@ -124,7 +125,7 @@ MutguiApp.mount(document.getElementById('app'),
 多视图用多个 `MutguiRoute` 实现，每个视图独立 URL（不需要 `?view=` query param 或 hash 路由）：
 
 ```python
-# demo/examples/mahjong.py
+# demo/games/mahjong.py
 """多视图麻将 — 同一游戏状态，不同客户端看不同视角。"""
 from demo.framework import MutguiRoute, DemoApp
 

@@ -4,7 +4,7 @@
 
     python -m demo
 
-启动 Gallery 服务器，自动扫描 demo/examples/ 下的 demo 文件。
+启动 Gallery 服务器，自动扫描 demo/examples/ 与 demo/games/ 下的 demo 文件。
 """
 
 from ._routes import (

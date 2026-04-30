@@ -45,19 +45,20 @@ def mutgui_mount_div(
 
 
 def _head_extra_for_layout(layout: LayoutMode) -> str:
+    viewport = '  <meta name="viewport" content="width=device-width, initial-scale=1">'
     if layout == "fullscreen":
-        return """
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+        return f"""
+{viewport}
   <style>
     html, body, #app { height: 100%; margin: 0; }
     body { overflow: hidden; }
   </style>"""
-    return ""
+    return viewport
 
 
 def _body_markup_for_layout(mount_div: str, layout: LayoutMode) -> str:
     if layout == "centered":
-        return f"""  <div style="max-width: 960px; margin: 40px auto; font-family: sans-serif;">
+        return f"""  <div style="max-width: 960px; margin: 40px auto; padding: 0 12px; font-family: sans-serif;">
     {mount_div}
   </div>"""
     return f"  {mount_div}"

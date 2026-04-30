@@ -41,7 +41,7 @@
 - `demo/examples/dock.py`（部分已改，复查）
 - `demo/examples/menu.py`（部分已改，复查）
 - `demo/examples/antd.py`
-- `demo/examples/mahjong.py`（如果存在且未归档）
+- `demo/games/mahjong.py`（如果存在且未归档）
 
 ### Python 端 ViewBlock 内联 style
 
@@ -155,7 +155,7 @@ demo 本身就是第一个 opt-in 消费者：加 `class="mutgui-theme"` 后一�
   - [x] `demo/examples/nesting.py` 同上（零改动）
   - [x] `demo/examples/virtual_list.py` 同上（零改动）
   - [x] `demo/examples/antd.py` 同上（零改动）
-  - [x] `demo/examples/mahjong.py` ViewBlock 内多处功能色改 token，装饰色（current 高亮、座位名、进入链接）调至深色协调饱和色
+  - [x] `demo/games/mahjong.py` ViewBlock 内多处功能色改 token，装饰色（current 高亮、座位名、进入链接）调至深色协调饱和色
   - [x] `demo/examples/dock.py` 复查已改部分 —— header 已引用 token，`body` 颜色声明清理完
   - [x] `demo/examples/menu.py` 复查已改部分 —— body 的 `#fafafa`、h4 的 `#666`、ViewBlock 内 search 框/empty hint/context tab/两个按钮/日志 `<pre>` 全部改 token
 - [x] **Python 端 ViewBlock style 颜色分类处理**：

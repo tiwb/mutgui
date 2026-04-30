@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,14 @@ from ._channel import WebSocketChannel
 from ._routes import MODULE_REGISTRY, MutguiRoute, DemoApp
 
 logger = logging.getLogger("mutgui.demo")
+
+
+@dataclass(frozen=True)
+class DemoCollection:
+    slug: str
+    title: str
+    directory: Path
+    package: str
 
 
 def _init_demo_logging(*, debug: bool = False) -> None:
@@ -62,26 +71,28 @@ async def _handle_ws(
             vp.detach()
 
 
-def _scan_examples(examples_dir: Path) -> list[str]:
-    """扫描 examples 目录下的 .py 文件，返回 demo 名称列表。"""
+def _scan_demos(directory: Path) -> list[str]:
+    """扫描目录下的 .py 文件，返回 demo 名称列表。"""
     names = []
-    for f in sorted(examples_dir.iterdir()):
+    if not directory.exists():
+        return names
+    for f in sorted(directory.iterdir()):
         if f.suffix == ".py" and not f.name.startswith("_"):
             names.append(f.stem)
     return names
 
 
-def _load_example(name: str, examples_dir: Path) -> list[MutguiRoute]:
-    """懒加载 example 模块，返回其 routes。优先从 app.routes，fallback 到 routes。"""
-    module_path = examples_dir / f"{name}.py"
+def _load_demo(name: str, collection: DemoCollection) -> list[MutguiRoute]:
+    """懒加载 demo 模块，返回其 routes。优先从 app.routes，fallback 到 routes。"""
+    module_path = collection.directory / f"{name}.py"
     if not module_path.exists():
         return []
 
-    demo_parent = str(examples_dir.parent.parent)
+    demo_parent = str(collection.directory.parent.parent)
     if demo_parent not in sys.path:
         sys.path.insert(0, demo_parent)
 
-    spec_name = f"demo.examples.{name}"
+    spec_name = f"{collection.package}.{name}"
     if spec_name in sys.modules:
         mod = sys.modules[spec_name]
     else:
@@ -103,26 +114,43 @@ def _load_example(name: str, examples_dir: Path) -> list[MutguiRoute]:
     return [r for r in routes if isinstance(r, MutguiRoute)]
 
 
-def _gallery_html(names: list[str]) -> str:
+def _demo_href(collection: DemoCollection, name: str) -> str:
+    return f"/{collection.slug}/{name}/"
+
+
+def _gallery_html(collections: list[tuple[DemoCollection, list[str]]]) -> str:
     """生成 Gallery 首页 HTML。"""
-    links = "\n".join(
-        f'    <li style="margin: 8px 0;">'
-        f'<a href="/{name}/" style="font-size: 16px;">{name}</a></li>'
-        for name in names
-    )
+    sections: list[str] = []
+    for collection, names in collections:
+        if not names:
+            continue
+        links = "\n".join(
+            f'        <li style="margin: 10px 0;">'
+            f'<a href="{_demo_href(collection, name)}" '
+            f'style="display: block; padding: 14px 16px; border: 1px solid #d9d9d9; border-radius: 12px; '
+            f'font-size: 18px; color: inherit; text-decoration: none; background: #fff;">{name}</a></li>'
+            for name in names
+        )
+        sections.append(f"""    <section style="margin-top: 28px;">
+      <h2 style="margin: 0 0 12px 0; font-size: 20px;">{collection.title}</h2>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+{links}
+      </ul>
+    </section>""")
+    sections_html = "\n".join(sections)
     return f"""\
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>mutgui examples</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mutgui demos</title>
 </head>
-<body>
-  <div style="max-width: 600px; margin: 60px auto; font-family: sans-serif;">
-    <h1>mutgui examples</h1>
-    <ul style="list-style: none; padding: 0;">
-{links}
-    </ul>
+<body style="margin: 0; background: #fafafa;">
+  <div style="max-width: 680px; margin: 0 auto; padding: 20px 14px 40px; font-family: sans-serif;">
+    <h1 style="margin: 0 0 8px 0; font-size: 28px;">mutgui demos</h1>
+    <div style="color: #666; font-size: 14px;">选择一个 demo 进入。手机上可直接整块点击。</div>
+{sections_html}
   </div>
 </body>
 </html>
@@ -141,34 +169,74 @@ def _static_views() -> tuple[type[StaticView], ...]:
 
 
 class _GalleryServer(Server):
-    """Gallery 服务器 — 懒加载 example，直接分发路由。"""
+    """Gallery 服务器 — 懒加载 examples/games，直接分发路由。"""
     host = "127.0.0.1"
     port = 8080
     views = _static_views()
 
-    _examples_dir: Path
-    _demo_names: list[str]
-    _routes: dict[str, list[MutguiRoute]]
+    _collections: dict[str, DemoCollection]
+    _demo_names: dict[str, list[str]]
+    _routes: dict[tuple[str, str], list[MutguiRoute]]
 
-    def __init__(self, examples_dir: Path, *, host: str = "127.0.0.1", port: int = 8080) -> None:
-        self._examples_dir = examples_dir
-        self._demo_names = _scan_examples(examples_dir)
+    def __init__(self, demo_root: Path, *, host: str = "127.0.0.1", port: int = 8080) -> None:
+        self._collections = {
+            "examples": DemoCollection(
+                slug="examples",
+                title="Examples",
+                directory=demo_root / "examples",
+                package="demo.examples",
+            ),
+            "games": DemoCollection(
+                slug="games",
+                title="Games",
+                directory=demo_root / "games",
+                package="demo.games",
+            ),
+        }
+        self._demo_names = {
+            slug: _scan_demos(collection.directory)
+            for slug, collection in self._collections.items()
+        }
         self._routes = {}
         super().__init__(host=host, port=port)
 
-    def _ensure_loaded(self, name: str) -> list[MutguiRoute]:
-        if name not in self._routes:
-            self._routes[name] = _load_example(name, self._examples_dir)
-        return self._routes[name]
+    def _ensure_loaded(self, collection_slug: str, name: str) -> list[MutguiRoute]:
+        key = (collection_slug, name)
+        if key not in self._routes:
+            collection = self._collections[collection_slug]
+            self._routes[key] = _load_demo(name, collection)
+        return self._routes[key]
 
-    def _match_route(self, name: str, sub_path: str) -> MutguiRoute | None:
+    def _match_route(self, collection_slug: str, name: str, sub_path: str) -> MutguiRoute | None:
         normalized = sub_path.rstrip("/") or "/"
-        routes = self._ensure_loaded(name)
+        routes = self._ensure_loaded(collection_slug, name)
         for route in routes:
             route_normalized = route.path.rstrip("/") or "/"
             if normalized == route_normalized:
                 return route
         return None
+
+    def _parse_demo_path(self, path: str) -> tuple[str, str, str] | None:
+        parts = [part for part in path.strip("/").split("/") if part]
+        if not parts:
+            return None
+
+        if parts[0] in self._collections:
+            collection_slug = parts[0]
+            if len(parts) < 2:
+                return None
+            name = parts[1]
+            sub_parts = parts[2:]
+        else:
+            collection_slug = "examples"
+            name = parts[0]
+            sub_parts = parts[1:]
+
+        if name not in self._demo_names.get(collection_slug, []):
+            return None
+
+        sub_path = "/" + "/".join(sub_parts) if sub_parts else "/"
+        return collection_slug, name, sub_path
 
     async def route(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         from mutio.net._server_impl import _send_response
@@ -178,26 +246,27 @@ class _GalleryServer(Server):
 
         # Gallery 首页
         if path == "/" and scope_type == "http":
-            resp = HTMLResponse(_gallery_html(self._demo_names))
+            resp = HTMLResponse(_gallery_html([
+                (self._collections["examples"], self._demo_names["examples"]),
+                (self._collections["games"], self._demo_names["games"]),
+            ]))
             await _send_response(resp, send)
             return
 
-        # 解析 /{name}/...
-        parts = path.strip("/").split("/", 1)
-        name = parts[0] if parts else ""
-
-        if name not in self._demo_names:
+        parsed = self._parse_demo_path(path)
+        if parsed is None:
             await super().route(scope, receive, send)
             return
 
-        # 尾斜杠重定向：/basic → /basic/
-        if path == f"/{name}" and scope_type == "http":
-            resp = RedirectResponse(f"/{name}/", status_code=301)
+        collection_slug, name, sub_path = parsed
+        normalized = path.rstrip("/")
+
+        if sub_path == "/" and scope_type == "http" and path != "/" and path == normalized:
+            resp = RedirectResponse(f"{path}/", status_code=301)
             await _send_response(resp, send)
             return
 
-        sub_path = "/" + parts[1] if len(parts) > 1 else "/"
-        route = self._match_route(name, sub_path)
+        route = self._match_route(collection_slug, name, sub_path)
 
         if route is None:
             await super().route(scope, receive, send)
@@ -216,7 +285,7 @@ class _GalleryServer(Server):
 
 
 def run_gallery(
-    examples_dir: Path | None = None,
+    demo_root: Path | None = None,
     *,
     host: str = "127.0.0.1",
     port: int = 8080,
@@ -224,11 +293,11 @@ def run_gallery(
 ) -> None:
     """启动 Gallery 服务器。"""
     _init_demo_logging(debug=debug)
-    if examples_dir is None:
-        examples_dir = Path(__file__).resolve().parent.parent / "examples"
+    if demo_root is None:
+        demo_root = Path(__file__).resolve().parent.parent
 
     print(f"mutgui Gallery: http://{host}:{port}/")
-    server = _GalleryServer(examples_dir, host=host, port=port)
+    server = _GalleryServer(demo_root, host=host, port=port)
     server.run()
 
 
