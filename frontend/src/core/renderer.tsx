@@ -18,7 +18,7 @@ import {
   type ViewPath,
   type MutguiConnection,
 } from './context';
-import { Menu, isMenuViewId, createMenuTriggerHandler } from '../components/menu';
+import { Menu, isMenuViewId, createMenuTriggerHandler, takePendingMenuTrigger, type TriggerInfo } from '../components/menu';
 
 /** 组件 schema 的基础类型。 */
 export interface ComponentSchema {
@@ -42,9 +42,21 @@ export interface ComponentSchema {
  * 3. 渲染 — 用 renderTree 渲染自己的组件树
  */
 export function MutguiView({ viewId }: { viewId?: string | number }) {
-  const [tree, setTree] = useState<ComponentSchema[]>([]);
+  // tree state 语义：
+  //   null  = 未收到首帧（初始状态）
+  //   []    = 已收到首帧，但后端合法返回空 tree
+  //   [...] = 正常内容
+  // 菜单分支靠这个区分来避免“在 children=[] 时跳完整布局”的首帧 flip bug。
+  const [tree, setTree] = useState<ComponentSchema[] | null>(null);
   const conn = useConnection();
   const parentScope = useScope();
+
+  // 菜单分支：看到 menu viewId 那一刻同步 take 走 pendingTrigger，
+  // 避免 Menu mount 被 received gating 延后后被后续 trigger 覆盖
+  // （特别是 hover 子菜单连续 onMouseEnter 场景）。
+  const [initialTrigger] = useState<TriggerInfo | null>(() =>
+    isMenuViewId(viewId) ? takePendingMenuTrigger() : null,
+  );
 
   const fullPath = useMemo<ViewPath>(
     () => (viewId !== undefined ? [...parentScope, viewId] : []),
@@ -58,10 +70,17 @@ export function MutguiView({ viewId }: { viewId?: string | number }) {
   }, [conn, fullPath]);
 
   // 菜单 View — 用 Menu 容器包装并 portal 渲染
+  // 首帧 tree 未到之前不挂载 Menu，避免在空 children 上跳 useLayoutEffect 布局。
   if (isMenuViewId(viewId)) {
+    if (tree === null) return null;
     return (
       <ScopeProvider value={fullPath}>
-        <Menu menuId={String(viewId)} conn={conn} viewPath={fullPath}>
+        <Menu
+          menuId={String(viewId)}
+          conn={conn}
+          viewPath={fullPath}
+          initialTrigger={initialTrigger}
+        >
           {renderTree(tree)}
         </Menu>
       </ScopeProvider>
@@ -70,7 +89,7 @@ export function MutguiView({ viewId }: { viewId?: string | number }) {
 
   return (
     <ScopeProvider value={fullPath}>
-      {renderTree(tree)}
+      {tree === null ? null : renderTree(tree)}
     </ScopeProvider>
   );
 }

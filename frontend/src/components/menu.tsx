@@ -32,7 +32,7 @@ import {
 // 类型
 // ---------------------------------------------------------------------------
 
-interface TriggerInfo {
+export interface TriggerInfo {
   placement: Placement;
   x: number;
   y: number;
@@ -51,6 +51,17 @@ interface TriggerInfo {
  * 用默认位置（视口中心）。
  */
 let pendingTrigger: TriggerInfo | null = null;
+
+/**
+ * 取走当前 pendingTrigger 并清空。供 MutguiView 在看到菜单 viewId 那一刻
+ * 同步消费，避免 Menu mount 延后导致 trigger 被后续触发覆盖。
+ */
+export function takePendingMenuTrigger(): TriggerInfo | null {
+  const t = pendingTrigger;
+  pendingTrigger = null;
+  return t;
+}
+
 const MENU_JUST_OPENED_ATTR = 'data-menu-just-opened';
 let menuJustOpenedToken = 0;
 
@@ -259,6 +270,12 @@ interface MenuProps {
   menuId: string;
   conn: MutguiConnection;
   viewPath: ViewPath;
+  /**
+   * MutguiView 在创建菜单分支时同步取走的 trigger。
+   * Menu 内部优先使用，没有则 fallback 到全局 pendingTrigger / DEFAULT_TRIGGER
+   * 兼容意外路径（如直接 mount Menu 而非走 MutguiView）。
+   */
+  initialTrigger?: TriggerInfo | null;
   children?: React.ReactNode;
 }
 
@@ -270,16 +287,18 @@ const DEFAULT_TRIGGER: TriggerInfo = {
   y: window.innerHeight / 2,
 };
 
-export function Menu({ menuId, conn, viewPath, children }: MenuProps) {
+export function Menu({ menuId, conn, viewPath, initialTrigger, children }: MenuProps) {
   ensureGlobalListeners();
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
 
   // 取出触发信息（mount 时一次性）
+  // 优先用 MutguiView 同步 take 来的 initialTrigger；fallback 到全局
+  // pendingTrigger / DEFAULT_TRIGGER 兼容意外路径。
   const triggerRef = useRef<TriggerInfo | null>(null);
   if (triggerRef.current === null) {
-    triggerRef.current = pendingTrigger ?? DEFAULT_TRIGGER;
+    triggerRef.current = initialTrigger ?? pendingTrigger ?? DEFAULT_TRIGGER;
     pendingTrigger = null;
     activeTriggers.set(menuId, triggerRef.current);
   }
