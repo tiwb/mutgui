@@ -121,6 +121,12 @@ class ActionContext:
         return self.data.get(key, default)
 
 
+def _menu_arrow(placement: str) -> str:
+    """根据 placement 返回对应的箭头符号。"""
+    side = placement.split("-")[0] if "-" in placement else placement
+    return {"top": "▴", "bottom": "▾", "left": "◂", "right": "▸"}.get(side, "▾")
+
+
 @dataclass(slots=True)
 class ActionRef:
     action: ActionSource | None = None
@@ -163,6 +169,7 @@ class ResolvedAction:
     toolbar_view: View | None
     menu_view: View | None
     menu_refs: list[ActionRef]
+    menu_placement: str
 
 
 class Action(mutobj.Declaration):
@@ -178,6 +185,7 @@ class Action(mutobj.Declaration):
     placement: str = ""
     order: int | None = None
     variant: ActionVariant = "auto"
+    menu_placement: str = "bottom-start"
 
     def resolved_action_id(self) -> str:
         if self.action_id:
@@ -185,7 +193,7 @@ class Action(mutobj.Declaration):
         cls = type(self)
         return f"{cls.__module__}.{cls.__qualname__}"
 
-    def resolved_label(self) -> str:
+    def resolved_label(self, context: ActionContext | None = None) -> str:
         return self.label or self.resolved_action_id()
 
     def check_visible(self, context: ActionContext) -> bool:
@@ -333,7 +341,7 @@ class ActionRegistry:
             ref_id=ref_id,
             action_id=action_id,
             action=action,
-            label=ref.label or action.resolved_label(),
+            label=ref.label or action.resolved_label(context),
             icon=ref.icon if ref.icon is not None else action.icon,
             tooltip=ref.tooltip if ref.tooltip is not None else action.tooltip,
             shortcut=ref.shortcut if ref.shortcut is not None else action.shortcut,
@@ -350,6 +358,7 @@ class ActionRegistry:
             toolbar_view=toolbar_view,
             menu_view=menu_view,
             menu_refs=menu_refs,
+            menu_placement=action.menu_placement,
         )
 
     @classmethod
@@ -716,10 +725,10 @@ class ActionToolbar(View):
                                     source_action=action,
                                     context=ctx,
                                 ),
-                            placement="bottom-start",
+                            placement=item.menu_placement,
                         ),
-                        disabled=not item.enabled,
-                        label="▾",
+                        disabled=False,
+                        label=_menu_arrow(item.menu_placement),
                         use_icon=False,
                         left_rounded=False,
                         right_rounded=True,
@@ -738,9 +747,10 @@ class ActionToolbar(View):
                             source_action=action,
                             context=ctx,
                         ),
-                    placement="bottom-start",
+                    placement=item.menu_placement,
                 ),
                 show_menu_arrow=True,
+                menu_arrow=_menu_arrow(item.menu_placement),
             )
 
         return self._button_schema(
@@ -762,6 +772,7 @@ class ActionToolbar(View):
         label: str | None = None,
         use_icon: bool = True,
         show_menu_arrow: bool = False,
+        menu_arrow: str = "▾",
         left_rounded: bool = True,
         right_rounded: bool = True,
     ) -> dict[str, Any]:
@@ -769,6 +780,7 @@ class ActionToolbar(View):
             item.icon if use_icon else None,
             label or item.label,
             show_menu_arrow=show_menu_arrow,
+            menu_arrow=menu_arrow,
         )
         style: dict[str, Any] = {
             "display": "inline-flex",
@@ -812,6 +824,7 @@ class ActionToolbar(View):
         label: str,
         *,
         show_menu_arrow: bool = False,
+        menu_arrow: str = "▾",
     ) -> list[dict[str, Any]] | str:
         mode = self._effective_label_mode()
         if icon is not None and mode == "icon-only":
@@ -833,7 +846,7 @@ class ActionToolbar(View):
                 {"$component": "span", "$id": "label", "children": text},
             ]
         if show_menu_arrow:
-            children.append({"$component": "span", "$id": "arrow", "children": "▾"})
+            children.append({"$component": "span", "$id": "arrow", "children": menu_arrow})
         return children
 
     def _button_title(self, item: ResolvedAction) -> str:

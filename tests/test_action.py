@@ -31,7 +31,7 @@ class StaticAction(Action):
 class RecentAction(Action):
     name: str = ""
 
-    def resolved_label(self) -> str:
+    def resolved_label(self, context: ActionContext | None = None) -> str:
         return f"最近：{self.name}"
 
     def execute(self, context: ActionContext) -> None:
