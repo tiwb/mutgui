@@ -1,6 +1,6 @@
 """mutgui — 后端驱动 UI 框架。"""
 
-__version__ = "0.1.999"
+__version__ = "0.9.999"
 
 from .events import Event, EventHandler, Callback, Bind, EventFilter
 from .view import View, ViewBlock
