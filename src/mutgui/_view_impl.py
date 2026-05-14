@@ -214,6 +214,9 @@ def _render_and_cache(view: View) -> None:
 
 async def _deferred_render(view: View) -> None:
     """deferred render callback — render -> push -> signal。"""
+    import logging
+    _logger = logging.getLogger("mutgui.render")
+
     ext = render_ext(view)
     ext.render_scheduled = False
 
@@ -223,7 +226,15 @@ async def _deferred_render(view: View) -> None:
             ext.render_event.set()
         return
 
-    _render_and_cache(view)
+    try:
+        _render_and_cache(view)
+    except Exception:
+        _logger.exception("Render failed for %s", type(view).__name__)
+        # 即使 render 失败也要 signal，否则 rendered() 永久挂起
+        if ext.render_event is not None:
+            ext.render_event.set()
+        return
+
     ext.dirty = False
 
     # push to all ViewPorts
@@ -279,6 +290,11 @@ def _process_value(
         ext.children[value.id] = value
         return {"$view": value.id}
     if isinstance(value, EventHandler):
+        if node_id == "":
+            raise ValueError(
+                f"Component has handler '{event_name}' but missing $id. "
+                f"Every component with an event handler must have a $id."
+            )
         ext.handlers[(node_id, event_name)] = value
         return value.to_wire()
     if isinstance(value, list):

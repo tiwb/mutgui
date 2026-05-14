@@ -479,5 +479,4 @@ View 嵌套是 framework-core 的扩展，不是替代。向后兼容：
 
 ### 遗留问题
 
-- [ ] 校验：有 handler 的组件必须有 `$id`（从事件路由章节移入）
-- View._session 是 1:1 引用，不支持多 Session 共享同一 View。当前 demo 用 `push()` 暴力全量重渲染绕过，需要独立设计多 Session 通信机制 → 见 `feature-session-sharing.md`
+（无 — 多 Session 共享已由 `feature-session-sharing.md` 解决，`_session` 引用已替换为 ContextVar 驱动的 `viewport` 上下文。）
