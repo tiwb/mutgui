@@ -16,7 +16,7 @@ from .action import (
     ActionRegistry,
     ResolvedAction,
 )
-from .events import Callback
+from .events import Callback, Expr
 from .menu import MenuTrigger
 from .view import View, ViewBlock
 
@@ -243,41 +243,41 @@ class DockPanel(View):
             "panels": panels_data,
             "onResize": Callback(
                 self._on_resize,
-                width="$0.width", height="$0.height",
-                viewport_id="@event.viewport_id",
+                width=Expr.wire("$0.width"), height=Expr.wire("$0.height"),
+                viewport_id=Expr.host("event.viewport_id"),
             ),
             "onTabSwitch": Callback(
                 self._on_tab_switch,
-                tabsetId="$0.tabsetId", panelId="$0.panelId",
-                viewport_id="@event.viewport_id",
+                tabsetId=Expr.wire("$0.tabsetId"), panelId=Expr.wire("$0.panelId"),
+                viewport_id=Expr.host("event.viewport_id"),
             ),
             "onTabReorder": Callback(
                 self._on_tab_reorder,
-                tabsetId="$0.tabsetId", panelIds="$0.panelIds",
-                viewport_id="@event.viewport_id",
+                tabsetId=Expr.wire("$0.tabsetId"), panelIds=Expr.wire("$0.panelIds"),
+                viewport_id=Expr.host("event.viewport_id"),
             ),
             "onTabMove": Callback(
                 self._on_tab_move,
-                fromTabset="$0.fromTabset", toTabset="$0.toTabset",
-                panelId="$0.panelId", index="$0.index",
+                fromTabset=Expr.wire("$0.fromTabset"), toTabset=Expr.wire("$0.toTabset"),
+                panelId=Expr.wire("$0.panelId"), index=Expr.wire("$0.index"),
             ),
             "onSplitResize": Callback(
                 self._on_split_resize,
-                splitId="$0.splitId", ratio="$0.ratio",
+                splitId=Expr.wire("$0.splitId"), ratio=Expr.wire("$0.ratio"),
             ),
             "onActionClick": Callback(
                 self._on_action_click,
-                tabsetId="$0.tabsetId", actionId="$0.actionId",
+                tabsetId=Expr.wire("$0.tabsetId"), actionId=Expr.wire("$0.actionId"),
             ),
             "onTabDock": Callback(
                 self._on_tab_dock,
-                fromTabset="$0.fromTabset", panelId="$0.panelId",
-                targetTabset="$0.targetTabset", position="$0.position",
+                fromTabset=Expr.wire("$0.fromTabset"), panelId=Expr.wire("$0.panelId"),
+                targetTabset=Expr.wire("$0.targetTabset"), position=Expr.wire("$0.position"),
             ),
             "onEdgeDock": Callback(
                 self._on_edge_dock,
-                fromTabset="$0.fromTabset", panelId="$0.panelId",
-                edge="$0.edge",
+                fromTabset=Expr.wire("$0.fromTabset"), panelId=Expr.wire("$0.panelId"),
+                edge=Expr.wire("$0.edge"),
             ),
             "$children": all_views,
         }])

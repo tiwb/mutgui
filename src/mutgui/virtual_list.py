@@ -13,7 +13,7 @@ from typing import Any
 
 import mutobj
 
-from .events import Callback
+from .events import Callback, Expr
 from .view import View, ViewBlock
 from ._viewport_impl import filter_children_in_tree
 
@@ -106,15 +106,15 @@ class VirtualList(View):
             "stickToBottom": self.stick_to_bottom,
             "estimatedItemHeight": self.estimated_item_height,
             "onViewport": Callback(
-                self._on_viewport, start="$0.start", end="$0.end",
-                viewport_id="@event.viewport_id",
+                self._on_viewport, start=Expr.wire("$0.start"), end=Expr.wire("$0.end"),
+                viewport_id=Expr.host("event.viewport_id"),
             ),
             "$children": visible_items,
         }
         if self.sync_scroll:
             props["scrollTop"] = self.scroll_top
             props["onScroll"] = Callback(
-                self._on_scroll, scrollTop="$0.scrollTop",
+                self._on_scroll, scrollTop=Expr.wire("$0.scrollTop"),
             )
         return ViewBlock([props])
 

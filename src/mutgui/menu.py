@@ -62,7 +62,10 @@ class MenuTrigger(EventHandler):
             'bottom-start' | 'bottom-center' | 'bottom-end'
             'left-start' | 'left-end'
             'right-start' | 'right-end'
-        **context_extract: context 提取路径（resolvePath 语法）
+        **context: context 参数 — 同 Callback 的 kwargs 语义，按 Expr 环境分派：
+            - 普通值（如 `panel=self`）→ direct，透传给 menu_factory
+            - `Expr.wire(...)` → 由前端 resolve 后送入
+            - `Expr.host(...)` → 本端按 dispatch context 求值
     """
 
     def __init__(
@@ -70,25 +73,21 @@ class MenuTrigger(EventHandler):
         menu_factory: Callable[..., MenuView],
         *,
         placement: str = "cursor",
-        **context_extract: str,
+        **context: Any,
     ) -> None:
-        super().__init__()
+        super().__init__(**context)
         if placement not in _VALID_PLACEMENTS:
             allowed = ", ".join(sorted(_VALID_PLACEMENTS))
             raise ValueError(f"invalid menu placement: {placement!r}; expected one of: {allowed}")
         self.menu_factory = menu_factory
         self.placement = placement
-        self.extract = context_extract
 
     async def handle(self, view: View, event: Event) -> bool:
         """创建 MenuView 并挂载到宿主 View。"""
         raise NotImplementedError
 
     def to_wire(self) -> dict[str, Any]:
-        wire: dict[str, Any] = {
-            k: v for k, v in self.extract.items()
-            if not v.startswith("@")
-        }
+        wire = super().to_wire()["$handler"]
         wire["$menu"] = True
         if self.placement != "cursor":
             wire["$placement"] = self.placement

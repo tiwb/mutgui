@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewBlock, ViewPort, Channel, Callback
+from mutgui import View, ViewBlock, ViewPort, Channel, Callback, Expr
 from mutgui._view_impl import ViewObservers
 
 
@@ -33,7 +33,7 @@ class ChildView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {"$component": "InputNumber", "$id": "val", "value": self.value,
-             "onChange": Callback(self.on_change, "$0")},
+             "onChange": Callback(self.on_change, Expr.wire("$0"))},
         ])
 
     def on_change(self, value: Any) -> None:
@@ -170,7 +170,7 @@ def test_deeply_nested_event_routing() -> None:
 
             def render(self) -> ViewBlock:
                 return ViewBlock([{"$component": "Input", "$id": "txt", "value": self.val,
-                         "onChange": Callback(self.on_change, "$0")}])
+                         "onChange": Callback(self.on_change, Expr.wire("$0"))}])
 
             def on_change(self, value: Any) -> None:
                 self.val = value

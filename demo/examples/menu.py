@@ -4,7 +4,7 @@ from __future__ import annotations
 import mutobj
 
 from mutgui import (
-    View, ViewBlock, Callback, Bind,
+    View, ViewBlock, Callback, Bind, Expr,
     MenuView, MenuTrigger,
 )
 
@@ -390,7 +390,7 @@ class MenuDemoPage(View):
                            "data-id": f"tab-{n}",
                            "onContextMenu": MenuTrigger(
                                lambda item_id: TabContextMenu(item_id=item_id, page=self),
-                               item_id="$0.currentTarget.dataset.id",
+                               item_id=Expr.wire("$0.currentTarget.dataset.id"),
                            ),
                            "style": {
                                "padding": "8px 16px",

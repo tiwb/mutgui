@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any
 
-from mutgui import View, ViewBlock, ViewPort, Channel, Callback, Bind, EventHandler
+from mutgui import View, ViewBlock, ViewPort, Channel, Callback, Bind, EventHandler, Expr
 from mutgui.events import Event
 
 
@@ -207,7 +207,7 @@ class EventHandlerView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {"$component": "Input", "$id": "x",
-             "onChange": EventHandler(value="$0.target.value")},
+             "onChange": EventHandler(value=Expr.wire("$0.target.value"))},
         ])
 
     async def on_event(self, event: Event) -> bool:

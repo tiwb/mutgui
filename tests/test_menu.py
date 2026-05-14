@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from mutgui import (
-    View, ViewBlock, ViewPort, Channel, Callback,
+    View, ViewBlock, ViewPort, Channel, Callback, Expr,
     MenuView, MenuTrigger,
 )
 from mutgui._view_impl import ViewRenderState
@@ -34,7 +34,7 @@ def test_menu_trigger_to_wire_minimal() -> None:
 
 
 def test_menu_trigger_to_wire_with_context() -> None:
-    mt = MenuTrigger(_Menu, item_id="$0.target.dataset.id")
+    mt = MenuTrigger(_Menu, item_id=Expr.wire("$0.target.dataset.id"))
     assert mt.to_wire() == {
         "$handler": {"$menu": True, "item_id": "$0.target.dataset.id"},
     }
@@ -68,9 +68,10 @@ def test_menu_trigger_rejects_invalid_placement() -> None:
         raise AssertionError("expected ValueError for invalid placement")
 
 
-def test_menu_trigger_to_wire_skips_backend_inject() -> None:
-    """@-prefix 提取路径只在后端使用，不应序列化到 wire。"""
-    mt = MenuTrigger(_Menu, item_id="$0.target.id", session="@view.session")
+def test_menu_trigger_to_wire_skips_direct_kwarg() -> None:
+    """direct env kwarg 不序列化到 wire（只在本端 forward 给 menu_factory）。"""
+    sentinel = object()
+    mt = MenuTrigger(_Menu, item_id=Expr.wire("$0.target.id"), session=sentinel)
     wire = mt.to_wire()
     assert wire["$handler"]["item_id"] == "$0.target.id"
     assert "session" not in wire["$handler"]
@@ -116,7 +117,9 @@ class Page(View):
     def render(self) -> ViewBlock:
         return ViewBlock([{
             "$component": "div", "$id": "pane",
-            "onContextMenu": MenuTrigger(TabMenu, item_id="$0.target.dataset.id"),
+            "onContextMenu": MenuTrigger(
+                TabMenu, item_id=Expr.wire("$0.target.dataset.id"),
+            ),
         }])
 
 
@@ -267,8 +270,12 @@ def test_second_trigger_closes_first_menu() -> None:
     asyncio.run(_t())
 
 
-def test_backend_inject_extract_uses_at_prefix() -> None:
-    """@view 注入：MenuTrigger.handle 应把宿主 view 注入到 context。"""
+def test_direct_kwarg_passes_through_to_factory() -> None:
+    """重构后：direct kwarg 透传给 menu_factory，替代旧 `view="@view"` 注入。
+
+    原机制 (`@view` -> dispatch 期注入宿主 view) 重构后由用户在 render() 中
+    直接写 `view=self` 达成，无需任何 "注入" 魔法。
+    """
     captured: dict[str, Any] = {}
 
     class _M(MenuView):
@@ -283,7 +290,7 @@ def test_backend_inject_extract_uses_at_prefix() -> None:
         def render(self) -> ViewBlock:
             return ViewBlock([{
                 "$component": "div", "$id": "x",
-                "onContextMenu": MenuTrigger(_M, view="@view"),
+                "onContextMenu": MenuTrigger(_M, view=self),
             }])
 
     async def _t() -> None:

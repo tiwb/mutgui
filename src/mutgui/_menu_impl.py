@@ -49,21 +49,12 @@ async def menu_close(self: MenuView) -> None:
 
 @impl(MenuTrigger.handle)
 async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
-    context: dict[str, Any] = {}
-    for k, v in event.data.items():
-        if k == "$args" or k.startswith("$"):
-            continue
-        context[k] = v
+    from .events import _build_dispatch_context, _eval_kwargs
 
-    # @-prefix: 后端注入
-    inject_sources = {"event": event, "view": view}
-    for k, v in self.extract.items():
-        if v.startswith("@"):
-            parts = v[1:].split(".")
-            obj: Any = inject_sources.get(parts[0])
-            for attr in parts[1:]:
-                obj = getattr(obj, attr, None)
-            context[k] = obj
+    # 从 event.data 提取前端 resolve 后的原始 wire 值（跳过 $* 元数据）
+    # 仅用于向后兼容 — 新 API 所有 wire 参数都在 self.extract 中明确声明
+    dispatch_context = _build_dispatch_context(view, event)
+    context = _eval_kwargs(self.extract, event.data, dispatch_context)
 
     # 关闭已有菜单
     ext = render_ext(view)
