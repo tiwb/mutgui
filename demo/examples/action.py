@@ -13,6 +13,7 @@ from mutgui import (
     ActionToolbar,
     Callback,
     DockPanel,
+    Expr,
     PanelDef,
     SplitNode,
     TabSetNode,
@@ -70,7 +71,7 @@ class ZoomWidget(View):
             "$id": "zoom",
             "value": value,
             "style": dict(CONTROL_STYLE),
-            "onChange": Callback(self._on_change, value="$0.target.value"),
+            "onChange": Callback(self._on_change, value=Expr.wire("$0.target.value")),
             "$children": [
                 {"$component": "option", "$id": "z80", "value": "80%", "children": "80%"},
                 {"$component": "option", "$id": "z100", "value": "100%", "children": "100%"},
@@ -136,7 +137,7 @@ class GridConfigView(View):
                       "type": "checkbox", "checked": enabled,
                       "style": {"accentColor": "var(--mutgui-accent)"},
                       "onChange": Callback(self._toggle_enabled,
-                                           value="$0.target.checked")},
+                                           value=Expr.wire("$0.target.checked"))},
                      {"$component": "span", "$id": "toggle-label",
                       "children": "显示网格"},
                  ]},
@@ -150,7 +151,7 @@ class GridConfigView(View):
                        "value": density,
                        "style": {"accentColor": "var(--mutgui-accent)"},
                        "onChange": Callback(self._set_density,
-                                            value="$0.target.value")},
+                                            value=Expr.wire("$0.target.value"))},
                      {"$component": "span", "$id": "density-value",
                       "children": str(density)},
                  ]},
@@ -203,7 +204,7 @@ class PaletteMenuView(View):
                 {"$component": "input", "$id": "search",
                  "value": keyword, "placeholder": "筛选调色板",
                  "style": dict(CONTROL_STYLE),
-                 "onChange": Callback(self._set_keyword, value="$0.target.value")},
+                 "onChange": Callback(self._set_keyword, value=Expr.wire("$0.target.value"))},
                 {"$component": "div", "$id": "swatches",
                  "style": {"display": "flex", "gap": "8px", "flexWrap": "wrap"},
                  "$children": [
@@ -404,7 +405,7 @@ class RecentFileAction(Action):
     path: str = ""
     icon = "🕘"
 
-    def resolved_label(self) -> str:
+    def resolved_label(self, context: "ActionContext | None" = None) -> str:
         return self.path
 
     def execute(self, context: ActionContext) -> None:
