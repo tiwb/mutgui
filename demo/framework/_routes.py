@@ -50,8 +50,8 @@ def _head_extra_for_layout(layout: LayoutMode) -> str:
         return f"""
 {viewport}
   <style>
-    html, body, #app { height: 100%; margin: 0; }
-    body { overflow: hidden; }
+    html, body, #app {{ height: 100%; margin: 0; }}
+    body {{ overflow: hidden; }}
   </style>"""
     return viewport
 
