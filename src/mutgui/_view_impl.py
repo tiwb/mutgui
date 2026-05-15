@@ -182,6 +182,12 @@ async def _route_event(
         await view.on_event(event)
     else:
         event = Event("", event_name, data, viewport_id=viewport_id)
+
+        # Filter 链
+        for f in ext.event_filters:
+            if await f.on_event_filter(view, event):
+                return
+
         await view.on_event(event)
 
 
