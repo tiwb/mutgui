@@ -242,21 +242,7 @@ def _eval_kwargs(
 # ---------------------------------------------------------------------------
 
 class Callback(EventHandler):
-    """提取数据 → callback(*args, **kwargs)。不自动 invalidate。
-
-    每个参数都是延迟求值的 binding：
-
-        Callback(self._on_click)                            # 无参
-        Callback(handler, view=self)                         # direct: 透传 self
-        Callback(handler, count=42, label="ok")              # direct: 字面值
-        Callback(handler, value=Expr.wire("$0.target.value"))   # wire
-        Callback(handler, viewport_id=Expr.host("event.viewport_id"))  # host
-        Callback(handler, Expr.wire("$0.x"), Expr.wire("$0.y"))        # 位置参数
-        Callback(handler, "literal", Expr.wire("$0.x"))                # 混合
-
-    位置参数同样按 env 分派。**字符串就是字符串**——若想触发前端
-    resolvePath，请显式 `Expr.wire(...)`。
-    """
+    """提取数据 → callback(*args, **kwargs)。不自动 invalidate。"""
 
     def __init__(
         self,
@@ -265,6 +251,31 @@ class Callback(EventHandler):
         *args: Any,
         **extract: Any,
     ) -> None:
+        """声明一个事件回调。
+
+        语义类比 ``functools.partial``：构造期记录的 positional / keyword 参数，
+        在事件 dispatch 时按顺序、按名字映射到 ``callback`` 的形参。区别在于
+        每个参数都是**延迟求值的 binding**，按求值环境（env）分三种：
+
+        - **direct** — 普通 Python 值（view 实例、字面量、render 期变量等），
+          原样 forward。任何非 ``Expr`` 值自动归为 direct。
+        - **wire** — ``Expr.wire("$N.path")``，由 wire 端事件 payload 提供。
+          ``$N`` 是事件参数序号，例如 antd Menu 的 onClick 第 0 个参数是
+          ``{key, keyPath, item, domEvent}``，则 ``Expr.wire("$0.key")`` 抽 ``key``。
+        - **host** — ``Expr.host("event.path")``，由本端 dispatch context 求值。
+
+        位置参数和关键字参数都按 env 分派，可任意混用。
+        **字符串就是字符串**——想触发 wire 端 resolvePath 必须显式 ``Expr.wire(...)``。
+
+        示例::
+
+            Callback(self._on_click)                                              # 无参
+            Callback(self._on_click, self, "primary", key, count=42)              # direct: view / 字面量 / render 期变量（keyword 等价：view=self）
+            Callback(self._on_menu_click, self, Expr.wire("$0.key"))              # view + wire 混合（antd Menu 高频）
+            Callback(self._on_change, value=Expr.wire("$0.target.value"))         # wire keyword
+            Callback(self._on_click, viewport_id=Expr.host("event.viewport_id"))  # host keyword
+            Callback(self._on_drag, Expr.wire("$0.x"), Expr.wire("$0.y"))         # 多个 wire 位置参数
+        """
         super().__init__(**extract)
         self.callback = callback
         self.args: tuple[Expr, ...] = tuple(_coerce_expr(a) for a in args)

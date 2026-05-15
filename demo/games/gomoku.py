@@ -433,12 +433,12 @@ class GomokuView(View):
                 button(
                     "ai-black",
                     "切回黑方人工" if self.game.is_ai(Stone.BLACK) else "切黑AI",
-                    Callback(lambda: self._on_toggle_ai(Stone.BLACK)),
+                    Callback(self._on_toggle_ai, Stone.BLACK),
                 ),
                 button(
                     "ai-white",
                     "切回白方人工" if self.game.is_ai(Stone.WHITE) else "切白AI",
-                    Callback(lambda: self._on_toggle_ai(Stone.WHITE)),
+                    Callback(self._on_toggle_ai, Stone.WHITE),
                 ),
             ],
         }
@@ -504,7 +504,7 @@ class GomokuView(View):
             "$id": f"cell-{row}-{col}",
             "style": style,
             "children": text,
-            "onClick": Callback(lambda r=row, c=col: self._on_place(r, c)),
+            "onClick": Callback(self._on_place, row, col),
         }
 
     def _legend_block(self) -> JsonBlock:

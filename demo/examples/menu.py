@@ -104,7 +104,7 @@ class TemplateSubmenu(MenuView):
         return ViewBlock([
             {"$component": "mutgui.Menu.Item", "$id": f"tpl-{t}",
              "label": t,
-             "onClick": Callback(lambda name=t: self._on_pick(name))}
+             "onClick": Callback(self._on_pick, t)}
             for t in templates
         ])
 
@@ -167,7 +167,7 @@ class CommandPalette(MenuView):
                 items.append({
                     "$component": "mutgui.Menu.Item",
                     "$id": cmd_id, "label": label, "shortcut": shortcut,
-                    "onClick": Callback(lambda name=label: self._on_pick(name)),
+                    "onClick": Callback(self._on_pick, label),
                 })
         return ViewBlock(items)
 
@@ -227,7 +227,7 @@ class EdgeFlipMenu(MenuView):
                 "$id": f"edge-{index}",
                 "label": f"Long menu item {index}",
                 "shortcut": f"Alt+{index}",
-                "onClick": Callback(lambda n=index: self._on_pick(n)),
+                "onClick": Callback(self._on_pick, index),
             })
         return ViewBlock(items)
 
@@ -295,7 +295,7 @@ class ResizeStableMenu(MenuView):
                 "$component": "mutgui.Menu.Item",
                 "$id": f"dyn-{index}",
                 "label": f"Dynamic item {index + 1}",
-                "onClick": Callback(lambda n=index + 1: self._on_pick(n)),
+                "onClick": Callback(self._on_pick, index + 1),
             })
         return ViewBlock(items)
 

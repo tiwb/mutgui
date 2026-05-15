@@ -844,7 +844,7 @@ class TableView(View):
         children.append(action_button(
             f"ai-{seat.value}",
             "切回人工" if is_ai else "切到AI",
-            Callback(lambda target=seat: self._on_toggle_ai(target)),
+            Callback(self._on_toggle_ai, seat),
             size="small",
             style={"marginTop": 6},
         ))
@@ -1042,7 +1042,7 @@ class PlayerView(View):
                 "$id": f"tile-{index}",
                 "style": self._hand_tile_style(index, tile, active_draw),
                 "children": tile_char(tile),
-                "onClick": Callback(lambda idx=index: self._on_toggle_tile(idx)),
+                "onClick": Callback(self._on_toggle_tile, index),
             })
         return tiles
 
@@ -1098,7 +1098,7 @@ class PlayerView(View):
             action_button(
                 f"chi-option-{index}",
                 f"吃 {format_tiles(option)}",
-                Callback(lambda tiles=list(option): self._on_chi_option(tiles)),
+                Callback(self._on_chi_option, list(option)),
                 disabled=is_ai,
             )
             for index, option in enumerate(chi_options)
