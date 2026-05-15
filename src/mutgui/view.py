@@ -58,6 +58,23 @@ class View(mutobj.Declaration):
         """通过当前 ViewPort 触发前端命令。"""
         raise NotImplementedError
 
+    async def broadcast_command(self, name: str, /, **args: Any) -> None:
+        """向所有观察此 View 的 ViewPort 广播命令。
+
+        与 send_command 的差异：
+
+        - send_command：仅当前 ViewPort（事件触发那个 tab）—— 适合 ViewPort
+          私有状态（滚动位置、focus、动画触发、toast 等）。要求当前异步
+          上下文存在 ViewPort。
+        - broadcast_command：所有观察此 View 的 ViewPort —— 适合 View 级
+          共享状态（URL hash、跨 tab 同步的客户端状态）。**不**要求当前
+          上下文存在 ViewPort，可在后台任务、定时器、agent 事件回调中调用。
+
+        单个 ViewPort 发送失败（断连等）不影响其他 ViewPort。
+        无观察者时静默 no-op。
+        """
+        raise NotImplementedError
+
     def invalidate(self) -> None:
         """标记需要重新 render，合并到下一次推送。"""
         raise NotImplementedError

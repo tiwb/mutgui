@@ -237,6 +237,18 @@ await self.send_command("mutgui.setHash", hash="#/", replace=True)
 
 `send_command` 已实现，无需改动 mutgui 后端。
 
+#### 跨 tab 同步场景：用 `broadcast_command`
+
+当同一应用被多个 tab 打开（多个 ViewPort 观察同一个 View）时，`send_command` 只发到当前触发那个 tab，其他 tab 的 UI 会被 `invalidate()` 重渲染但地址栏 URL 不会同步。作为使 URL 与页面一致的 View 级状态，hash 同步应用 **`broadcast_command`**：
+
+```python
+# 应用内导航、路由状态变更等：
+await self.broadcast_command("mutgui.setHash", hash=_hash_for_route(route))
+self.invalidate()
+```
+
+`broadcast_command` 与 `send_command` 的差异仅在分发作用域（View 级 vs ViewPort 级），防循环机制（`pushState/replaceState` 不触发 `hashchange`）仍然适用。详见 `feature-view-broadcast-command.md`。
+
 ### 协议：wire 消息示例
 
 后端 → 前端（命令）：

@@ -7,6 +7,7 @@ ViewPort 只负责接收 wire_tree 并发送到 Channel。
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, Sequence, TYPE_CHECKING, cast
 
 import mutobj
@@ -22,6 +23,9 @@ from .view import View, ViewBlock
 
 if TYPE_CHECKING:
     from .viewport import ViewPort
+
+
+_logger = logging.getLogger("mutgui.view")
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +86,22 @@ def view_viewport(self: View) -> ViewPort:
 @impl(View.send_command)
 async def view_send_command(self: View, name: str, /, **args: Any) -> None:
     await self.viewport.send_command(name, **args)
+
+
+@impl(View.broadcast_command)
+async def view_broadcast_command(self: View, name: str, /, **args: Any) -> None:
+    obs = ViewObservers.get(self)
+    if obs is None:
+        return
+    # 顺序串行：channel.send 通常只是 enqueue，无需并发；
+    # 单点失败不影响其余 ViewPort。
+    for vp in list(obs.viewports):
+        try:
+            await vp.send_command(name, **args)
+        except Exception:
+            _logger.exception(
+                "broadcast_command(%s) to viewport failed", name,
+            )
 
 
 @impl(View.invalidate)
