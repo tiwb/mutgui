@@ -155,3 +155,94 @@ async def test_unknown_command_warns_without_crashing(app, page):
         await page.get_by_test_id("missing-btn").click()
 
     await expect(page.get_by_test_id("missing-btn")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# setHash 集成测试
+# ---------------------------------------------------------------------------
+
+class SetHashView(View):
+    """点击后发送 mutgui.setHash，可控 hash / replace。"""
+
+    def __init__(self, *, hash_value: str, replace: bool = False) -> None:
+        super().__init__()
+        self.hash_value = hash_value
+        self.replace = replace
+
+    def render(self) -> ViewBlock:
+        return ViewBlock([
+            {
+                "$component": "button",
+                "$id": "set-hash-btn",
+                "data-testid": "set-hash-btn",
+                "children": "Set hash",
+                "onClick": Callback(self._set_hash),
+            },
+        ])
+
+    async def _set_hash(self) -> None:
+        if self.replace:
+            await self.send_command("mutgui.setHash", hash=self.hash_value, replace=True)
+        else:
+            await self.send_command("mutgui.setHash", hash=self.hash_value)
+
+
+async def test_set_hash_pushes_history_entry(app, page):
+    """setHash 默认 push 模式——URL 变、不刷页、留历史记录。"""
+    view = SetHashView(hash_value="#/settings/llm")
+    url = app.mount(view)
+    await page.goto(url)
+
+    initial_url = page.url
+    await page.get_by_test_id("set-hash-btn").click()
+    await page.wait_for_function("() => location.hash === '#/settings/llm'")
+
+    # 不刷页：按钮仍可见
+    await expect(page.get_by_test_id("set-hash-btn")).to_be_visible()
+
+    # 留了历史记录：back 能返回原 URL
+    await page.go_back()
+    await page.wait_for_url(initial_url)
+
+
+async def test_set_hash_replace_does_not_create_history_entry(app, page):
+    """setHash replace=True 走 replaceState，不留历史记录。"""
+    view = SetHashView(hash_value="#/replaced", replace=True)
+    url = app.mount(view)
+    await page.goto(url)
+
+    history_before = await page.evaluate("() => history.length")
+    await page.get_by_test_id("set-hash-btn").click()
+    await page.wait_for_function("() => location.hash === '#/replaced'")
+    history_after = await page.evaluate("() => history.length")
+
+    assert history_after == history_before, (
+        f"replaceState 不应增加 history 长度 (before={history_before}, after={history_after})"
+    )
+
+
+async def test_set_hash_normalizes_bare_string(app, page):
+    """裸串自动补 # 前缀。"""
+    view = SetHashView(hash_value="settings")
+    url = app.mount(view)
+    await page.goto(url)
+
+    await page.get_by_test_id("set-hash-btn").click()
+    await page.wait_for_function("() => location.hash === '#settings'")
+
+
+async def test_set_hash_empty_string_clears_hash(app, page):
+    """空串清空 hash，不动 pathname 不刷页。"""
+    view = SetHashView(hash_value="")
+    url = app.mount(view)
+    # 初始带上 hash，验证清空
+    await page.goto(url + "#/will-be-cleared")
+    pathname_before = await page.evaluate("() => location.pathname")
+
+    await page.get_by_test_id("set-hash-btn").click()
+    await page.wait_for_function("() => location.hash === ''")
+
+    pathname_after = await page.evaluate("() => location.pathname")
+    assert pathname_after == pathname_before
+    # 不刷页：按钮仍在
+    await expect(page.get_by_test_id("set-hash-btn")).to_be_visible()

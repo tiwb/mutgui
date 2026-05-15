@@ -23,8 +23,13 @@ class ViewPort(mutobj.Declaration):
         channel: Channel,
         *,
         _path: list[str | int] | None = None,
+        _client: dict[str, Any] | None = None,
     ) -> None:
-        """创建 ViewPort，绑定 View 和 Channel。"""
+        """创建 ViewPort，绑定 View 和 Channel。
+
+        ``_client`` 是浏览器侧握手提供的环境信息（``mount.attach.client``），
+        包含初始 hash 等字段。仅根 ViewPort 使用。子 ViewPort 默认 ``None``。
+        """
         raise NotImplementedError
 
     async def initialize(self) -> None:

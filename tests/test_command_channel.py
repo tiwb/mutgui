@@ -178,6 +178,33 @@ def test_viewport_can_send_history_and_reload_commands() -> None:
     asyncio.run(_test())
 
 
+def test_viewport_can_send_set_hash_command() -> None:
+    async def _test() -> None:
+        channel = MockChannel()
+        view = CommandView()
+        vp = ViewPort(view, channel)
+
+        await vp.send_command("mutgui.setHash", hash="#/settings/llm")
+        await vp.send_command("mutgui.setHash", hash="#/", replace=True)
+
+        assert channel.messages == [
+            {
+                "type": "command",
+                "viewId": [],
+                "name": "mutgui.setHash",
+                "args": {"hash": "#/settings/llm"},
+            },
+            {
+                "type": "command",
+                "viewId": [],
+                "name": "mutgui.setHash",
+                "args": {"hash": "#/", "replace": True},
+            },
+        ]
+
+    asyncio.run(_test())
+
+
 def test_command_messages_are_not_replayed_on_invalidate_or_new_viewport() -> None:
     async def _test() -> None:
         view = CommandView()

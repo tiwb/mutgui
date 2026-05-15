@@ -100,13 +100,14 @@ class TestApp:
                 if first.get("type") != "mount.attach":
                     await ws.close(code=4400, reason="expected mount.attach")
                     return
+                client = first.get("client") if isinstance(first.get("client"), dict) else None
                 runtime_manifest = REGISTRY.runtime_manifest()
                 for href in runtime_manifest["css"]:
                     await ws.send_json({"type": "runtime.css", "href": href})
                 await ws.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
                 await ws.send_json({"type": "runtime.mount"})
                 channel = _TestChannel(ws)
-                vp = ViewPort(view, channel)
+                vp = ViewPort(view, channel, _client=client)
                 test_app._viewports.append(vp)
                 await vp.initialize()
                 await view.rendered()

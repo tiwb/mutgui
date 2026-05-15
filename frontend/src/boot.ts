@@ -133,7 +133,12 @@ class RuntimeSession {
     this.el.innerHTML = '<div style="color:var(--mutgui-text-dim);font-size:12px">Connecting...</div>';
     const ws = new WebSocket(this.wsUrl);
     ws.addEventListener('open', () => {
-      ws.send(JSON.stringify({ type: 'mount.attach', mountId: this.mountId, protocol: 1 }));
+      ws.send(JSON.stringify({
+        type: 'mount.attach',
+        mountId: this.mountId,
+        protocol: 1,
+        client: { hash: window.location.hash },
+      }));
     });
     ws.addEventListener('close', () => {
       if (!this.mounted) {

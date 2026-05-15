@@ -85,13 +85,14 @@ async def ws_handler(websocket: WebSocket) -> None:
         if first.get("type") != "mount.attach":
             await websocket.close(code=4400, reason="expected mount.attach")
             return
+        client = first.get("client") if isinstance(first.get("client"), dict) else None
         runtime_manifest = REGISTRY.runtime_manifest()
         for href in runtime_manifest["css"]:
             await websocket.send_json({"type": "runtime.css", "href": href})
         await websocket.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
         await websocket.send_json({"type": "runtime.install", "module": "@mutgui/theme-dark"})
         await websocket.send_json({"type": "runtime.mount"})
-        vp = ViewPort(view, StarletteChannel(websocket))
+        vp = ViewPort(view, StarletteChannel(websocket), _client=client)
         viewports.append(vp)
         await vp.initialize()
         await view.rendered()

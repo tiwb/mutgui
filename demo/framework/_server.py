@@ -53,10 +53,11 @@ async def _handle_ws(
         if first_message.get("type") != "mount.attach":
             await ws.close(code=4400, reason="expected mount.attach")
             return
+        client = first_message.get("client") if isinstance(first_message.get("client"), dict) else None
         for message in route.runtime_messages():
             await ws.send_json(message)
         channel = WebSocketChannel(ws)
-        vp = ViewPort(route.view, channel)
+        vp = ViewPort(route.view, channel, _client=client)
         await vp.initialize()
         await route.view.rendered()
         while True:

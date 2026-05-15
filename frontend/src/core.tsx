@@ -5,7 +5,8 @@ import './index.css';
 
 import { registerComponents } from './core/registry';
 import { registerCommands, resolveCommand } from './core/commands';
-import { runHistoryCommand, runRedirectCommand, runReloadCommand } from './core/navigation';
+import { runHistoryCommand, runRedirectCommand, runReloadCommand, runSetHashCommand } from './core/navigation';
+import { setupSystemEvents } from './core/system-events';
 import { MutguiView } from './core/renderer';
 import { VirtualList } from './components/virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
@@ -39,6 +40,9 @@ registerCommands({
   reload: () => {
     runReloadCommand();
   },
+  setHash: (args: { hash: string; replace?: boolean }) => {
+    runSetHashCommand(args);
+  },
 });
 
 type InboundMessage =
@@ -52,6 +56,7 @@ export interface RuntimeConnection extends MutguiConnection {
 export function createConnection(sendRaw: (data: string) => void): RuntimeConnection {
   const subs = new Map<string, RenderCallback>();
   const cache = new Map<string, unknown[]>();
+  const teardownSystemEvents = setupSystemEvents(sendRaw);
 
   const handleMessage = (message: unknown) => {
     const msg = message as Partial<InboundMessage>;
@@ -84,6 +89,9 @@ export function createConnection(sendRaw: (data: string) => void): RuntimeConnec
       const cached = cache.get(key);
       if (cached) callback(cached);
       return () => subs.delete(key);
+    },
+    teardown: () => {
+      teardownSystemEvents();
     },
   };
 }
@@ -125,7 +133,10 @@ function ConnectedApp({ wsUrl, onStatus }: ConnectedAppProps) {
       setConn(connection);
     };
     ws.onclose = () => updateStatus('Disconnected');
-    return () => ws.close();
+    return () => {
+      connection.teardown?.();
+      ws.close();
+    };
   }, [wsUrl]);
 
   if (!conn) {

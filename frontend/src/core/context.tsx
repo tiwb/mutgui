@@ -24,6 +24,8 @@ export type RenderCallback = (tree: unknown[]) => void;
 export interface MutguiConnection {
   send(data: string): void;
   subscribe(viewId: ViewPath, callback: RenderCallback): () => void;
+  /** 可选：连接销毁时调用，用于解绑全局事件监听器。 */
+  teardown?(): void;
 }
 
 const ConnectionContext = createContext<MutguiConnection | null>(null);

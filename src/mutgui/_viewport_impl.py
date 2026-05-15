@@ -29,6 +29,8 @@ class ViewPortRuntime(mutobj.Extension[ViewPort]):
     channel: Channel | None = None
     path: list[str | int] = mutobj.field(default_factory=list)
     child_viewports: dict[str | int, ViewPort] = mutobj.field(default_factory=dict)
+    # 根 ViewPort 持有的浏览器侧握手信息（子 ViewPort 为空）。
+    client: dict[str, Any] | None = None
 
 
 def _ext(vp: ViewPort) -> ViewPortRuntime:
@@ -44,12 +46,14 @@ def viewport_init(
     self: ViewPort, view: View, channel: Channel,
     *,
     _path: list[str | int] | None = None,
+    _client: dict[str, Any] | None = None,
 ) -> None:
     ext = _ext(self)
     ext.view = view
     ext.channel = channel
     ext.path = _path if _path is not None else []
     ext.child_viewports = {}
+    ext.client = _client
     ViewObservers.get_or_create(view).viewports.append(self)
 
 
@@ -58,6 +62,29 @@ async def viewport_initialize(self: ViewPort) -> None:
     ext = _ext(self)
     view = ext.view
     assert view is not None
+
+    # 初始握手：在首次 render 之前合成一条 $hashchange (cause=initial)
+    # 事件，走与 wire 事件相同的 _route_event 路径，让根 View 在首屏
+    # render 前已拿到路由状态。只根 ViewPort（client 存在时）发送，避免
+    # 子 ViewPort 重复触发。
+    if ext.client is not None:
+        initial_hash = ext.client.get("hash", "") if isinstance(ext.client, dict) else ""
+        if not isinstance(initial_hash, str):
+            initial_hash = ""
+        token = set_current_viewport(self)
+        try:
+            await view.handle_event({
+                "source": [],
+                "event": "$hashchange",
+                "data": {
+                    "hash": initial_hash,
+                    "previousHash": None,
+                    "cause": "initial",
+                },
+            })
+        finally:
+            reset_current_viewport(token)
+
     render_state = ViewRenderState.get(view)
     if render_state is not None and not render_state.dirty and render_state.wire_tree:
         # View 已 render 且 clean — 直接推送缓存
