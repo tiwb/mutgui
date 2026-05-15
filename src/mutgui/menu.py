@@ -54,15 +54,19 @@ class MenuTrigger(EventHandler):
     复用 $handler + resolvePath 机制，通过 $menu key 标识身份。
     前端看到 $menu → 走菜单逻辑（记住坐标、发 context、等 push、渲染）。
 
+    参数语义与 `Callback` 对称：dispatch 时 `menu_factory(*args, **kwargs)`，
+    每个参数按 Expr.env 延迟求值（direct / wire / host）。
+
     参数:
-        menu_factory: 接收 context kwargs，返回 MenuView 实例
-        placement: 定位策略：
+        menu_factory: 接收 positional + keyword 参数，返回 MenuView 实例
+        *args: positional 参数。任意类型；非 `Expr` 值自动归为 direct。
+        placement: keyword-only 定位策略：
             'cursor'
             'top-start' | 'top-center' | 'top-end'
             'bottom-start' | 'bottom-center' | 'bottom-end'
             'left-start' | 'left-end'
             'right-start' | 'right-end'
-        **context: context 参数 — 同 Callback 的 kwargs 语义，按 Expr 环境分派：
+        **kwargs: keyword 参数 — 同 Callback 的 kwargs 语义，按 Expr 环境分派：
             - 普通值（如 `panel=self`）→ direct，透传给 menu_factory
             - `Expr.wire(...)` → 由前端 resolve 后送入
             - `Expr.host(...)` → 本端按 dispatch context 求值
@@ -71,11 +75,12 @@ class MenuTrigger(EventHandler):
     def __init__(
         self,
         menu_factory: Callable[..., MenuView],
-        *,
+        /,
+        *args: Any,
         placement: str = "cursor",
-        **context: Any,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(**context)
+        super().__init__(*args, **kwargs)
         if placement not in _VALID_PLACEMENTS:
             allowed = ", ".join(sorted(_VALID_PLACEMENTS))
             raise ValueError(f"invalid menu placement: {placement!r}; expected one of: {allowed}")

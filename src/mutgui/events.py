@@ -194,8 +194,9 @@ class EventHandler:
         - `Expr.host(...)` → host 环境，本端 walk
     """
 
-    def __init__(self, **extract: Any) -> None:
+    def __init__(self, *args: Any, **extract: Any) -> None:
         super().__init__()
+        self.args: tuple[Expr, ...] = tuple(_coerce_expr(a) for a in args)
         self.extract: dict[str, Expr] = {
             k: _coerce_expr(v) for k, v in extract.items()
         }
@@ -204,11 +205,41 @@ class EventHandler:
         """处理事件。返回 True 表示已消费。基类不消费。"""
         return False
 
+    def _resolve_call(
+        self, view: "View", event: Event,
+    ) -> tuple[list[Any], dict[str, Any]]:
+        """按 env 求值 args/kwargs，返回 (positional, keyword)。
+
+        子类 `Callback` / `MenuTrigger` 在 `handle` 中调用，
+        将生成的 positional / keyword 参数 forward 给各自的可调用对象。
+        """
+        context = _build_dispatch_context(view, event)
+        wire_args_payload = event.data.get("$args", [])
+        positional: list[Any] = []
+        wire_idx = 0
+        for expr in self.args:
+            if expr.env == "direct":
+                positional.append(expr.source)
+            elif expr.env == "wire":
+                positional.append(
+                    wire_args_payload[wire_idx]
+                    if wire_idx < len(wire_args_payload) else None
+                )
+                wire_idx += 1
+            else:  # host
+                positional.append(eval_host_expr(expr.source, context))
+        keyword = _eval_kwargs(self.extract, event.data, context)
+        return positional, keyword
+
     def to_wire(self) -> dict[str, Any]:
         """只把 wire 环境的参数写入 wire payload。"""
-        return {"$handler": {
+        wire: dict[str, Any] = {
             k: e.source for k, e in self.extract.items() if e.env == "wire"
-        }}
+        }
+        wire_positional = [e.source for e in self.args if e.env == "wire"]
+        if wire_positional:
+            wire["$args"] = wire_positional
+        return {"$handler": wire}
 
 
 def _build_dispatch_context(view: "View", event: Event) -> dict[str, Any]:
@@ -276,44 +307,15 @@ class Callback(EventHandler):
             Callback(self._on_click, viewport_id=Expr.host("event.viewport_id"))  # host keyword
             Callback(self._on_drag, Expr.wire("$0.x"), Expr.wire("$0.y"))         # 多个 wire 位置参数
         """
-        super().__init__(**extract)
+        super().__init__(*args, **extract)
         self.callback = callback
-        self.args: tuple[Expr, ...] = tuple(_coerce_expr(a) for a in args)
 
     async def handle(self, view: "View", event: Event) -> bool:
-        context = _build_dispatch_context(view, event)
-        wire_args_payload = event.data.get("$args", [])
-
-        # 位置参数：按 self.args 顺序还原（wire 参数从 payload 顺序取）
-        positional: list[Any] = []
-        wire_idx = 0
-        for expr in self.args:
-            if expr.env == "direct":
-                positional.append(expr.source)
-            elif expr.env == "wire":
-                positional.append(
-                    wire_args_payload[wire_idx]
-                    if wire_idx < len(wire_args_payload) else None
-                )
-                wire_idx += 1
-            else:  # host
-                positional.append(eval_host_expr(expr.source, context))
-
-        keyword = _eval_kwargs(self.extract, event.data, context)
-
+        positional, keyword = self._resolve_call(view, event)
         result = self.callback(*positional, **keyword)
         if inspect.isawaitable(result):
             await result
         return True
-
-    def to_wire(self) -> dict[str, Any]:
-        wire: dict[str, Any] = {
-            k: e.source for k, e in self.extract.items() if e.env == "wire"
-        }
-        wire_positional = [e.source for e in self.args if e.env == "wire"]
-        if wire_positional:
-            wire["$args"] = wire_positional
-        return {"$handler": wire}
 
 
 # ---------------------------------------------------------------------------

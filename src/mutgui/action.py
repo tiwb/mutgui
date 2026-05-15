@@ -293,10 +293,10 @@ class ActionRegistry:
         try:
             refs: list[ActionRef] = []
             for action_cls in cls._action_classes():
-                if category in action_cls.categories.make_default():
+                if category in mutobj.field_default(action_cls.categories):
                     refs.append(ActionRef(action=action_cls))
             for provider_cls in cls._provider_classes():
-                if category not in provider_cls.categories.make_default():
+                if category not in mutobj.field_default(provider_cls.categories):
                     continue
                 provider = provider_cls()
                 refs.extend(provider.refs(context))
@@ -425,7 +425,7 @@ class ActionRegistry:
             if sub is not Action
         ]
         return sorted(classes, key=lambda item: (
-            item.order.make_default() or 0,
+            mutobj.field_default(item.order) or 0,
             item.__module__,
             item.__qualname__,
         ))
@@ -437,7 +437,7 @@ class ActionRegistry:
             if sub is not ActionCategoryProvider
         ]
         return sorted(classes, key=lambda item: (
-            item.order.make_default(),
+            mutobj.field_default(item.order),
             item.__module__,
             item.__qualname__,
         ))
@@ -540,22 +540,16 @@ class ActionMenu(MenuView):
                 node["hasSubmenu"] = True
                 node["closeOnClick"] = False
                 node["onMouseEnter"] = MenuTrigger(
-                    lambda action=item.action, ctx=context:
-                        ActionMenu(
-                            owner=self.owner,
-                            source_action=action,
-                            context=ctx,
-                        ),
+                    ActionMenu,
+                    source_action=item.action,
+                    context=context,
                     placement="right-start",
                 )
                 rendered.append(node)
                 prev_group_name = item.group_name
                 continue
             if item.can_execute and item.enabled:
-                node["onClick"] = Callback(
-                    lambda action=item.action, ctx=context:
-                    action.execute(ctx),
-                )
+                node["onClick"] = Callback(item.action.execute, context)
             rendered.append(node)
             prev_group_name = item.group_name
         return rendered
@@ -708,10 +702,8 @@ class ActionToolbar(View):
                     self._button_schema(
                         item,
                         component_id=f"main-{index}",
-                        on_click=(Callback(
-                            lambda action=item.action, ctx=context:
-                            action.execute(ctx),
-                        ) if item.can_execute and item.enabled else None),
+                        on_click=(Callback(item.action.execute, context)
+                                  if item.can_execute and item.enabled else None),
                         left_rounded=True,
                         right_rounded=False,
                     ),
@@ -719,12 +711,9 @@ class ActionToolbar(View):
                         item,
                         component_id=f"menu-{index}",
                         on_click=MenuTrigger(
-                            lambda action=item.action, ctx=context:
-                                ActionMenu(
-                                    owner=self,
-                                    source_action=action,
-                                    context=ctx,
-                                ),
+                            ActionMenu,
+                            source_action=item.action,
+                            context=context,
                             placement=item.menu_placement,
                         ),
                         disabled=False,
@@ -741,12 +730,9 @@ class ActionToolbar(View):
                 item,
                 component_id=f"dropdown-{index}",
                 on_click=MenuTrigger(
-                    lambda action=item.action, ctx=context:
-                        ActionMenu(
-                            owner=self,
-                            source_action=action,
-                            context=ctx,
-                        ),
+                    ActionMenu,
+                    source_action=item.action,
+                    context=context,
                     placement=item.menu_placement,
                 ),
                 show_menu_arrow=True,
@@ -756,10 +742,8 @@ class ActionToolbar(View):
         return self._button_schema(
             item,
             component_id=f"button-{index}",
-            on_click=(Callback(
-                lambda action=item.action, ctx=context:
-                action.execute(ctx),
-            ) if item.can_execute and item.enabled else None),
+            on_click=(Callback(item.action.execute, context)
+                      if item.can_execute and item.enabled else None),
         )
 
     def _button_schema(

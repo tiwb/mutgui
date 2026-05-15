@@ -49,12 +49,7 @@ async def menu_close(self: MenuView) -> None:
 
 @impl(MenuTrigger.handle)
 async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
-    from .events import _build_dispatch_context, _eval_kwargs
-
-    # 从 event.data 提取前端 resolve 后的原始 wire 值（跳过 $* 元数据）
-    # 仅用于向后兼容 — 新 API 所有 wire 参数都在 self.extract 中明确声明
-    dispatch_context = _build_dispatch_context(view, event)
-    context = _eval_kwargs(self.extract, event.data, dispatch_context)
+    positional, kwargs = self._resolve_call(view, event)
 
     # 关闭已有菜单
     ext = render_ext(view)
@@ -63,7 +58,7 @@ async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bo
             await child.close()
 
     # 创建新菜单
-    menu_view = self.menu_factory(**context)
+    menu_view = self.menu_factory(*positional, **kwargs)
     if not isinstance(menu_view, MenuView):  # pyright: ignore[reportUnnecessaryIsInstance]
         return False
 

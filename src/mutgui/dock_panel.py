@@ -375,18 +375,13 @@ class DockPanel(View):
             node["$children"] = item.toolbar_view.render().items
             return node
         if item.can_execute and item.enabled:
-            node["onClick"] = Callback(
-                lambda action=item.action, ctx=context:
-                action.execute(ctx),
-            )
+            node["onClick"] = Callback(item.action.execute, context)
         if item.variant in {"dropdown", "split"}:
+            menu_context = context.with_updates(surface="menu")
             node["onMenuClick"] = MenuTrigger(
-                lambda action=item.action, ctx=context:
-                    ActionMenu(
-                        owner=self,
-                        source_action=action,
-                        context=ctx.with_updates(surface="menu"),
-                    ),
+                ActionMenu,
+                source_action=item.action,
+                context=menu_context,
                 placement="bottom-start",
             )
         return node
