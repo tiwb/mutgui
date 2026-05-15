@@ -603,7 +603,6 @@ class ActionDemoPage(View):
 
     def _action_context(self) -> ActionContext:
         return ActionContext(
-            owner=self,
             surface="toolbar",
             data={"page": self},
         )

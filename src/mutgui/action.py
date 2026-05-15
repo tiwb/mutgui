@@ -95,7 +95,6 @@ def _normalize_placement_tokens(
 
 @dataclass(slots=True)
 class ActionContext:
-    owner: View | None = None
     surface: ActionSurface = "toolbar"
     category: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
@@ -103,7 +102,6 @@ class ActionContext:
     def with_updates(
         self,
         *,
-        owner: View | None = None,
         surface: ActionSurface | None = None,
         category: str | None = None,
         **updates: Any,
@@ -111,7 +109,6 @@ class ActionContext:
         data = dict(self.data)
         data.update(updates)
         return ActionContext(
-            owner=self.owner if owner is None else owner,
             surface=self.surface if surface is None else surface,
             category=self.category if category is None else category,
             data=data,
@@ -560,7 +557,7 @@ class ActionMenu(MenuView):
     def _base_context(self) -> ActionContext:
         if self.context is not None:
             return self.context
-        return ActionContext(owner=self.owner, surface="menu")
+        return ActionContext(surface="menu")
 
     def _ensure_view_id(self, view: View, suffix: str) -> View:
         if not view.id:
@@ -860,7 +857,7 @@ class ActionToolbar(View):
     def _base_context(self) -> ActionContext:
         if self.context is not None:
             return self.context
-        return ActionContext(owner=self, surface="toolbar")
+        return ActionContext(surface="toolbar")
 
     def _ensure_view_id(self, view: View, suffix: str) -> View:
         if not view.id:

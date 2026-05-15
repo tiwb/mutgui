@@ -41,10 +41,13 @@ class MenuView(View):
     """
 
     id: str | int = mutobj.field(default_factory=lambda: f"$menu:{uuid.uuid4().hex[:8]}")
-    owner: View | None = None
 
     async def close(self) -> None:
-        """关闭菜单 — 从宿主 View 移除自身。"""
+        """关闭菜单 — 从宿主 View 移除自身。
+
+        宿主（lifecycle host）由 `_menu_impl.MenuRuntime` Extension 内部维护，
+        业务代码无需感知。
+        """
         raise NotImplementedError
 
 

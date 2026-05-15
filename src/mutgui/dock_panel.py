@@ -395,7 +395,6 @@ class DockPanel(View):
         }
         data.update(self.action_context_data)
         return ActionContext(
-            owner=self,
             surface="dock",
             data=data,
         )

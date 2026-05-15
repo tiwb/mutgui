@@ -4,12 +4,27 @@ from __future__ import annotations
 
 from typing import Any
 
+import mutobj
 from mutobj import impl
 
 from ._view_impl import render_ext
 from .events import Event, EventFilter
 from .menu import MenuView, MenuTrigger
 from .view import View
+
+
+# ---------------------------------------------------------------------------
+# Extension — MenuView 运行时状态
+# ---------------------------------------------------------------------------
+
+class MenuRuntime(mutobj.Extension[MenuView]):
+    """MenuView 框架运行时状态 — 仅 _menu_impl 内部维护。
+
+    `host` 是菜单的挂载点（overlay_children 容器 + invalidate 目标）。
+    业务代码不应访问，生命周期随 MenuView 实例自动回收。
+    """
+
+    host: View | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -35,12 +50,14 @@ _close_filter = _MenuCloseFilter()
 
 @impl(MenuView.close)
 async def menu_close(self: MenuView) -> None:
-    if self.owner is None:
+    rt = MenuRuntime.get(self)
+    if rt is None or rt.host is None:
         return
-    ext = render_ext(self.owner)
+    host = rt.host
+    rt.host = None
+    ext = render_ext(host)
     ext.overlay_children.pop(self.id, None)
-    self.owner.invalidate()
-    self.owner = None
+    host.invalidate()
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +79,7 @@ async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bo
     if not isinstance(menu_view, MenuView):  # pyright: ignore[reportUnnecessaryIsInstance]
         return False
 
-    menu_view.owner = view
+    MenuRuntime.get_or_create(menu_view).host = view
     menu_view.install_event_filter(_close_filter)
     ext.overlay_children[menu_view.id] = menu_view
     view.invalidate()
