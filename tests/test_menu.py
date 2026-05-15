@@ -310,3 +310,194 @@ def test_direct_kwarg_passes_through_to_factory() -> None:
         assert captured["view"] is page
 
     asyncio.run(_t())
+
+
+# ---------------------------------------------------------------------------
+# Per-viewport 作用域隔离
+# ---------------------------------------------------------------------------
+
+def _root_render_msg(chan: MockChannel) -> dict[str, Any] | None:
+    """取最后一条发往根 View 的 render 消息。"""
+    msgs = [m for m in chan.messages
+            if m.get("type") == "render" and m.get("viewId") == []]
+    return msgs[-1] if msgs else None
+
+
+def _menu_refs(tree: list[dict[str, Any]]) -> list[str]:
+    """提取 wire tree 顶层 $menu: 前缀的 $view id。"""
+    return [str(n["$view"]) for n in tree
+            if isinstance(n, dict) and str(n.get("$view", "")).startswith("$menu:")]
+
+
+def test_menu_only_renders_on_origin_viewport() -> None:
+    """viewport A 触发菜单，viewport B 不应看到该菜单。"""
+    async def _t() -> None:
+        page = Page()
+        chan_a = MockChannel()
+        chan_b = MockChannel()
+        vp_a = ViewPort(page, chan_a)
+        vp_b = ViewPort(page, chan_b)
+        await vp_a.initialize()
+        await vp_b.initialize()
+        await page.rendered()
+        chan_a.messages.clear()
+        chan_b.messages.clear()
+
+        # A 触发菜单
+        await vp_a.handle_event({
+            "source": ["pane"],
+            "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-A"},
+        })
+        await page.rendered()
+
+        # A 看到菜单 $view
+        a_root = _root_render_msg(chan_a)
+        assert a_root is not None
+        assert _menu_refs(a_root["tree"])
+
+        # B 也被重推（overlay_children 变化 → invalidate）但不包含菜单节点
+        b_root = _root_render_msg(chan_b)
+        assert b_root is not None
+        assert _menu_refs(b_root["tree"]) == []
+
+        # 菜单 push 只在 A 的 channel上发生
+        a_menu_msgs = [m for m in chan_a.messages
+                       if isinstance(m.get("viewId"), list) and m["viewId"]
+                       and isinstance(m["viewId"][0], str)
+                       and m["viewId"][0].startswith("$menu:")]
+        b_menu_msgs = [m for m in chan_b.messages
+                       if isinstance(m.get("viewId"), list) and m["viewId"]
+                       and isinstance(m["viewId"][0], str)
+                       and m["viewId"][0].startswith("$menu:")]
+        assert len(a_menu_msgs) == 1
+        assert len(b_menu_msgs) == 0
+
+    asyncio.run(_t())
+
+
+def test_two_viewports_open_independent_menus() -> None:
+    """A/B 各自触发同一菜单：不互相关闭，各看自己的。"""
+    async def _t() -> None:
+        page = Page()
+        chan_a = MockChannel()
+        chan_b = MockChannel()
+        vp_a = ViewPort(page, chan_a)
+        vp_b = ViewPort(page, chan_b)
+        await vp_a.initialize()
+        await vp_b.initialize()
+        await page.rendered()
+
+        await vp_a.handle_event({
+            "source": ["pane"],
+            "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-A"},
+        })
+        await page.rendered()
+        state = ViewRenderState.get(page)
+        assert len(state.overlay_children) == 1
+        menu_a_id = list(state.overlay_children.keys())[0]
+        menu_a = state.overlay_children[menu_a_id]
+        assert getattr(menu_a, "origin_channel_id") == chan_a.channel_id
+
+        # B 触发同一菜单：不应关闭 A 的
+        await vp_b.handle_event({
+            "source": ["pane"],
+            "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-B"},
+        })
+        await page.rendered()
+
+        assert len(state.overlay_children) == 2
+        ids = list(state.overlay_children.keys())
+        assert menu_a_id in ids
+        # 另一个是 B 的
+        other = next(state.overlay_children[i] for i in ids if i != menu_a_id)
+        assert getattr(other, "origin_channel_id") == chan_b.channel_id
+
+        # 取最后一次推送：A 只看到 menu_a，B 只看到 menu_b
+        a_root = _root_render_msg(chan_a)
+        b_root = _root_render_msg(chan_b)
+        assert a_root is not None and b_root is not None
+        a_refs = _menu_refs(a_root["tree"])
+        b_refs = _menu_refs(b_root["tree"])
+        assert a_refs == [menu_a_id]
+        assert len(b_refs) == 1 and b_refs[0] != menu_a_id
+
+    asyncio.run(_t())
+
+
+def test_a_retrigger_does_not_close_b_menu() -> None:
+    """A 重复触发只关闭 A 自己的菜单，B 的菜单保持不变。"""
+    async def _t() -> None:
+        page = Page()
+        chan_a = MockChannel()
+        chan_b = MockChannel()
+        vp_a = ViewPort(page, chan_a)
+        vp_b = ViewPort(page, chan_b)
+        await vp_a.initialize()
+        await vp_b.initialize()
+        await page.rendered()
+
+        # A 、B 各自触发
+        await vp_a.handle_event({
+            "source": ["pane"], "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-A"}})
+        await page.rendered()
+        await vp_b.handle_event({
+            "source": ["pane"], "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-B"}})
+        await page.rendered()
+
+        state = ViewRenderState.get(page)
+        b_menu = next(m for m in state.overlay_children.values()
+                      if getattr(m, "origin_channel_id") == chan_b.channel_id)
+        b_id = b_menu.id
+
+        # A 再次触发
+        await vp_a.handle_event({
+            "source": ["pane"], "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-A2"}})
+        await page.rendered()
+
+        # B 的菜单还在
+        assert b_id in state.overlay_children
+        # 总数：A 的新菜单 + B 的原菜单 = 2
+        assert len(state.overlay_children) == 2
+
+    asyncio.run(_t())
+
+
+def test_detach_cleans_up_origin_menus() -> None:
+    """viewport detach 时关闭本 viewport 触发的菜单，不影响其他。"""
+    async def _t() -> None:
+        page = Page()
+        chan_a = MockChannel()
+        chan_b = MockChannel()
+        vp_a = ViewPort(page, chan_a)
+        vp_b = ViewPort(page, chan_b)
+        await vp_a.initialize()
+        await vp_b.initialize()
+        await page.rendered()
+
+        await vp_a.handle_event({
+            "source": ["pane"], "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-A"}})
+        await page.rendered()
+        await vp_b.handle_event({
+            "source": ["pane"], "event": "onContextMenu",
+            "data": {"$menu": True, "item_id": "tab-B"}})
+        await page.rendered()
+
+        state = ViewRenderState.get(page)
+        assert len(state.overlay_children) == 2
+
+        # A 断连
+        vp_a.detach()
+
+        # 仅剩 B 的菜单
+        assert len(state.overlay_children) == 1
+        remaining = next(iter(state.overlay_children.values()))
+        assert getattr(remaining, "origin_channel_id") == chan_b.channel_id
+
+    asyncio.run(_t())

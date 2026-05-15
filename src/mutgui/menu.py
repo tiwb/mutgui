@@ -41,6 +41,7 @@ class MenuView(View):
     """
 
     id: str | int = mutobj.field(default_factory=lambda: f"$menu:{uuid.uuid4().hex[:8]}")
+    origin_channel_id: int | None = None  # 触发 viewport 的 channel_id（per-viewport 作用域过滤）
 
     async def close(self) -> None:
         """关闭菜单 — 从宿主 View 移除自身。

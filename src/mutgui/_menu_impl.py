@@ -68,10 +68,12 @@ async def menu_close(self: MenuView) -> None:
 async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
     positional, kwargs = self._resolve_call(view, event)
 
-    # 关闭已有菜单
+    origin_channel_id = event.viewport_id
+
+    # 只关闭同 origin 的旧菜单（其他 viewport 的菜单保持不动）
     ext = render_ext(view)
     for child in list(ext.overlay_children.values()):
-        if isinstance(child, MenuView):
+        if isinstance(child, MenuView) and child.origin_channel_id == origin_channel_id:
             await child.close()
 
     # 创建新菜单
@@ -79,6 +81,7 @@ async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bo
     if not isinstance(menu_view, MenuView):  # pyright: ignore[reportUnnecessaryIsInstance]
         return False
 
+    menu_view.origin_channel_id = origin_channel_id
     MenuRuntime.get_or_create(menu_view).host = view
     menu_view.install_event_filter(_close_filter)
     ext.overlay_children[menu_view.id] = menu_view

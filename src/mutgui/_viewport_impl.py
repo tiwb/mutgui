@@ -122,7 +122,12 @@ async def viewport_send_command(self: ViewPort, name: str, /, **args: Any) -> No
 @impl(ViewPort.detach)
 def viewport_detach(self: ViewPort) -> None:
     ext = _ext(self)
+    channel_id = ext.channel.channel_id if ext.channel is not None else None
     if ext.view is not None:
+        # 关闭本 viewport 触发的浮层（duck typing：origin_channel_id）。
+        # 同步 inline 清理 overlay_children：避免在连接异常关闭路径上
+        # 依赖 running event loop；cleanup 本身不需 await IO。
+        _cleanup_overlays_for_channel(ext.view, channel_id)
         obs = ViewObservers.get(ext.view)
         if obs is not None:
             try:
@@ -133,6 +138,25 @@ def viewport_detach(self: ViewPort) -> None:
     for child_vp in list(ext.child_viewports.values()):
         child_vp.detach()
     ext.child_viewports = {}
+
+
+def _cleanup_overlays_for_channel(view: View, channel_id: int | None) -> None:
+    """关闭挂在 view 上、origin_channel_id == channel_id 的浮层子 View。
+
+    duck typing 判定。detach 是 sync 路径上不假设 running loop，直接同步清理。
+    """
+    if channel_id is None:
+        return
+    render_state = ViewRenderState.get(view)
+    if render_state is None:
+        return
+    removed = False
+    for child_id, child in list(render_state.overlay_children.items()):
+        if getattr(child, "origin_channel_id", None) == channel_id:
+            render_state.overlay_children.pop(child_id, None)
+            removed = True
+    if removed:
+        view.invalidate()
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +194,29 @@ def _extract_view_refs(tree: list[dict[str, Any]]) -> set[str]:
     return refs
 
 
+def _filter_overlays_by_channel(
+    wire_tree: list[dict[str, Any]],
+    children: dict[str | int, View],
+    channel_id: int,
+) -> list[dict[str, Any]]:
+    """过滤 wire_tree 顶层 `$view` 节点：若指向 View 的 `origin_channel_id`
+    不为 None 且不等于当前 channel_id，则剔除。
+
+    overlay 子 View（如 MenuView）由 `_render_and_cache` 注入为顶层 `{"$view": id}`
+    节点，顶层过滤即可覆盖全部场景。
+    """
+    result: list[dict[str, Any]] = []
+    for node in wire_tree:
+        view_id = node.get("$view")
+        if view_id is not None and view_id in children:
+            child_view = children[view_id]
+            origin = getattr(child_view, "origin_channel_id", None)
+            if origin is not None and origin != channel_id:
+                continue
+        result.append(node)
+    return result
+
+
 async def _vp_push_render(vp: ViewPort) -> None:
     """推送 View 的缓存 wire_tree 到 ViewPort 的 Channel。"""
     ext = _ext(vp)
@@ -185,6 +232,9 @@ async def _vp_push_render(vp: ViewPort) -> None:
     channel_id = ext.channel.channel_id
 
     wire_tree = view.render_viewport(wire_tree, channel_id)
+    # 按 origin 过滤 overlay $view 节点（per-viewport 作用域）。
+    # duck typing：避免 _viewport_impl 反向 import menu 模块。
+    wire_tree = _filter_overlays_by_channel(wire_tree, render_state.children, channel_id)
     allowed = _extract_view_refs(wire_tree)
 
     await ext.channel.send({
