@@ -2,13 +2,14 @@
 
 __version__ = "0.9.999"
 
-from .events import Event, Expr, EventHandler, Callback, Bind, EventFilter
+from .events import Event, EventHandler, Callback, Bind, EventFilter
+from .expr import Expr
 from .view import View, ViewBlock
 from .channel import Channel
 from .viewport import ViewPort
 from .virtual_list import VirtualList, VirtualListItemAdapter
 from .dock_panel import (
-    DockPanel, PanelDef, SplitNode, TabSetNode, ActionDef,
+    DockPanel, PanelDef, SplitNode, TabSetNode,
 )
 from .menu import MenuView, MenuTrigger
 from .action import (
@@ -16,7 +17,6 @@ from .action import (
     ActionRef,
     ActionContext,
     ActionCategoryProvider,
-    ActionRegistry,
     ActionMenu,
     ActionToolbar,
 )
@@ -39,12 +39,10 @@ __all__ = [
     "PanelDef",
     "SplitNode",
     "TabSetNode",
-    "ActionDef",
     "Action",
     "ActionRef",
     "ActionContext",
     "ActionCategoryProvider",
-    "ActionRegistry",
     "ActionMenu",
     "ActionToolbar",
     "MenuView",

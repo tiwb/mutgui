@@ -131,10 +131,10 @@ class TestApp:
         self._server = server
         await server.start()
 
-        from mutio.net._server_impl import _ServerExt
-        ext = _ServerExt.get_or_create(server)
-        if ext._asgi_server:
-            ports = ext._asgi_server.ports
+        from mutio.net._server_impl import ServerExt
+        ext = ServerExt.get_or_create(server)
+        if ext.asgi_server:
+            ports = ext.asgi_server.ports()
             if ports:
                 self.port = ports[0]
 

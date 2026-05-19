@@ -7,7 +7,7 @@ MenuTrigger 是 EventHandler 子类，声明"此事件弹出菜单"。
 from __future__ import annotations
 
 import uuid
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, Literal, TYPE_CHECKING
 
 import mutobj
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from .events import Event
 
 
-_VALID_PLACEMENTS = {
+MenuPlacement = Literal[
     "cursor",
     "top-start",
     "top-center",
@@ -30,7 +30,7 @@ _VALID_PLACEMENTS = {
     "left-end",
     "right-start",
     "right-end",
-}
+]
 
 
 class MenuView(View):
@@ -49,7 +49,7 @@ class MenuView(View):
         宿主（lifecycle host）由 `_menu_impl.MenuRuntime` Extension 内部维护，
         业务代码无需感知。
         """
-        raise NotImplementedError
+        ...
 
 
 class MenuTrigger(EventHandler):
@@ -57,50 +57,38 @@ class MenuTrigger(EventHandler):
 
     复用 $handler + resolvePath 机制，通过 $menu key 标识身份。
     前端看到 $menu → 走菜单逻辑（记住坐标、发 context、等 push、渲染）。
-
-    参数语义与 `Callback` 对称：dispatch 时 `menu_factory(*args, **kwargs)`，
-    每个参数按 Expr.env 延迟求值（direct / wire / host）。
-
-    参数:
-        menu_factory: 接收 positional + keyword 参数，返回 MenuView 实例
-        *args: positional 参数。任意类型；非 `Expr` 值自动归为 direct。
-        placement: keyword-only 定位策略：
-            'cursor'
-            'top-start' | 'top-center' | 'top-end'
-            'bottom-start' | 'bottom-center' | 'bottom-end'
-            'left-start' | 'left-end'
-            'right-start' | 'right-end'
-        **kwargs: keyword 参数 — 同 Callback 的 kwargs 语义，按 Expr 环境分派：
-            - 普通值（如 `panel=self`）→ direct，透传给 menu_factory
-            - `Expr.wire(...)` → 由前端 resolve 后送入
-            - `Expr.host(...)` → 本端按 dispatch context 求值
     """
+    menu_factory: "Callable[..., MenuView]"
+    placement: MenuPlacement
 
     def __init__(
         self,
         menu_factory: Callable[..., MenuView],
         /,
         *args: Any,
-        placement: str = "cursor",
+        placement: MenuPlacement = "cursor",
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, **kwargs)
-        if placement not in _VALID_PLACEMENTS:
-            allowed = ", ".join(sorted(_VALID_PLACEMENTS))
-            raise ValueError(f"invalid menu placement: {placement!r}; expected one of: {allowed}")
-        self.menu_factory = menu_factory
-        self.placement = placement
+        """参数语义与 `Callback` 对称，dispatch 时 ``menu_factory(*args, **kwargs)``。
+
+        Args:
+            menu_factory: 接收 positional + keyword 参数，返回 MenuView 实例。
+                broker/client 侧须 import 的 View 才能被模块系统发现。
+            *args: positional 参数。非 `Expr` 值自动归为 direct。
+            placement: 定位策略，见 ``MenuPlacement`` 定义。
+            **kwargs: 按 Expr 环境分派：
+                - 普通值（如 ``panel=self``）→ direct，透传给 menu_factory
+                - ``Expr.wire(...)`` → 由前端 resolve 后送入
+                - ``Expr.host(...)`` → 本端按 dispatch context 求值
+        """
+        ...
 
     async def handle(self, view: View, event: Event) -> bool:
         """创建 MenuView 并挂载到宿主 View。"""
-        raise NotImplementedError
+        ...
 
     def to_wire(self) -> dict[str, Any]:
-        wire = super().to_wire()["$handler"]
-        wire["$menu"] = True
-        if self.placement != "cursor":
-            wire["$placement"] = self.placement
-        return {"$handler": wire}
+        ...
 
 
 from . import _menu_impl as _menu_impl  # noqa: F401, E402

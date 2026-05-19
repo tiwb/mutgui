@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import mutobj
 from mutobj import impl
+from typing import Any, Callable
 
 from ._view_impl import render_ext
+from ._events_impl import event_handler_resolve_call
 from .events import Event, EventFilter
-from .menu import MenuView, MenuTrigger
+from .menu import MenuPlacement, MenuView, MenuTrigger
 from .view import View
 
 
@@ -49,7 +49,7 @@ _close_filter = _MenuCloseFilter()
 # ---------------------------------------------------------------------------
 
 @impl(MenuView.close)
-async def menu_close(self: MenuView) -> None:
+async def menu_view_close(self: MenuView) -> None:
     rt = MenuRuntime.get(self)
     if rt is None or rt.host is None:
         return
@@ -66,7 +66,7 @@ async def menu_close(self: MenuView) -> None:
 
 @impl(MenuTrigger.handle)
 async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bool:
-    positional, kwargs = self._resolve_call(view, event)
+    positional, kwargs = event_handler_resolve_call(self, view, event)
 
     origin_channel_id = event.viewport_id
 
@@ -87,3 +87,26 @@ async def menu_trigger_handle(self: MenuTrigger, view: View, event: Event) -> bo
     ext.overlay_children[menu_view.id] = menu_view
     view.invalidate()
     return True
+
+
+@impl(MenuTrigger.__init__)
+def menu_trigger_init(
+    self: MenuTrigger,
+    menu_factory: Callable[..., MenuView],
+    /,
+    *args: Any,
+    placement: MenuPlacement = "cursor",
+    **kwargs: Any,
+) -> None:
+    super(MenuTrigger, self).__init__(*args, **kwargs)
+    self.menu_factory = menu_factory
+    self.placement = placement
+
+
+@impl(MenuTrigger.to_wire)
+def menu_trigger_to_wire(self: MenuTrigger) -> dict[str, Any]:
+    wire = super(MenuTrigger, self).to_wire()["$handler"]
+    wire["$menu"] = True
+    if self.placement != "cursor":
+        wire["$placement"] = self.placement
+    return {"$handler": wire}

@@ -5,6 +5,7 @@ from typing import Any
 
 from mutgui import View, ViewBlock, ViewPort, Channel, VirtualList, VirtualListItemAdapter
 from mutgui._view_impl import ViewRenderState
+from mutgui._virtual_list_impl import _virtual_list_on_viewport, _virtual_list_on_scroll, _vl_ext
 
 
 class MockChannel(Channel):
@@ -72,7 +73,7 @@ def test_virtual_list_on_viewport_creates_views() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     tree = vl.render()
 
     assert tree.items[0]["itemIds"] == ["item-0", "item-1", "item-2"]
@@ -91,19 +92,19 @@ def test_virtual_list_view_reuse() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     vl.render()
-    view_0 = vl.item_views["item-0"]
-    view_2 = vl.item_views["item-2"]
+    view_0 = _vl_ext(vl).item_views["item-0"]
+    view_2 = _vl_ext(vl).item_views["item-2"]
 
     # 滚动：viewport 从 [0,3) 变为 [1,4)
-    vl._on_viewport(start=1, end=4, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=1, end=4, viewport_id=1)
     vl.render()
 
     # item-1 和 item-2 复用，item-0 被清理，item-3 新建
-    assert "item-0" not in vl.item_views
-    assert vl.item_views["item-2"] is view_2  # 复用
-    assert "item-3" in vl.item_views  # 新建
+    assert "item-0" not in _vl_ext(vl).item_views
+    assert _vl_ext(vl).item_views["item-2"] is view_2  # 复用
+    assert "item-3" in _vl_ext(vl).item_views  # 新建
 
 
 def test_virtual_list_cleanup_old_views() -> None:
@@ -111,14 +112,14 @@ def test_virtual_list_cleanup_old_views() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=5, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=5, viewport_id=1)
     vl.render()
-    assert len(vl.item_views) == 5
+    assert len(_vl_ext(vl).item_views) == 5
 
-    vl._on_viewport(start=50, end=53, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=50, end=53, viewport_id=1)
     vl.render()
-    assert len(vl.item_views) == 3
-    assert all(k.startswith("item-5") for k in vl.item_views)
+    assert len(_vl_ext(vl).item_views) == 3
+    assert all(k.startswith("item-5") for k in _vl_ext(vl).item_views)
 
 
 def test_adapter_invalidate_triggers_view_invalidate() -> None:
@@ -139,16 +140,16 @@ def test_adapter_invalidate_refreshes_data() -> None:
     adapter = SimpleAdapter(items)
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     vl.render()
-    assert vl.item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
+    assert _vl_ext(vl).item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
 
     # 修改 adapter 数据
     adapter.items = ["NEW-0", "NEW-1", "NEW-2"] + items[3:]
     # id 没变（item-0），所以 View 实例不变，但数据确实变了
     # 注意：View 复用意味着 text 没更新——这是预期行为（View 持有旧引用）
     vl.render()
-    assert vl.item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
+    assert _vl_ext(vl).item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
 
 
 def test_virtual_list_item_view_id_assignment() -> None:
@@ -156,11 +157,11 @@ def test_virtual_list_item_view_id_assignment() -> None:
     adapter = SimpleAdapter(["a", "b", "c"])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     vl.render()
 
     for i in range(3):
-        view = vl.item_views[f"item-{i}"]
+        view = _vl_ext(vl).item_views[f"item-{i}"]
         assert view.id == f"item-{i}"
 
 
@@ -234,11 +235,11 @@ def test_per_vp_viewport_storage() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     # 模拟 VP-1: [0, 3)
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     # 模拟 VP-2: [10, 15)
-    vl._on_viewport(start=10, end=15, viewport_id=2)
+    _virtual_list_on_viewport(vl, start=10, end=15, viewport_id=2)
 
-    assert vl.viewport_ranges == {1: (0, 3), 2: (10, 15)}
+    assert _vl_ext(vl).viewport_ranges == {1: (0, 3), 2: (10, 15)}
 
 
 def test_union_rendering() -> None:
@@ -248,15 +249,15 @@ def test_union_rendering() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
-    vl._on_viewport(start=5, end=8, viewport_id=2)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=5, end=8, viewport_id=2)
     vl.render()
 
     # union = [0, 8)，应有 8 个 item
-    assert len(vl.visible_ids) == 8
-    assert len(vl.item_views) == 8
-    assert vl.visible_ids[0] == "item-0"
-    assert vl.visible_ids[-1] == "item-7"
+    assert len(_vl_ext(vl).visible_ids) == 8
+    assert len(_vl_ext(vl).item_views) == 8
+    assert _vl_ext(vl).visible_ids[0] == "item-0"
+    assert _vl_ext(vl).visible_ids[-1] == "item-7"
 
 
 def test_overlapping_viewports_union() -> None:
@@ -266,14 +267,14 @@ def test_overlapping_viewports_union() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=5, end=15, viewport_id=1)
-    vl._on_viewport(start=10, end=20, viewport_id=2)
+    _virtual_list_on_viewport(vl, start=5, end=15, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=10, end=20, viewport_id=2)
     vl.render()
 
     # union = [5, 20)
-    assert len(vl.visible_ids) == 15
-    assert vl.visible_ids[0] == "item-5"
-    assert vl.visible_ids[-1] == "item-19"
+    assert len(_vl_ext(vl).visible_ids) == 15
+    assert _vl_ext(vl).visible_ids[0] == "item-5"
+    assert _vl_ext(vl).visible_ids[-1] == "item-19"
 
 
 def test_viewport_update_replaces_old_range() -> None:
@@ -283,10 +284,10 @@ def test_viewport_update_replaces_old_range() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=10, viewport_id=1)
-    vl._on_viewport(start=50, end=60, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=10, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=50, end=60, viewport_id=1)
 
-    assert vl.viewport_ranges == {1: (50, 60)}
+    assert _vl_ext(vl).viewport_ranges == {1: (50, 60)}
 
 
 # ---------------------------------------------------------------------------
@@ -300,12 +301,12 @@ def test_render_viewport_per_vp() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
-    vl._on_viewport(start=5, end=8, viewport_id=2)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=5, end=8, viewport_id=2)
     tree = vl.render()
 
-    assert vl.viewport_item_ids[1] == {"item-0", "item-1", "item-2"}
-    assert vl.viewport_item_ids[2] == {"item-5", "item-6", "item-7"}
+    assert _vl_ext(vl).viewport_item_ids[1] == {"item-0", "item-1", "item-2"}
+    assert _vl_ext(vl).viewport_item_ids[2] == {"item-5", "item-6", "item-7"}
     wire_tree = tree.items
     vp1_tree = vl.render_viewport(wire_tree, 1)
     vp2_tree = vl.render_viewport(wire_tree, 2)
@@ -418,8 +419,8 @@ def test_vp_disconnect_cleanup() -> None:
         })
         await vl.rendered()
 
-        assert len(vl.viewport_ranges) == 2
-        assert len(vl.visible_ids) == 55  # union [0, 55)
+        assert len(_vl_ext(vl).viewport_ranges) == 2
+        assert len(_vl_ext(vl).visible_ids) == 55  # union [0, 55)
 
         # VP-2 断开
         vp2.detach()
@@ -429,8 +430,8 @@ def test_vp_disconnect_cleanup() -> None:
         vl.invalidate()
         await vl.rendered()
 
-        assert len(vl.viewport_ranges) == 1
-        assert len(vl.visible_ids) == 5  # 只剩 VP-1 的 [0, 5)
+        assert len(_vl_ext(vl).viewport_ranges) == 1
+        assert len(_vl_ext(vl).visible_ids) == 5  # 只剩 VP-1 的 [0, 5)
 
     asyncio.run(_test())
 
@@ -501,8 +502,8 @@ def test_sync_scroll_state_update() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter, sync_scroll=True)
 
-    vl._on_scroll(scrollTop=123.5)
-    assert vl.scroll_top == 123.5
+    _virtual_list_on_scroll(vl, scrollTop=123.5)
+    assert _vl_ext(vl).scroll_top == 123.5
 
     tree = vl.render()
     assert tree.items[0]["scrollTop"] == 123.5
@@ -515,13 +516,13 @@ def test_no_viewports_clears_filter() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    vl._on_viewport(start=0, end=3, viewport_id=1)
+    _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     vl.render()
-    assert len(vl.visible_ids) == 3
+    assert len(_vl_ext(vl).visible_ids) == 3
 
     # 移除所有 viewport
-    vl.viewport_ranges.clear()
+    _vl_ext(vl).viewport_ranges.clear()
     vl.render()
-    assert vl.visible_ids == []
-    assert len(vl.item_views) == 0
-    assert vl.viewport_item_ids == {}
+    assert _vl_ext(vl).visible_ids == []
+    assert len(_vl_ext(vl).item_views) == 0
+    assert _vl_ext(vl).viewport_item_ids == {}

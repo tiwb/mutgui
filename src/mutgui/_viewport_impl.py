@@ -42,7 +42,7 @@ def _ext(vp: ViewPort) -> ViewPortRuntime:
 # ---------------------------------------------------------------------------
 
 @impl(ViewPort.__init__)
-def viewport_init(
+def view_port_init(
     self: ViewPort, view: View, channel: Channel,
     *,
     _path: list[str | int] | None = None,
@@ -58,7 +58,7 @@ def viewport_init(
 
 
 @impl(ViewPort.initialize)
-async def viewport_initialize(self: ViewPort) -> None:
+async def view_port_initialize(self: ViewPort) -> None:
     ext = _ext(self)
     view = ext.view
     assert view is not None
@@ -68,7 +68,7 @@ async def viewport_initialize(self: ViewPort) -> None:
     # render 前已拿到路由状态。只根 ViewPort（client 存在时）发送，避免
     # 子 ViewPort 重复触发。
     if ext.client is not None:
-        initial_hash = ext.client.get("hash", "") if isinstance(ext.client, dict) else ""
+        initial_hash = ext.client.get("hash", "")
         if not isinstance(initial_hash, str):
             initial_hash = ""
         token = set_current_viewport(self)
@@ -95,7 +95,7 @@ async def viewport_initialize(self: ViewPort) -> None:
 
 
 @impl(ViewPort.handle_event)
-async def viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
+async def view_port_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     ext = _ext(self)
     assert ext.view is not None
     assert ext.channel is not None
@@ -108,7 +108,7 @@ async def viewport_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
 
 
 @impl(ViewPort.send_command)
-async def viewport_send_command(self: ViewPort, name: str, /, **args: Any) -> None:
+async def view_port_send_command(self: ViewPort, name: str, /, **args: Any) -> None:
     ext = _ext(self)
     assert ext.channel is not None
     await ext.channel.send({
@@ -120,7 +120,7 @@ async def viewport_send_command(self: ViewPort, name: str, /, **args: Any) -> No
 
 
 @impl(ViewPort.detach)
-def viewport_detach(self: ViewPort) -> None:
+def view_port_detach(self: ViewPort) -> None:
     ext = _ext(self)
     channel_id = ext.channel.channel_id if ext.channel is not None else None
     if ext.view is not None:

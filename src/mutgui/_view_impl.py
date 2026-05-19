@@ -76,7 +76,7 @@ async def view_on_event(self: View, event: Event) -> bool:
 
 
 @impl(View.viewport.getter)  # type: ignore[attr-defined]
-def view_viewport(self: View) -> ViewPort:
+def getter_viewport(self: View) -> ViewPort:
     viewport = get_current_viewport()
     if viewport is None:
         raise RuntimeError("View.viewport 只能在 ViewPort 事件上下文中访问")
@@ -184,7 +184,7 @@ async def _route_event(
                 await _route_event(child_view, source[1:], event_name, data,
                                    viewport_id=viewport_id)
             else:
-                token = set_current_viewport(child_vp)
+                token = set_current_viewport(child_vp)  # pyright: ignore[reportArgumentType]
                 try:
                     await _route_event(child_view, source[1:], event_name, data,
                                        viewport_id=viewport_id)
@@ -287,17 +287,17 @@ def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
             ext.children[item.id] = item
             result.append({"$view": item.id})
         else:
-            result.append(_process_node(view, item))
+            result.append(process_node(view, item))
     return result
 
 
-def _process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
+def process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
     """处理单个组件节点：检测 EventHandler，处理 $children。"""
     result: dict[str, Any] = {}
     node_id: str | int = node.get("$id", "")
     for key, val in node.items():
         if key == "$children" and isinstance(val, list):
-            result[key] = _process_items(view, val)
+            result[key] = _process_items(view, cast(list[Any], val))
         else:
             result[key] = _process_value(
                 view, val, node_id=node_id, event_name=key)
@@ -331,14 +331,14 @@ def _process_value(
                 node_id=node_id,
                 event_name=f"{event_name}.{index}",
             )
-            for index, item in enumerate(value)
+            for index, item in enumerate(cast(list[Any], value))
         ]
     if isinstance(value, dict):
         result: dict[str, Any] = {}
-        for key, inner in value.items():
+        for key, inner in cast(dict[str, Any], value).items():
             child_event = f"{event_name}.{key}" if event_name else key
             if key == "$children" and isinstance(inner, list):
-                result[key] = _process_items(view, inner)
+                result[key] = _process_items(view, cast(list[Any], inner))
             else:
                 result[key] = _process_value(
                     view,

@@ -7,11 +7,13 @@ import pytest
 
 from mutgui.events import (
     Event,
-    Expr,
     EventHandler,
     Callback,
     Bind,
     EventFilter,
+)
+from mutgui.expr import Expr
+from mutgui._expr_impl import (
     parse_host_expr,
     eval_host_expr,
 )

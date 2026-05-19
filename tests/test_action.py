@@ -6,7 +6,6 @@ from mutgui import (
     ActionContext,
     ActionMenu,
     ActionRef,
-    ActionRegistry,
     ActionToolbar,
     DockPanel,
     PanelDef,
@@ -15,6 +14,12 @@ from mutgui import (
     View,
     ViewBlock,
 )
+from mutgui._action_registry import (
+    _action_classes,
+    _provider_classes,
+    resolve_actions,
+)
+from mutgui._dock_panel_impl import _dp_ext
 
 
 class StaticAction(Action):
@@ -139,7 +144,7 @@ class ContextProbeAction(Action):
 
 
 def test_action_registry_category_and_provider() -> None:
-    resolved = ActionRegistry.resolve(
+    resolved = resolve_actions(
         context=ActionContext(data={"recent": ["scene", "material"]}),
         categories=["test.action.main"],
     )
@@ -187,8 +192,8 @@ def test_action_toolbar_renders_dropdown_with_arrow() -> None:
 
 
 def test_action_registry_class_level_defaults_do_not_instantiate_for_lookup() -> None:
-    action_classes = ActionRegistry._action_classes()
-    provider_classes = ActionRegistry._provider_classes()
+    action_classes = _action_classes()
+    provider_classes = _provider_classes()
 
     assert LookupOrderAction in action_classes
     assert LookupOrderProvider in provider_classes
@@ -314,7 +319,7 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
     )
     dock.set_panel_view("a", ToolbarWidget())
     dock.set_panel_view("b", ToolbarWidget())
-    dock.viewport_sizes[1] = (800, 600)
+    _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
     split = result[0]["$children"][0]
@@ -337,9 +342,9 @@ def test_dockpanel_action_context_data_is_merged() -> None:
             actions=[ActionRef(action=ContextProbeAction)],
         ),
     )
-    dock.action_context_data["marker"] = "from-dock"
+    _dp_ext(dock).action_context_data["marker"] = "from-dock"
     dock.set_panel_view("a", ToolbarWidget())
-    dock.viewport_sizes[1] = (800, 600)
+    _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
     tabset = result[0]["$children"][0]
@@ -349,7 +354,7 @@ def test_dockpanel_action_context_data_is_merged() -> None:
 
 
 def test_action_registry_sorts_by_placement_tokens() -> None:
-    resolved = ActionRegistry.resolve(
+    resolved = resolve_actions(
         context=ActionContext(),
         refs=[
             ActionRef(action=PlacementBetaAction),
@@ -407,7 +412,7 @@ def test_action_menu_uses_submenu_for_toolbar_dropdown_like_actions() -> None:
 
 
 def test_action_registry_marks_menu_only_action_as_dropdown() -> None:
-    resolved = ActionRegistry.resolve(
+    resolved = resolve_actions(
         context=ActionContext(surface="toolbar"),
         refs=[ActionRef(action=MenuOnlyAction, placement="10")],
     )
@@ -489,7 +494,7 @@ def test_dockpanel_action_wire_carries_group_name() -> None:
         ),
     )
     dock.set_panel_view("a", ToolbarWidget())
-    dock.viewport_sizes[1] = (800, 600)
+    _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
     tabset = result[0]["$children"][0]
@@ -498,7 +503,7 @@ def test_dockpanel_action_wire_carries_group_name() -> None:
 
 
 def test_action_registry_dedupes_same_action_from_category_and_provider() -> None:
-    resolved = ActionRegistry.resolve(
+    resolved = resolve_actions(
         context=ActionContext(),
         categories=["test.duplicate.main"],
     )

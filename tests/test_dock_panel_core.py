@@ -2,9 +2,14 @@
 
 from mutgui.dock_panel import (
     DockPanel, PanelDef, SplitNode, TabSetNode,
+)
+from mutgui._dock_panel_impl import (
     collect_all_panels, find_node, find_parent_split,
     find_active_in_subtree, set_active_in_subtree,
     replace_node, remove_panel_from_subtree, cleanup_tree,
+    _dock_panel_on_tab_move, _dock_panel_on_split_resize,
+    _dock_panel_on_tab_dock, _dock_panel_on_edge_dock,
+    _dock_panel_build_split_wire,
 )
 
 
@@ -361,7 +366,7 @@ def test_tab_move_basic() -> None:
     dock = _make_simple_dock()
     left_id = dock.layout.children[0].id  # type: ignore[union-attr]
     right_id = dock.layout.children[1].id  # type: ignore[union-attr]
-    dock._on_tab_move(fromTabset=left_id or "", toTabset=right_id or "",
+    _dock_panel_on_tab_move(dock, fromTabset=left_id or "", toTabset=right_id or "",
                       panelId="b", index=0)
     right = find_node(dock.layout, right_id or "")
     assert isinstance(right, TabSetNode)
@@ -384,7 +389,7 @@ def test_tab_move_source_emptied_cleanup() -> None:
     )
     left_id = dock.layout.children[0].id  # type: ignore[union-attr]
     right_id = dock.layout.children[1].id  # type: ignore[union-attr]
-    dock._on_tab_move(fromTabset=left_id or "", toTabset=right_id or "",
+    _dock_panel_on_tab_move(dock, fromTabset=left_id or "", toTabset=right_id or "",
                       panelId="a", index=1)
     assert isinstance(dock.layout, TabSetNode)
     assert dock.layout.panel_ids == ["b", "a"]
@@ -394,7 +399,7 @@ def test_tab_move_index_clamp() -> None:
     dock = _make_simple_dock()
     left_id = dock.layout.children[0].id  # type: ignore[union-attr]
     right_id = dock.layout.children[1].id  # type: ignore[union-attr]
-    dock._on_tab_move(fromTabset=left_id or "", toTabset=right_id or "",
+    _dock_panel_on_tab_move(dock, fromTabset=left_id or "", toTabset=right_id or "",
                       panelId="a", index=999)
     right = find_node(dock.layout, right_id or "")
     assert isinstance(right, TabSetNode)
@@ -408,7 +413,7 @@ def test_tab_move_index_clamp() -> None:
 def test_split_resize_normal() -> None:
     dock = _make_simple_dock()
     split_id = dock.layout.id or ""
-    dock._on_split_resize(splitId=split_id, ratio=0.3)
+    _dock_panel_on_split_resize(dock, splitId=split_id, ratio=0.3)
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.ratio == 0.3
 
@@ -416,7 +421,7 @@ def test_split_resize_normal() -> None:
 def test_split_resize_clamp_high() -> None:
     dock = _make_simple_dock()
     split_id = dock.layout.id or ""
-    dock._on_split_resize(splitId=split_id, ratio=1.5)
+    _dock_panel_on_split_resize(dock, splitId=split_id, ratio=1.5)
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.ratio == 1.0
 
@@ -424,7 +429,7 @@ def test_split_resize_clamp_high() -> None:
 def test_split_resize_clamp_low() -> None:
     dock = _make_simple_dock()
     split_id = dock.layout.id or ""
-    dock._on_split_resize(splitId=split_id, ratio=-0.2)
+    _dock_panel_on_split_resize(dock, splitId=split_id, ratio=-0.2)
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.ratio == 0.0
 
@@ -435,7 +440,7 @@ def test_split_resize_clamp_low() -> None:
 
 def test_tab_dock_right() -> None:
     dock = _make_dock()
-    dock._on_tab_dock(fromTabset="tabset-L", panelId="b",
+    _dock_panel_on_tab_dock(dock, fromTabset="tabset-L", panelId="b",
                       targetTabset="tabset-RT", position="right")
     left = find_node(dock.layout, "tabset-L")
     assert isinstance(left, TabSetNode)
@@ -446,7 +451,7 @@ def test_tab_dock_right() -> None:
 
 def test_tab_dock_left() -> None:
     dock = _make_dock()
-    dock._on_tab_dock(fromTabset="tabset-RB", panelId="d",
+    _dock_panel_on_tab_dock(dock, fromTabset="tabset-RB", panelId="d",
                       targetTabset="tabset-L", position="left")
     all_panels = collect_all_panels(dock.layout)
     assert set(all_panels) == {"a", "b", "c", "d", "e"}
@@ -454,7 +459,7 @@ def test_tab_dock_left() -> None:
 
 def test_tab_dock_top() -> None:
     dock = _make_dock()
-    dock._on_tab_dock(fromTabset="tabset-L", panelId="a",
+    _dock_panel_on_tab_dock(dock, fromTabset="tabset-L", panelId="a",
                       targetTabset="tabset-RB", position="top")
     all_panels = collect_all_panels(dock.layout)
     assert set(all_panels) == {"a", "b", "c", "d", "e"}
@@ -462,7 +467,7 @@ def test_tab_dock_top() -> None:
 
 def test_tab_dock_bottom() -> None:
     dock = _make_dock()
-    dock._on_tab_dock(fromTabset="tabset-RT", panelId="c",
+    _dock_panel_on_tab_dock(dock, fromTabset="tabset-RT", panelId="c",
                       targetTabset="tabset-L", position="bottom")
     all_panels = collect_all_panels(dock.layout)
     assert set(all_panels) == {"a", "b", "c", "d", "e"}
@@ -471,7 +476,7 @@ def test_tab_dock_bottom() -> None:
 def test_tab_dock_creates_new_split() -> None:
     """dock 到 right → 目标节点被包裹在新 SplitNode(horizontal) 内。"""
     dock = _make_dock()
-    dock._on_tab_dock(fromTabset="tabset-L", panelId="a",
+    _dock_panel_on_tab_dock(dock, fromTabset="tabset-L", panelId="a",
                       targetTabset="tabset-RT", position="right")
     all_panels = collect_all_panels(dock.layout)
     assert "a" in all_panels
@@ -494,7 +499,7 @@ def test_tab_dock_source_emptied() -> None:
     )
     src_id = dock.layout.children[0].id  # type: ignore[union-attr]
     dst_id = dock.layout.children[1].id  # type: ignore[union-attr]
-    dock._on_tab_dock(fromTabset=src_id or "", panelId="a",
+    _dock_panel_on_tab_dock(dock, fromTabset=src_id or "", panelId="a",
                       targetTabset=dst_id or "", position="right")
     all_panels = collect_all_panels(dock.layout)
     assert set(all_panels) == {"a", "b"}
@@ -506,7 +511,7 @@ def test_tab_dock_source_emptied() -> None:
 
 def test_edge_dock_right() -> None:
     dock = _make_dock()
-    dock._on_edge_dock(fromTabset="tabset-L", panelId="a", edge="right")
+    _dock_panel_on_edge_dock(dock, fromTabset="tabset-L", panelId="a", edge="right")
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.direction == "horizontal"
     all_panels = collect_all_panels(dock.layout)
@@ -515,7 +520,7 @@ def test_edge_dock_right() -> None:
 
 def test_edge_dock_left() -> None:
     dock = _make_dock()
-    dock._on_edge_dock(fromTabset="tabset-RB", panelId="e", edge="left")
+    _dock_panel_on_edge_dock(dock, fromTabset="tabset-RB", panelId="e", edge="left")
     assert isinstance(dock.layout, SplitNode)
     left = dock.layout.children[0]
     assert isinstance(left, TabSetNode)
@@ -524,7 +529,7 @@ def test_edge_dock_left() -> None:
 
 def test_edge_dock_top() -> None:
     dock = _make_dock()
-    dock._on_edge_dock(fromTabset="tabset-L", panelId="b", edge="top")
+    _dock_panel_on_edge_dock(dock, fromTabset="tabset-L", panelId="b", edge="top")
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.direction == "vertical"
     top = dock.layout.children[0]
@@ -534,7 +539,7 @@ def test_edge_dock_top() -> None:
 
 def test_edge_dock_bottom() -> None:
     dock = _make_dock()
-    dock._on_edge_dock(fromTabset="tabset-RT", panelId="c", edge="bottom")
+    _dock_panel_on_edge_dock(dock, fromTabset="tabset-RT", panelId="c", edge="bottom")
     assert isinstance(dock.layout, SplitNode)
     assert dock.layout.direction == "vertical"
     bottom = dock.layout.children[1]
@@ -546,7 +551,7 @@ def test_edge_dock_replaces_root() -> None:
     """edge dock 总是生成新的根 SplitNode。"""
     dock = _make_dock()
     old_root_id = dock.layout.id
-    dock._on_edge_dock(fromTabset="tabset-L", panelId="a", edge="right")
+    _dock_panel_on_edge_dock(dock, fromTabset="tabset-L", panelId="a", edge="right")
     assert dock.layout.id != old_root_id
 
 
@@ -569,7 +574,7 @@ def test_build_split_wire_merge_bars() -> None:
         panels=[PanelDef(id=c, title=c.upper()) for c in "abc"],
         layout=layout,
     )
-    wire = dock._build_split_wire(dock.layout, set())  # type: ignore[arg-type]
+    wire = _dock_panel_build_split_wire(dock, dock.layout, set())  # type: ignore[arg-type]
     assert "mergedTabs" in wire
     merged = wire["mergedTabs"]
     assert len(merged["left"]) == 2
@@ -597,5 +602,5 @@ def test_build_split_wire_no_merge_bars() -> None:
         panels=[PanelDef(id="a", title="A"), PanelDef(id="b", title="B")],
         layout=layout,
     )
-    wire = dock._build_split_wire(dock.layout, set())  # type: ignore[arg-type]
+    wire = _dock_panel_build_split_wire(dock, dock.layout, set())  # type: ignore[arg-type]
     assert "mergedTabs" not in wire

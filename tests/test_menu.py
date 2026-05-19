@@ -59,15 +59,6 @@ def test_menu_trigger_to_wire_with_additional_placements() -> None:
     }
 
 
-def test_menu_trigger_rejects_invalid_placement() -> None:
-    try:
-        MenuTrigger(_Menu, placement="bottom")
-    except ValueError as exc:
-        assert "invalid menu placement" in str(exc)
-    else:
-        raise AssertionError("expected ValueError for invalid placement")
-
-
 def test_menu_trigger_to_wire_skips_direct_kwarg() -> None:
     """direct env kwarg 不序列化到 wire（只在本端 forward 给 menu_factory）。"""
     sentinel = object()

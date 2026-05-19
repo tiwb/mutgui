@@ -30,23 +30,23 @@ class ViewPort(mutobj.Declaration):
         ``_client`` 是浏览器侧握手提供的环境信息（``mount.attach.client``），
         包含初始 hash 等字段。仅根 ViewPort 使用。子 ViewPort 默认 ``None``。
         """
-        raise NotImplementedError
+        ...
 
     async def initialize(self) -> None:
         """首次 render，推送完整树。先推父，再推子。"""
-        raise NotImplementedError
+        ...
 
     async def handle_event(self, event: dict[str, Any]) -> None:
         """处理前端事件 → 转交 View.handle_event()。"""
-        raise NotImplementedError
+        ...
 
     async def send_command(self, name: str, /, **args: Any) -> None:
         """触发前端命令。fire-and-forget，无返回值。"""
-        raise NotImplementedError
+        ...
 
     def detach(self) -> None:
         """从 View 解除绑定，移除观察者注册。"""
-        raise NotImplementedError
+        ...
 
 
 from . import _viewport_impl as _viewport_impl  # noqa: F401, E402

@@ -40,7 +40,6 @@ test = [
 ]
 dev = [
     "mutgui[test]",
-    "mypy>=1.0",
 ]
 
 [project.urls]
@@ -67,17 +66,15 @@ markers = [
     "integration: full-stack integration tests (require browser)",
 ]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-
 [tool.uv.sources]
 mutobj = { path = "../mutobj", editable = true }
+mutio = { path = "../mutio", editable = true }
 
 [tool.pyright]
 pythonVersion = "3.11"
 include = ["src"]
 extraPaths = ["src"]
 typeCheckingMode = "strict"
+
+[tool.mutobj-lint]
+include = ["src"]
