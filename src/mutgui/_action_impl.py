@@ -59,7 +59,7 @@ def action_check_checked(self: Action, context: ActionContext) -> bool:
 
 
 @impl(Action.execute, Stub())
-def action_execute_stub(self: Action, context: ActionContext) -> None:
+def action_execute_stub(self: Action, context: ActionContext) -> Any:
     raise NotImplementedError(
         f"{type(self).__name__}.execute() 未实现"
     )

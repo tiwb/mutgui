@@ -110,8 +110,13 @@ class Action(mutobj.Declaration):
         """Context 感知选中态。返回 True 时高亮。"""
         ...
 
-    def execute(self, context: ActionContext) -> None:
-        """动作主入口。子类必须重写。 """
+    def execute(self, context: ActionContext) -> Any:
+        """动作主入口。子类必须重写。
+
+        支持同步或异步实现。调度器在 ``Callback.handle`` 中
+        通过 ``inspect.isawaitable()`` 自动检测，异步实现无需
+        调用方手动 ``await``。
+        """
         ...
 
     def toolbar_view(self, context: ActionContext) -> View | None:
