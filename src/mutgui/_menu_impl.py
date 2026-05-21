@@ -7,10 +7,10 @@ from mutobj import impl
 from typing import Any, Callable
 
 from ._view_impl import render_ext
-from ._events_impl import event_handler_resolve_call
+from ._events_impl import event_handler_resolve_call, event_handler_payload
 from .events import Event, EventFilter
 from .menu import MenuPlacement, MenuView, MenuTrigger
-from .view import View
+from .view import View, WireNode
 
 
 # ---------------------------------------------------------------------------
@@ -104,9 +104,9 @@ def menu_trigger_init(
 
 
 @impl(MenuTrigger.to_wire)
-def menu_trigger_to_wire(self: MenuTrigger) -> dict[str, Any]:
-    wire = super(MenuTrigger, self).to_wire()["$handler"]
-    wire["$menu"] = True
+def menu_trigger_to_wire(self: MenuTrigger) -> WireNode:
+    payload = event_handler_payload(self)
+    payload["$menu"] = True
     if self.placement != "cursor":
-        wire["$placement"] = self.placement
-    return {"$handler": wire}
+        payload["$placement"] = self.placement
+    return {"$handler": payload}

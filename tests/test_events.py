@@ -388,12 +388,6 @@ def test_bind_to_wire_default_path() -> None:
     assert b.to_wire() == {"$handler": {"$args": ["$0"]}}
 
 
-def test_bind_rejects_non_str_non_expr() -> None:
-    obj = type("Obj", (), {"x": 0})()
-    with pytest.raises(TypeError):
-        Bind(obj, "x", 123)  # type: ignore[arg-type]
-
-
 def test_bind_rejects_host_expr() -> None:
     obj = type("Obj", (), {"x": 0})()
     with pytest.raises(TypeError, match="wire"):

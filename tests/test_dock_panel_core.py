@@ -9,7 +9,7 @@ from mutgui._dock_panel_impl import (
     replace_node, remove_panel_from_subtree, cleanup_tree,
     _dock_panel_on_tab_move, _dock_panel_on_split_resize,
     _dock_panel_on_tab_dock, _dock_panel_on_edge_dock,
-    _dock_panel_build_split_wire,
+    _dock_panel_build_split_component,
 )
 
 
@@ -574,7 +574,7 @@ def test_build_split_wire_merge_bars() -> None:
         panels=[PanelDef(id=c, title=c.upper()) for c in "abc"],
         layout=layout,
     )
-    wire = _dock_panel_build_split_wire(dock, dock.layout, set())  # type: ignore[arg-type]
+    wire = _dock_panel_build_split_component(dock, dock.layout, set())  # type: ignore[arg-type]
     assert "mergedTabs" in wire
     merged = wire["mergedTabs"]
     assert len(merged["left"]) == 2
@@ -602,5 +602,5 @@ def test_build_split_wire_no_merge_bars() -> None:
         panels=[PanelDef(id="a", title="A"), PanelDef(id="b", title="B")],
         layout=layout,
     )
-    wire = _dock_panel_build_split_wire(dock, dock.layout, set())  # type: ignore[arg-type]
+    wire = _dock_panel_build_split_component(dock, dock.layout, set())  # type: ignore[arg-type]
     assert "mergedTabs" not in wire

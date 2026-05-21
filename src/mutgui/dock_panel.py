@@ -7,10 +7,10 @@ Splitter 拖拽、merge_bars 融合 tab 栏。
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from .action import ActionRef
-from .view import View, ViewBlock
+from .view import View, ViewBlock, WireTree
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ LayoutNode = SplitNode | TabSetNode
 
 class DockPanel(View):
     panels: dict[str, PanelDef]
-    panel_views: dict[str, Any]
+    panel_views: dict[str, View]
     layout: LayoutNode
     default_collapse_below: int
 
@@ -76,8 +76,8 @@ class DockPanel(View):
         ...
 
     def render_viewport(
-        self, wire_tree: list[dict[str, Any]], channel_id: int,
-    ) -> list[dict[str, Any]]:
+        self, wire_tree: WireTree, channel_id: int,
+    ) -> WireTree:
         """为指定 viewport 计算响应式坍缩后的 layout。"""
         ...
 

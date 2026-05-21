@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal, Any
 
 from mutobj import impl
 
@@ -17,7 +17,7 @@ from .action import (
 from ._action_registry import resolve_actions, ResolvedAction, Stub
 from .events import Callback
 from .menu import MenuTrigger
-from .view import View, ViewBlock
+from .view import View, ViewBlock, RenderComponent, RenderTree
 
 
 def _menu_arrow(placement: str) -> str:
@@ -97,7 +97,7 @@ def action_category_provider_refs(self: ActionCategoryProvider, context: ActionC
 @impl(ActionMenu.render)
 def action_menu_render(self: ActionMenu) -> ViewBlock:
     context = _menu_base_context(self).with_updates(surface="menu")
-    items: list[dict[str, Any] | View] = []
+    items: RenderTree = []
 
     if self.source_action is not None:
         items.extend(
@@ -127,8 +127,8 @@ def _menu_render_source_action(
     self: ActionMenu,
     action: Action,
     context: ActionContext,
-) -> list[dict[str, Any] | View]:
-    items: list[dict[str, Any] | View] = []
+) -> RenderTree:
+    items: RenderTree = []
     menu_view = action.menu_view(context)
     menu_refs = action.menu_actions(context)
     if menu_view is not None:
@@ -145,8 +145,8 @@ def _menu_render_resolved_items(
     self: ActionMenu,
     items: list[ResolvedAction],
     context: ActionContext,
-) -> list[dict[str, Any] | View]:
-    rendered: list[dict[str, Any] | View] = []
+) -> RenderTree:
+    rendered: RenderTree = []
     prev_group_name: str | None = None
     for index, item in enumerate(items):
         if rendered and item.group_name != prev_group_name:
@@ -162,7 +162,7 @@ def _menu_render_resolved_items(
             prev_group_name = item.group_name
             continue
 
-        node: dict[str, Any] = {
+        node: RenderComponent = {
             "$component": "mutgui.Menu.Item",
             "$id": f"action-{index}",
             "label": item.label,
@@ -279,8 +279,8 @@ def _toolbar_render_action_strip(
     context: ActionContext,
     *,
     start_index: int,
-) -> list[dict[str, Any]]:
-    rendered: list[dict[str, Any]] = []
+) -> list[RenderComponent]:
+    rendered: list[RenderComponent] = []
     prev_group_name: str | None = None
     for offset, item in enumerate(actions, start=start_index):
         if rendered and item.group_name != prev_group_name:
@@ -295,7 +295,7 @@ def _toolbar_render_action(
     item: ResolvedAction,
     context: ActionContext,
     index: int,
-) -> dict[str, Any]:
+) -> RenderComponent:
     if item.variant == "widget" and item.toolbar_view is not None:
         widget = _toolbar_ensure_view_id(
             self,
@@ -394,7 +394,7 @@ def _toolbar_button_schema(
     menu_arrow: str = "▾",
     left_rounded: bool = True,
     right_rounded: bool = True,
-) -> dict[str, Any]:
+) -> RenderComponent:
     children = _toolbar_button_children(
         self,
         item.icon if use_icon else None,
@@ -402,7 +402,7 @@ def _toolbar_button_schema(
         show_menu_arrow=show_menu_arrow,
         menu_arrow=menu_arrow,
     )
-    style: dict[str, Any] = {
+    style: RenderComponent = {
         "display": "inline-flex",
         "alignItems": "center",
         "gap": "6px",
@@ -421,7 +421,7 @@ def _toolbar_button_schema(
         "borderTopRightRadius": "6px" if right_rounded else "0",
         "borderBottomRightRadius": "6px" if right_rounded else "0",
     }
-    node: dict[str, Any] = {
+    node: RenderComponent = {
         "$component": "button",
         "$id": component_id,
         "type": "button",
@@ -445,12 +445,12 @@ def _toolbar_button_children(
     *,
     show_menu_arrow: bool = False,
     menu_arrow: str = "▾",
-) -> list[dict[str, Any]] | str:
+) -> list[RenderComponent] | str:
     mode = _toolbar_effective_label_mode(self)
     if icon is not None and mode == "icon-only":
         if not show_menu_arrow:
             return icon
-        children: list[dict[str, Any]] = [
+        children: list[RenderComponent] = [
             {"$component": "span", "$id": "icon", "children": icon},
         ]
     elif icon and label:
@@ -487,7 +487,7 @@ def _toolbar_effective_label_mode(
     return "always"
 
 
-def _toolbar_group_separator(index: int) -> dict[str, Any]:
+def _toolbar_group_separator(index: int) -> RenderComponent:
     return {
         "$component": "div",
         "$id": f"divider-{index}",

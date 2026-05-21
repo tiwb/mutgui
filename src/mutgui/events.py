@@ -8,12 +8,12 @@ EventHandler / Callback / Bind / MenuTrigger 构成事件处理策略层次，
 
 from __future__ import annotations
 
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, Mapping
 
 import mutobj
 
 if TYPE_CHECKING:
-    from .view import View
+    from .view import View, WireValue, WireNode
     from .expr import Expr
 
 
@@ -30,7 +30,7 @@ class Event:
         self,
         component_id: str,
         name: str,
-        data: dict[str, Any],
+        data: Mapping[str, WireValue],
         *,
         viewport_id: int | None = None,
     ) -> None:
@@ -66,7 +66,7 @@ class EventHandler(mutobj.Declaration):
         """处理事件。返回 True 表示已消费。基类不消费。"""
         ...
 
-    def to_wire(self) -> dict[str, Any]:
+    def to_wire(self) -> WireNode:
         """只把 wire 环境的参数写入 wire payload。"""
         ...
 
@@ -147,7 +147,7 @@ class Bind(EventHandler):
     async def handle(self, view: "View", event: Event) -> bool:
         ...
 
-    def to_wire(self) -> dict[str, Any]:
+    def to_wire(self) -> WireNode:
         ...
 
 

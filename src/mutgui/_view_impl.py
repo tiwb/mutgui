@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Sequence, TYPE_CHECKING, cast
+from typing import Any, Sequence, Mapping, TYPE_CHECKING, cast
 
 import mutobj
 from mutobj import impl
@@ -19,7 +19,7 @@ from ._viewport_context import (
     set_current_viewport,
 )
 from .events import Event, EventFilter, EventHandler
-from .view import View, ViewBlock
+from .view import View, ViewBlock, RenderValue, WireValue, WireTree, WireNode, RenderNode
 
 if TYPE_CHECKING:
     from .viewport import ViewPort
@@ -44,7 +44,7 @@ class ViewRenderState(mutobj.Extension[View]):
     handlers: dict[tuple[str | int, str], EventHandler] = mutobj.field(default_factory=dict)
     children: dict[str | int, View] = mutobj.field(default_factory=dict)
     event_filters: list[EventFilter] = mutobj.field(default_factory=list)
-    wire_tree: list[dict[str, Any]] = mutobj.field(default_factory=list)
+    wire_tree: WireTree = mutobj.field(default_factory=list)
     dirty: bool = True
     render_scheduled: bool = False
     render_event: asyncio.Event | None = None
@@ -125,22 +125,25 @@ def view_install_event_filter(self: View, filter: EventFilter) -> None:
 
 
 @impl(View.handle_event)
-async def view_handle_event(self: View, event: dict[str, Any]) -> None:
-    source = event.get("source", [])
+async def view_handle_event(self: View, event: Mapping[str, WireValue]) -> None:
+    source = cast("Sequence[str | int]", event.get("source", []))
     event_name = event.get("event", "")
-    data = event.get("data", {})
-    viewport_id = event.get("_viewport_id")
-    if isinstance(source, str):
-        source = [source] if source else []
+    if not isinstance(event_name, str):
+        event_name = ""
+    data = cast(dict[str, WireValue], event.get("data", {}))
+    viewport_id_raw = event.get("_viewport_id")
+    viewport_id: int | None = viewport_id_raw if isinstance(viewport_id_raw, int) else None
     await _route_event(self, source, event_name, data, viewport_id=viewport_id)
 
 
 @impl(View.render_viewport)
-def view_render_viewport(
-    self: View, wire_tree: list[dict[str, Any]], channel_id: int,
-) -> list[dict[str, Any]]:
+def view_render_viewport(self: View, wire_tree: WireTree, channel_id: int) -> WireTree:
     return wire_tree
 
+
+@impl(View.render_to_wire)
+def view_render_to_wire(self: View, value: RenderValue) -> WireValue:
+    return _process_value(self, render_ext(self), value)
 
 @impl(View.rendered)
 async def view_rendered(self: View) -> None:
@@ -161,7 +164,7 @@ async def _route_event(
     view: View,
     source: Sequence[str | int],
     event_name: str,
-    data: dict[str, Any],
+    data: Mapping[str, WireValue],
     *,
     viewport_id: int | None = None,
 ) -> None:
@@ -223,12 +226,16 @@ def _render_and_cache(view: View) -> None:
     ext.handlers.clear()
     ext.children = {}
     ext.view_block = block
-    ext.wire_tree = _process_items(view, block.items)
+
+    wire_tree: list[WireNode] = [_process_node(view, ext, node) for node in block.items]
 
     # 注入 overlay children（如活跃菜单）
-    for child_id, child_view in ext.overlay_children.items():
-        ext.children[child_id] = child_view
-        ext.wire_tree.append({"$view": child_id})
+    if ext.overlay_children:
+        for child_id, child_view in ext.overlay_children.items():
+            ext.children[child_id] = child_view
+            wire_tree.append({"$view": child_id})
+
+    ext.wire_tree = wire_tree
 
     # 递归 render dirty 子 View
     for child_view in ext.children.values():
@@ -264,87 +271,86 @@ async def _deferred_render(view: View) -> None:
     ext.dirty = False
 
     # push to all ViewPorts
-    obs = ViewObservers.get(view)
-    if obs is not None:
-        for vp in obs.viewports:
-            await vp._push_render()  # type: ignore[attr-defined]
-
-    # signal rendered
-    if ext.render_event is not None:
-        ext.render_event.set()
+    try:
+        obs = ViewObservers.get(view)
+        if obs is not None:
+            for vp in obs.viewports:
+                await vp._push_render()  # type: ignore[attr-defined]
+    except Exception:
+        _logger.exception("Push render failed for %s", type(view).__name__)
+    finally:
+        # signal rendered — 即使 push 失败也保证 signal，防止 rendered() 永久挂起
+        if ext.render_event is not None:
+            ext.render_event.set()
 
 
 # ---------------------------------------------------------------------------
 # 内部实现 — 组件树序列化
 # ---------------------------------------------------------------------------
 
-def _process_items(view: View, items: list[Any]) -> list[dict[str, Any]]:
-    """处理列表：组件 dict 或 View 实例。"""
-    ext = render_ext(view)
-    result: list[dict[str, Any]] = []
-    for item in items:
-        if isinstance(item, View):
-            ext.children[item.id] = item
-            result.append({"$view": item.id})
-        else:
-            result.append(process_node(view, item))
-    return result
+_MISSING: RenderValue = {}
 
-
-def process_node(view: View, node: dict[str, Any]) -> dict[str, Any]:
-    """处理单个组件节点：检测 EventHandler，处理 $children。"""
-    result: dict[str, Any] = {}
-    node_id: str | int = node.get("$id", "")
-    for key, val in node.items():
-        if key == "$children" and isinstance(val, list):
-            result[key] = _process_items(view, cast(list[Any], val))
-        else:
-            result[key] = _process_value(
-                view, val, node_id=node_id, event_name=key)
-    return result
+def _process_node(view: View, state: ViewRenderState, node: RenderNode) -> WireNode:
+    if isinstance(node, Mapping):
+        if "$component" not in node:
+            raise ValueError(f"Invalid component node: missing $component key")
+    return cast(WireNode, _process_value(view, state, node))
 
 
 def _process_value(
     view: View,
-    value: Any,
+    state: ViewRenderState,
+    value: RenderValue,
     *,
-    node_id: str | int,
-    event_name: str,
-) -> Any:
-    ext = render_ext(view)
-    if isinstance(value, View):
-        ext.children[value.id] = value
+    component_id: str | int = "",
+    event_name: str = "",
+) -> WireValue:
+    if value is None or isinstance(value, (str, bytes, int, float, bool)):
+        return value
+    elif isinstance(value, View):
+        state.children[value.id] = value
         return {"$view": value.id}
-    if isinstance(value, EventHandler):
-        if node_id == "":
+    elif isinstance(value, EventHandler):
+        if component_id == "":
             raise ValueError(
                 f"Component has handler '{event_name}' but missing $id. "
                 f"Every component with an event handler must have a $id."
             )
-        ext.handlers[(node_id, event_name)] = value
+        state.handlers[(component_id, event_name)] = value
         return value.to_wire()
-    if isinstance(value, list):
+    elif isinstance(value, Sequence):
         return [
-            _process_value(
-                view,
-                item,
-                node_id=node_id,
-                event_name=f"{event_name}.{index}",
+            _process_value(view, state, item,
+                component_id=component_id,
+                event_name=f"{event_name}.{index}" if event_name else event_name,
             )
-            for index, item in enumerate(cast(list[Any], value))
+            for index, item in enumerate(value)
         ]
-    if isinstance(value, dict):
-        result: dict[str, Any] = {}
-        for key, inner in cast(dict[str, Any], value).items():
-            child_event = f"{event_name}.{key}" if event_name else key
-            if key == "$children" and isinstance(inner, list):
-                result[key] = _process_items(view, cast(list[Any], inner))
-            else:
-                result[key] = _process_value(
-                    view,
-                    inner,
-                    node_id=node_id,
-                    event_name=child_event,
+    else:
+        assert isinstance(value, Mapping)
+        component = value.get("$component", _MISSING)
+        if component is not _MISSING:
+            if not isinstance(component, str) or component == "":
+                raise ValueError(
+                    f"Invalid component type: {type(component).__name__}. "
+                    f"$component must be a non-empty string.",
                 )
+            tmp_id = value.get("$id", _MISSING)
+            if tmp_id is not _MISSING:
+                if not isinstance(tmp_id, (str, int)):
+                    raise ValueError("$id must be string or int.")
+                component_id = tmp_id
+
+        result: dict[str, WireValue] = {}
+        for key, inner in value.items():
+            if key == "$children":
+                child_event = ""  # scope 边界，事件名重置
+            elif event_name:
+                child_event = f"{event_name}.{key}"
+            else:
+                child_event = key
+            result[key] = _process_value(view, state, inner,
+                component_id=component_id,
+                event_name=child_event,
+            )
         return result
-    return value

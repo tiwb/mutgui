@@ -16,7 +16,7 @@ from ._action_registry import resolve_actions, ResolvedAction
 from .dock_panel import DockPanel, LayoutNode, PanelDef, SplitNode, TabSetNode
 from .events import Callback
 from .expr import Expr
-from .view import ViewBlock
+from .view import ViewBlock, RenderComponent, RenderValue, WireTree, WireNode, WireValue, View, RenderTree
 
 SPLITTER_SIZE = 4
 TAB_BAR_SIZE = 36
@@ -174,7 +174,7 @@ def dock_panel_init(
 
 
 @impl(DockPanel.set_panel_view)
-def dock_panel_set_panel_view(self: DockPanel, panel_id: str, view: Any) -> None:
+def dock_panel_set_panel_view(self: DockPanel, panel_id: str, view: View) -> None:
     view.id = panel_id
     self.panel_views[panel_id] = view
 
@@ -250,19 +250,16 @@ def dock_panel_render(self: DockPanel) -> ViewBlock:
 
 @impl(DockPanel.render_viewport)
 def dock_panel_render_viewport(
-    self: DockPanel, wire_tree: list[dict[str, Any]], channel_id: int,
-) -> list[dict[str, Any]]:
-    from ._view_impl import process_node
-
+    self: DockPanel, wire_tree: WireTree, channel_id: int,
+) -> WireTree:
     size = _dp_ext(self).viewport_sizes.get(channel_id)
     if not size:
         return wire_tree
     collapsed_ids: set[str] = set()
-    render_tree = _dock_panel_compute_layout(
-        self, self.layout, *size, channel_id, collapsed_ids)
-    vp_wire = process_node(self, _dock_panel_build_wire_node(self, render_tree, collapsed_ids))
+    layout = _dock_panel_compute_layout(self, self.layout, *size, channel_id, collapsed_ids)
+    vp_node = self.render_to_wire(_dock_panel_build_component(self, layout, collapsed_ids))
     if wire_tree:
-        return [{**wire_tree[0], "$children": [vp_wire]}, *wire_tree[1:]]
+        return [{**wire_tree[0], "$children": [vp_node]}, *wire_tree[1:]]
     return wire_tree
 
 
@@ -313,32 +310,30 @@ def _dock_panel_cleanup_viewports(self: DockPanel) -> None:
 
 # -- Wire tree construction --
 
-def _dock_panel_build_wire_node(
+def _dock_panel_build_component(
     self: DockPanel, node: LayoutNode, collapsed_ids: set[str],
-) -> dict[str, Any]:
+) -> RenderComponent:
     if isinstance(node, TabSetNode):
-        return _dock_panel_build_tabset_wire(self, node, collapsed_ids)
-    return _dock_panel_build_split_wire(self, node, collapsed_ids)
+        return _dock_panel_build_tabset_component(self, node, collapsed_ids)
+    return _dock_panel_build_split_component(self, node, collapsed_ids)
 
 
-def _dock_panel_build_tabset_wire(
+def _dock_panel_build_tabset_component(
     self: DockPanel, node: TabSetNode, collapsed_ids: set[str],
-) -> dict[str, Any]:
-    tabs: list[dict[str, Any]] = []
+) -> RenderComponent:
+    tabs: list[RenderComponent] = []
     for pid in node.panel_ids:
         p = self.panels.get(pid)
         if p:
-            tab: dict[str, Any] = {"id": p.id, "title": p.title}
+            tab: RenderComponent = {"id": p.id, "title": p.title}
             if p.icon:
                 tab["icon"] = p.icon
             tabs.append(tab)
 
     active_id = node.active_id
-    children: list[dict[str, Any]] = (
-        [{"$view": active_id}]
-        if active_id and active_id in self.panel_views else []
-    )
-    result: dict[str, Any] = {
+    active_view = self.panel_views.get(active_id) if active_id else None
+    children: RenderTree = [active_view] if active_view else []
+    result: RenderComponent = {
         "$component": "mutgui.DockPanel.TabSet",
         "$id": node.id,
         "nodeId": node.id,
@@ -357,28 +352,28 @@ def _dock_panel_build_tabset_wire(
 
 def _dock_panel_build_tabset_actions(
     self: DockPanel, node: TabSetNode,
-) -> list[dict[str, Any]]:
+) -> list[RenderValue]:
     context = _dock_panel_tabset_action_context(self, node)
-    wire_actions: list[dict[str, Any]] = []
+    render_actions: list[RenderValue] = []
     resolved = resolve_actions(context=context, refs=node.actions or [])
     for item in resolved:
-        wire_actions.append(_dock_panel_wire_tabset_action(
+        render_actions.append(_dock_panel_build_action(
             self,
             item,
             context=context,
-            index=len(wire_actions),
+            index=len(render_actions),
         ))
-    return wire_actions
+    return render_actions
 
 
-def _dock_panel_wire_tabset_action(
+def _dock_panel_build_action(
     self: DockPanel,
     item: ResolvedAction,
     *,
     context: ActionContext,
     index: int,
-) -> dict[str, Any]:
-    node: dict[str, Any] = {
+) -> RenderComponent:
+    node: RenderComponent = {
         "id": item.ref_id,
         "icon": item.icon,
         "label": item.label,
@@ -424,20 +419,20 @@ def _dock_panel_tabset_action_context(
     )
 
 
-def _dock_panel_build_split_wire(
+def _dock_panel_build_split_component(
     self: DockPanel, node: SplitNode, collapsed_ids: set[str],
-) -> dict[str, Any]:
-    c0_wire = _dock_panel_build_wire_node(self, node.children[0], collapsed_ids)
-    c1_wire = _dock_panel_build_wire_node(self, node.children[1], collapsed_ids)
+) -> RenderComponent:
+    c0_component = _dock_panel_build_component(self, node.children[0], collapsed_ids)
+    c1_component = _dock_panel_build_component(self, node.children[1], collapsed_ids)
 
-    result: dict[str, Any] = {
+    result: RenderComponent = {
         "$component": "mutgui.DockPanel.Split",
         "$id": node.id,
         "nodeId": node.id,
         "direction": node.direction,
         "ratio": node.ratio,
         "mergeBars": node.merge_bars,
-        "$children": [c0_wire, c1_wire],
+        "$children": [c0_component, c1_component],
     }
 
     if (node.merge_bars
@@ -445,8 +440,8 @@ def _dock_panel_build_split_wire(
             and isinstance(node.children[1], TabSetNode)):
         left = node.children[0]
         right = node.children[1]
-        c0_wire["hideBar"] = True
-        c1_wire["hideBar"] = True
+        c0_component["hideBar"] = True
+        c1_component["hideBar"] = True
         result["mergedTabs"] = {
             "left": _dock_panel_tabs_for_node(self, left),
             "right": _dock_panel_tabs_for_node(self, right),
@@ -461,12 +456,12 @@ def _dock_panel_build_split_wire(
 
 def _dock_panel_tabs_for_node(
     self: DockPanel, node: TabSetNode,
-) -> list[dict[str, Any]]:
-    tabs: list[dict[str, Any]] = []
+) -> list[WireNode]:
+    tabs: list[WireNode] = []
     for pid in node.panel_ids:
         p = self.panels.get(pid)
         if p:
-            tab: dict[str, Any] = {"id": p.id, "title": p.title}
+            tab: dict[str, WireValue] = {"id": p.id, "title": p.title}
             if p.icon:
                 tab["icon"] = p.icon
             tabs.append(tab)
@@ -477,8 +472,8 @@ def _dock_panel_tabs_for_node(
 
 def _dock_panel_compute_layout(
     self: DockPanel, node: LayoutNode, width: int, height: int,
-    channel_id: int = 0,
-    collapsed_ids: set[str] | None = None,
+    channel_id: int,
+    collapsed_ids: set[str],
 ) -> LayoutNode:
     if isinstance(node, TabSetNode):
         return node
@@ -498,8 +493,7 @@ def _dock_panel_compute_layout(
         active = vp_active.get(node.id or "")
         if not active or active not in all_panels:
             active = find_active_in_subtree(node)
-        if collapsed_ids is not None:
-            collapsed_ids.add(node.id or "")
+        collapsed_ids.add(node.id or "")
         return TabSetNode(
             panel_ids=all_panels,
             id=node.id,

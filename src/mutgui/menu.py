@@ -12,7 +12,7 @@ from typing import Any, Callable, Literal, TYPE_CHECKING
 import mutobj
 
 from .events import EventHandler
-from .view import View
+from .view import View, WireNode
 
 if TYPE_CHECKING:
     from .events import Event
@@ -87,7 +87,7 @@ class MenuTrigger(EventHandler):
         """创建 MenuView 并挂载到宿主 View。"""
         ...
 
-    def to_wire(self) -> dict[str, Any]:
+    def to_wire(self) -> WireNode:
         ...
 
 

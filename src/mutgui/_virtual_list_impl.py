@@ -6,16 +6,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence, Mapping
 
 import mutobj
 from mutobj import impl
 
 from .virtual_list import VirtualList, VirtualListItemAdapter
-from .view import ViewBlock
+from .view import ViewBlock, WireTree, WireNode
 from .events import Callback
 from .expr import Expr
-from ._viewport_impl import filter_children_in_tree
 
 
 # ---------------------------------------------------------------------------
@@ -145,17 +144,27 @@ def _virtual_list_on_scroll(self: VirtualList, *, scrollTop: float) -> None:
 
 @impl(VirtualList.render_viewport)
 def virtual_list_render_viewport(
-    self: VirtualList, wire_tree: list[dict[str, Any]], channel_id: int,
-) -> list[dict[str, Any]]:
+    self: VirtualList, wire_tree: WireTree, channel_id: int,
+) -> WireTree:
     """为指定 viewport 裁剪 $children，只保留该 VP 可见的 item。"""
     ext = _vl_ext(self)
     allowed = ext.viewport_item_ids.get(channel_id, set())
-    filtered = filter_children_in_tree(wire_tree, allowed)
-    if filtered:
-        start, _ = ext.rendered_viewport_ranges.get(channel_id, (0, 0))
-        filtered[0]["viewportStart"] = start
-        filtered[0]["itemIds"] = ext.rendered_viewport_ids.get(channel_id, [])
-    return filtered
+    result: list[WireNode] = []
+    for idx, node in enumerate(wire_tree):
+        raw_children = node.get("$children", None)
+        if isinstance(raw_children, Sequence):
+            filtered: list[Any] = [
+                c for c in raw_children
+                if not isinstance(c, Mapping) or c.get("$view") in allowed
+            ]
+            node = {**node, "$children": filtered}
+        if idx == 0:
+            nodedict = node if isinstance(node, dict) else {**node}
+            start, _ = ext.rendered_viewport_ranges.get(channel_id, (0, 0))
+            nodedict["viewportStart"] = start
+            nodedict["itemIds"] = ext.rendered_viewport_ids.get(channel_id, [])
+        result.append(node)
+    return result
 
 
 # ---------------------------------------------------------------------------

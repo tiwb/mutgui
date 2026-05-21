@@ -14,7 +14,7 @@ from mutobj import impl
 from ._viewport_context import set_current_viewport, reset_current_viewport
 from ._view_impl import ViewObservers, ViewRenderState
 from .channel import Channel
-from .view import View
+from .view import View, WireNode, WireTree
 from .viewport import ViewPort
 
 
@@ -163,52 +163,34 @@ def _cleanup_overlays_for_channel(view: View, channel_id: int | None) -> None:
 # Push render — 由 _view_impl._deferred_render 调用
 # ---------------------------------------------------------------------------
 
-def filter_children_in_tree(
-    tree: list[dict[str, Any]], allowed: set[str],
-) -> list[dict[str, Any]]:
-    """浅拷贝 tree，只保留 $children 中 ID 在 allowed 集合内的 $view 节点。"""
-    result: list[dict[str, Any]] = []
-    for node in tree:
-        if "$children" in node:
-            raw_children: list[Any] = node["$children"]
-            filtered: list[Any] = [
-                c for c in raw_children
-                if not isinstance(c, dict) or c.get("$view") in allowed  # pyright: ignore[reportUnknownMemberType]
-            ]
-            node = {**node, "$children": filtered}
-        result.append(node)
-    return result
-
-
-def _extract_view_refs(tree: list[dict[str, Any]]) -> set[str]:
+def _extract_view_refs(tree: WireTree) -> set[str]:
     """从 wire tree 中递归提取所有 $view 引用 ID。"""
     refs: set[str] = set()
     for node in tree:
         view_id = node.get("$view")
-        if view_id is not None:
+        if isinstance(view_id, str):
             refs.add(view_id)
         children = node.get("$children")
-        if isinstance(children, list):
-            child_list = cast(list[dict[str, Any]], children)
-            refs.update(_extract_view_refs(child_list))
+        if isinstance(children, (list, tuple)):
+            refs.update(_extract_view_refs(cast(WireTree, children)))
     return refs
 
 
 def _filter_overlays_by_channel(
-    wire_tree: list[dict[str, Any]],
+    wire_tree: WireTree,
     children: dict[str | int, View],
     channel_id: int,
-) -> list[dict[str, Any]]:
+) -> WireTree:
     """过滤 wire_tree 顶层 `$view` 节点：若指向 View 的 `origin_channel_id`
     不为 None 且不等于当前 channel_id，则剔除。
 
     overlay 子 View（如 MenuView）由 `_render_and_cache` 注入为顶层 `{"$view": id}`
     节点，顶层过滤即可覆盖全部场景。
     """
-    result: list[dict[str, Any]] = []
+    result: list[WireNode] = []
     for node in wire_tree:
         view_id = node.get("$view")
-        if view_id is not None and view_id in children:
+        if isinstance(view_id, (str, int)) and view_id in children:
             child_view = children[view_id]
             origin = getattr(child_view, "origin_channel_id", None)
             if origin is not None and origin != channel_id:

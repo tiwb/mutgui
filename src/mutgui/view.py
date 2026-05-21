@@ -1,21 +1,56 @@
-"""View — 后端驱动 UI 的核心抽象。"""
+"""View — 后端驱动 UI 的核心抽象。
+
+定义了 View 声明、ViewBlock 返回类型、以及 Render* 类型体系
+（View.render() 产出的组件树类型，含尚未序列化的 View/EventHandler）。
+"""
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from collections.abc import Mapping, Sequence
+from typing import Any, TYPE_CHECKING, TypeAlias, Union
 
 import mutobj
 
+
 if TYPE_CHECKING:
-    from .events import Event, EventFilter
+    from .events import Event, EventFilter, EventHandler
     from .viewport import ViewPort
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Wire 域：纯 JSON 兼容子集，线上实际传输
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 设计要点：value 联合用协变的 Sequence/Mapping，具体容器用 list/dict。
+# 这样既能在 "流转" 侧让 list[dict[str, WireValue]] ⊆ WireValue（绕过 list 不变性），
+# 又能在 "构建" 侧保留可写的 list[WireValue]/dict[str, WireValue] 具体类型。
+
+WireValue: TypeAlias = None | bool | int | float | str | Sequence["WireValue"] | Mapping[str, "WireValue"]
+WireNode: TypeAlias = Mapping[str, "WireValue"]
+WireTree: TypeAlias = Sequence[WireNode]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Render 域：View render 后的结果
+# ═══════════════════════════════════════════════════════════════════════════
+
+RenderValue: TypeAlias = None | bool | int | float | str | "View" | "EventHandler" | Sequence["RenderValue"] | Mapping[str, "RenderValue"]
+"""Render 域顶层联合 — View.render() 的值的完整类型。"""
+
+RenderComponent: TypeAlias = dict[str, RenderValue]
+"""组件节点 — 含 $component 键，框架递归处理为前端组件。 """
+
+RenderNode: TypeAlias = Union[RenderComponent, "View"]
+""" 渲染节点 - 含 $component 或 $view 键, 框架递归处理为前端组件。"""
+
+RenderTree: TypeAlias = list[RenderNode]
+""" 渲染树 — View.render() 的返回类型 """
 
 
 class ViewBlock:
     """View.render() 的返回类型 — 一个 View 的完整 UI 块。"""
     __slots__ = ("items",)
 
-    def __init__(self, items: list[dict[str, Any] | View]):
+    def __init__(self, items: RenderTree):
         super().__init__()
         self.items = items
 
@@ -83,17 +118,21 @@ class View(mutobj.Declaration):
         """注册 event filter。filter 在 on_event 之前看到事件。"""
         ...
 
-    async def handle_event(self, event: dict[str, Any]) -> None:
+    async def handle_event(self, event: Mapping[str, WireValue]) -> None:
         """处理前端事件 — 解析 WebSocket 消息，路由到目标 View。"""
         ...
 
-    def render_viewport(self, wire_tree: list[dict[str, Any]], channel_id: int) -> list[dict[str, Any]]:
+    def render_viewport(self, wire_tree: WireTree, channel_id: int) -> WireTree:
         """为指定 viewport 特化 wire tree。
 
         render() 产出模板树（一次），render_viewport() 在每次 push 时
         为每个 viewport 调用，返回该 viewport 应收到的 wire tree。
         默认原样返回。子类覆写可实现 per-viewport 差异化。
         """
+        ...
+
+    def render_to_wire(self, value: RenderValue) -> WireValue:
+        """ 将渲染结果转换为可传输的wire值。 """
         ...
 
     async def rendered(self) -> None:

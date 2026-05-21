@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, Mapping
 
 from mutobj import impl
 
@@ -20,7 +20,7 @@ from ._expr_impl import (
 )
 
 if TYPE_CHECKING:
-    from .view import View
+    from .view import View, WireValue, WireNode
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def _build_dispatch_context(view: View, event: Event) -> dict[str, Any]:
 
 def _eval_kwargs(
     extract: dict[str, Expr],
-    event_data: dict[str, Any],
+    event_data: Mapping[str, Any],
     context: dict[str, Any],
 ) -> dict[str, Any]:
     """按 env 分派求值 keyword 参数。"""
@@ -84,6 +84,8 @@ def event_handler_resolve_call(
     """
     context = _build_dispatch_context(view, event)
     wire_args_payload = event.data.get("$args", [])
+    if not isinstance(wire_args_payload, list):
+        wire_args_payload = []
     positional: list[Any] = []
     wire_idx = 0
     for expr in self.args:
@@ -101,16 +103,20 @@ def event_handler_resolve_call(
     return positional, keyword
 
 
-@impl(EventHandler.to_wire)
-def event_handler_to_wire(self: EventHandler) -> dict[str, Any]:
-    """只把 wire 环境的参数写入 wire payload。"""
-    wire: dict[str, Any] = {
-        k: e.source for k, e in self.extract.items() if e.env == "wire"
+def event_handler_payload(handler: EventHandler) -> dict[str, WireValue]:
+    wire: dict[str, WireValue] = {
+        k: e.source for k, e in handler.extract.items() if e.env == "wire"
     }
-    wire_positional = [e.source for e in self.args if e.env == "wire"]
+    wire_positional = [e.source for e in handler.args if e.env == "wire"]
     if wire_positional:
         wire["$args"] = wire_positional
-    return {"$handler": wire}
+    return wire
+
+
+@impl(EventHandler.to_wire)
+def event_handler_to_wire(self: EventHandler) -> WireNode:
+    """只把 wire 环境的参数写入 wire payload。"""
+    return {"$handler": event_handler_payload(self)}
 
 
 # ---------------------------------------------------------------------------
@@ -167,11 +173,13 @@ def bind_init(
 @impl(Bind.handle)
 async def bind_handle(self: Bind, view: View, event: Event) -> bool:
     args = event.data.get("$args", [])
+    if not isinstance(args, list):
+        args = []
     setattr(self.obj, self.attr, args[0] if args else None)
     view.invalidate()
     return True
 
 
 @impl(Bind.to_wire)
-def bind_to_wire(self: Bind) -> dict[str, Any]:
+def bind_to_wire(self: Bind) -> WireNode:
     return {"$handler": {"$args": [self.path_expr.source]}}

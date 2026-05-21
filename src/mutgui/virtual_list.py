@@ -9,11 +9,9 @@ View 不碰数据，只管 count + ID + item View 生命周期。
 
 from __future__ import annotations
 
-from typing import Any
-
 import mutobj
 
-from .view import View, ViewBlock
+from .view import View, ViewBlock, WireTree
 
 
 class VirtualListItemAdapter(mutobj.Declaration):
@@ -80,9 +78,7 @@ class VirtualList(View):
         """返回 VirtualList 容器 + 当前 viewport 并集内的 item View。"""
         ...
 
-    def render_viewport(
-        self, wire_tree: list[dict[str, Any]], channel_id: int,
-    ) -> list[dict[str, Any]]:
+    def render_viewport(self, wire_tree: WireTree, channel_id: int) -> WireTree:
         """为指定 viewport 裁剪 $children，只保留该 VP 可见的 item。"""
         ...
 
