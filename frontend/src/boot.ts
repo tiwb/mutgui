@@ -130,7 +130,6 @@ class RuntimeSession {
   ) {}
 
   start(): void {
-    this.el.innerHTML = '<div style="color:var(--mutgui-text-dim);font-size:12px">Connecting...</div>';
     const ws = new WebSocket(this.wsUrl);
     ws.addEventListener('open', () => {
       ws.send(JSON.stringify({
@@ -139,11 +138,6 @@ class RuntimeSession {
         protocol: 1,
         client: { hash: window.location.hash },
       }));
-    });
-    ws.addEventListener('close', () => {
-      if (!this.mounted) {
-        this.el.innerHTML = '<div style="color:var(--mutgui-text-dim);font-size:12px">Disconnected</div>';
-      }
     });
     ws.addEventListener('message', (event) => {
       const message = JSON.parse(event.data) as RuntimeMessage;
