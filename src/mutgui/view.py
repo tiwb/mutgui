@@ -25,8 +25,8 @@ if TYPE_CHECKING:
 # 又能在 "构建" 侧保留可写的 list[WireValue]/dict[str, WireValue] 具体类型。
 
 WireValue: TypeAlias = None | bool | int | float | str | Sequence["WireValue"] | Mapping[str, "WireValue"]
-WireNode: TypeAlias = Mapping[str, "WireValue"]
-WireTree: TypeAlias = Sequence[WireNode]
+WireNode: TypeAlias = dict[str, "WireValue"]
+WireTree: TypeAlias = list[WireNode]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -34,16 +34,9 @@ WireTree: TypeAlias = Sequence[WireNode]
 # ═══════════════════════════════════════════════════════════════════════════
 
 RenderValue: TypeAlias = None | bool | int | float | str | "View" | "EventHandler" | Sequence["RenderValue"] | Mapping[str, "RenderValue"]
-"""Render 域顶层联合 — View.render() 的值的完整类型。"""
-
 RenderComponent: TypeAlias = dict[str, RenderValue]
-"""组件节点 — 含 $component 键，框架递归处理为前端组件。 """
-
 RenderNode: TypeAlias = Union[RenderComponent, "View"]
-""" 渲染节点 - 含 $component 或 $view 键, 框架递归处理为前端组件。"""
-
 RenderTree: TypeAlias = list[RenderNode]
-""" 渲染树 — View.render() 的返回类型 """
 
 
 class ViewBlock:

@@ -100,22 +100,19 @@ def event_handler_resolve_call(
     keyword = _eval_kwargs(self.kwargs, event.kwargs, context)
     return positional, keyword
 
-def event_handler_to_wire_impl(handler: EventHandler, handler_id: int) -> dict[str, WireValue]:
-    wire: dict[str, WireValue] = {"$handler": handler_id}
+
+@impl(EventHandler.to_wire)
+def event_handler_to_wire(self: EventHandler, handler_id: int) -> WireNode:
+    wire: WireNode = {"$handler": handler_id}
     wire_keyword: dict[str, WireValue] = {
-        k: e.source for k, e in handler.kwargs.items() if e.env == "wire"
+        k: e.source for k, e in self.kwargs.items() if e.env == "wire"
     }
-    wire_positional = [e.source for e in handler.args if e.env == "wire"]
+    wire_positional = [e.source for e in self.args if e.env == "wire"]
     if wire_positional:
         wire["args"] = wire_positional
     if wire_keyword:
         wire["kwargs"] = wire_keyword
     return wire
-
-
-@impl(EventHandler.to_wire)
-def event_handler_to_wire(self: EventHandler, handler_id: int) -> WireNode:
-    return event_handler_to_wire_impl(self, handler_id)
 
 
 # ---------------------------------------------------------------------------

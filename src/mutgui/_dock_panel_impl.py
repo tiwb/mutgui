@@ -16,7 +16,7 @@ from ._action_registry import resolve_actions, ResolvedAction
 from .dock_panel import DockPanel, LayoutNode, PanelDef, SplitNode, TabSetNode
 from .events import Callback
 from .expr import Expr
-from .view import ViewBlock, RenderComponent, RenderValue, WireTree, WireNode, WireValue, View, RenderTree
+from .view import ViewBlock, RenderComponent, RenderValue, WireTree, WireValue, View, RenderTree
 
 SPLITTER_SIZE = 4
 TAB_BAR_SIZE = 36
@@ -456,8 +456,8 @@ def _dock_panel_build_split_component(
 
 def _dock_panel_tabs_for_node(
     self: DockPanel, node: TabSetNode,
-) -> list[WireNode]:
-    tabs: list[WireNode] = []
+) -> WireTree:
+    tabs: WireTree = []
     for pid in node.panel_ids:
         p = self.panels.get(pid)
         if p:

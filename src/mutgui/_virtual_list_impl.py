@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence, Mapping
+from typing import Any, Mapping, Sequence
 
 import mutobj
 from mutobj import impl
 
 from .virtual_list import VirtualList, VirtualListItemAdapter
-from .view import ViewBlock, WireTree, WireNode
+from .view import View, ViewBlock, WireTree, WireNode
 from .events import Callback
 from .expr import Expr
 
@@ -23,7 +23,7 @@ from .expr import Expr
 
 class VirtualListRuntime(mutobj.Extension[VirtualList]):
     """VirtualList 的运行时私有状态 — viewport 渲染内部簿记。"""
-    item_views: dict[str, Any] = mutobj.field(default_factory=dict)
+    item_views: dict[str, View] = mutobj.field(default_factory=dict)
     viewport_ranges: dict[int, tuple[int, int]] = mutobj.field(default_factory=dict)
     viewport_item_ids: dict[int, set[str]] = mutobj.field(default_factory=dict)
     rendered_viewport_ranges: dict[int, tuple[int, int]] = mutobj.field(default_factory=dict)
@@ -149,7 +149,7 @@ def virtual_list_render_viewport(
     """为指定 viewport 裁剪 $children，只保留该 VP 可见的 item。"""
     ext = _vl_ext(self)
     allowed = ext.viewport_item_ids.get(channel_id, set())
-    result: list[WireNode] = []
+    result: WireTree = []
     for idx, node in enumerate(wire_tree):
         raw_children = node.get("$children", None)
         if isinstance(raw_children, Sequence):
@@ -159,10 +159,10 @@ def virtual_list_render_viewport(
             ]
             node = {**node, "$children": filtered}
         if idx == 0:
-            nodedict = node if isinstance(node, dict) else {**node}
+            node: WireNode = {**node}
             start, _ = ext.rendered_viewport_ranges.get(channel_id, (0, 0))
-            nodedict["viewportStart"] = start
-            nodedict["itemIds"] = ext.rendered_viewport_ids.get(channel_id, [])
+            node["viewportStart"] = start
+            node["itemIds"] = ext.rendered_viewport_ids.get(channel_id, [])
         result.append(node)
     return result
 

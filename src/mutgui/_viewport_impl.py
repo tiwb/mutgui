@@ -14,7 +14,7 @@ from mutobj import impl
 from ._viewport_context import set_current_viewport, reset_current_viewport
 from ._view_impl import ViewObservers, ViewRenderState, handle_raw_event
 from .channel import Channel
-from .view import View, WireNode, WireTree
+from .view import View, WireTree
 from .viewport import ViewPort
 
 
@@ -187,7 +187,7 @@ def _filter_overlays_by_channel(
     overlay 子 View（如 MenuView）由 `_render_and_cache` 注入为顶层 `{"$view": id}`
     节点，顶层过滤即可覆盖全部场景。
     """
-    result: list[WireNode] = []
+    result: WireTree = []
     for node in wire_tree:
         view_id = node.get("$view")
         if isinstance(view_id, (str, int)) and view_id in children:

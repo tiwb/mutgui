@@ -243,7 +243,7 @@ def _render_and_cache(view: View) -> None:
     ext.children = {}
     ext.view_block = block
 
-    wire_tree: list[WireNode] = [_process_node(view, ext, node) for node in block.items]
+    wire_tree: WireTree = [_process_node(view, ext, node) for node in block.items]
 
     # 注入 overlay children（如活跃菜单）
     if ext.overlay_children:
@@ -354,9 +354,4 @@ def _process_value(
                     raise ValueError("$id must be string or int.")
                 component_id = tmp_id
 
-        result: dict[str, WireValue] = {}
-        for key, inner in value.items():
-            result[key] = _process_value(view, state, inner,
-                component_id=component_id,
-            )
-        return result
+        return {k: _process_value(view, state, inner, component_id=component_id) for k, inner in value.items()}
