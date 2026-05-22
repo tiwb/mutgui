@@ -186,14 +186,11 @@ export function createMenuTriggerHandler(
   eventName: string,
   conn: MutguiConnection,
 ) {
-  const inner = spec.$handler as Record<string, unknown>;
-  const placement = (inner.$placement as Placement) ?? 'cursor';
+  const handlerId = spec.$handler as number;
+  const placement = (spec.placement as Placement) ?? 'cursor';
 
-  const argPaths = (inner.$args || []) as string[];
-  const kwargPaths: Record<string, string> = {};
-  for (const [k, v] of Object.entries(inner)) {
-    if (!k.startsWith('$')) kwargPaths[k] = v as string;
-  }
+  const argPaths = (spec.args || []) as string[];
+  const kwargPaths = (spec.kwargs || {}) as Record<string, string>;
   const source = [...scope, componentId];
 
   return (...args: unknown[]) => {
@@ -250,15 +247,17 @@ export function createMenuTriggerHandler(
       if (closeFn) closeFn();
     });
 
-    const data: Record<string, unknown> = { $menu: true };
+    const extractedArgs = argPaths.map((p) => resolvePath(args, p));
+    const extractedKwargs: Record<string, unknown> = {};
     for (const [k, path] of Object.entries(kwargPaths)) {
-      data[k] = resolvePath(args, path);
+      extractedKwargs[k] = resolvePath(args, path);
     }
-    if (argPaths.length > 0) {
-      data.$args = argPaths.map((p) => resolvePath(args, p));
+    const data: Record<string, unknown> = { ...extractedKwargs };
+    if (extractedArgs.length > 0) {
+      data.$args = extractedArgs;
     }
 
-    conn.send(JSON.stringify({ source, event: eventName, data }));
+    conn.send(JSON.stringify({ source, event: eventName, handlerId, data }));
   };
 }
 

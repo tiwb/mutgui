@@ -118,10 +118,6 @@ class View(mutobj.Declaration):
         """注册 event filter。filter 在 on_event 之前看到事件。"""
         ...
 
-    async def handle_event(self, event: Mapping[str, WireValue]) -> None:
-        """处理前端事件 — 解析 WebSocket 消息，路由到目标 View。"""
-        ...
-
     def render_viewport(self, wire_tree: WireTree, channel_id: int) -> WireTree:
         """为指定 viewport 特化 wire tree。
 

@@ -38,17 +38,17 @@ def _build_dispatch_context(view: View, event: Event) -> dict[str, Any]:
 
 
 def _eval_kwargs(
-    extract: dict[str, Expr],
-    event_data: Mapping[str, Any],
+    kwargs: dict[str, Expr],
+    event_kwargs: Mapping[str, WireValue],
     context: dict[str, Any],
 ) -> dict[str, Any]:
     """按 env 分派求值 keyword 参数。"""
     result: dict[str, Any] = {}
-    for k, expr in extract.items():
+    for k, expr in kwargs.items():
         if expr.env == "direct":
             result[k] = expr.source
         elif expr.env == "wire":
-            result[k] = event_data.get(k)
+            result[k] = event_kwargs.get(k)
         else:  # host
             result[k] = eval_host_expr(expr.source, context)
     return result
@@ -60,11 +60,11 @@ def _eval_kwargs(
 
 
 @impl(EventHandler.__init__)
-def event_handler_init(self: EventHandler, *args: Any, **extract: Any) -> None:
+def event_handler_init(self: EventHandler, *args: Any, **kwargs: Any) -> None:
     super(EventHandler, self).__init__()
     self.args = tuple(coerce_expr(a) for a in args)
-    self.extract = {
-        k: coerce_expr(v) for k, v in extract.items()
+    self.kwargs = {
+        k: coerce_expr(v) for k, v in kwargs.items()
     }
 
 
@@ -83,9 +83,7 @@ def event_handler_resolve_call(
     将生成的 positional / keyword 参数 forward 给各自的可调用对象。
     """
     context = _build_dispatch_context(view, event)
-    wire_args_payload = event.data.get("$args", [])
-    if not isinstance(wire_args_payload, list):
-        wire_args_payload = []
+    wire_args_payload = event.args
     positional: list[Any] = []
     wire_idx = 0
     for expr in self.args:
@@ -99,24 +97,25 @@ def event_handler_resolve_call(
             wire_idx += 1
         else:  # host
             positional.append(eval_host_expr(expr.source, context))
-    keyword = _eval_kwargs(self.extract, event.data, context)
+    keyword = _eval_kwargs(self.kwargs, event.kwargs, context)
     return positional, keyword
 
-
-def event_handler_payload(handler: EventHandler) -> dict[str, WireValue]:
-    wire: dict[str, WireValue] = {
-        k: e.source for k, e in handler.extract.items() if e.env == "wire"
+def event_handler_to_wire_impl(handler: EventHandler, handler_id: int) -> dict[str, WireValue]:
+    wire: dict[str, WireValue] = {"$handler": handler_id}
+    wire_keyword: dict[str, WireValue] = {
+        k: e.source for k, e in handler.kwargs.items() if e.env == "wire"
     }
     wire_positional = [e.source for e in handler.args if e.env == "wire"]
     if wire_positional:
-        wire["$args"] = wire_positional
+        wire["args"] = wire_positional
+    if wire_keyword:
+        wire["kwargs"] = wire_keyword
     return wire
 
 
 @impl(EventHandler.to_wire)
-def event_handler_to_wire(self: EventHandler) -> WireNode:
-    """只把 wire 环境的参数写入 wire payload。"""
-    return {"$handler": event_handler_payload(self)}
+def event_handler_to_wire(self: EventHandler, handler_id: int) -> WireNode:
+    return event_handler_to_wire_impl(self, handler_id)
 
 
 # ---------------------------------------------------------------------------
@@ -130,9 +129,9 @@ def callback_init(
     callback: Callable[..., Any],  # pyright: ignore[reportMissingParameterType]
     /,
     *args: Any,
-    **extract: Any,
+    **kwargs: Any,
 ) -> None:
-    super(Callback, self).__init__(*args, **extract)
+    super(Callback, self).__init__(*args, **kwargs)
     self.callback = callback
 
 
@@ -172,14 +171,11 @@ def bind_init(
 
 @impl(Bind.handle)
 async def bind_handle(self: Bind, view: View, event: Event) -> bool:
-    args = event.data.get("$args", [])
-    if not isinstance(args, list):
-        args = []
-    setattr(self.obj, self.attr, args[0] if args else None)
+    setattr(self.obj, self.attr, event.args[0] if event.args else None)
     view.invalidate()
     return True
 
 
 @impl(Bind.to_wire)
-def bind_to_wire(self: Bind) -> WireNode:
-    return {"$handler": {"$args": [self.path_expr.source]}}
+def bind_to_wire(self: Bind, handler_id: int) -> WireNode:
+    return {"$handler": handler_id, "args": [self.path_expr.source]}

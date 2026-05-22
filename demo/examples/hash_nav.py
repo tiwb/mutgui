@@ -70,7 +70,7 @@ class HashNavView(View):
 
     async def on_event(self, event: Event) -> bool:
         if event.component_id == "" and event.name == "$hashchange":
-            data = event.data
+            data = event.kwargs
             entry = {
                 "cause": data.get("cause", "?"),
                 "previousHash": data.get("previousHash"),

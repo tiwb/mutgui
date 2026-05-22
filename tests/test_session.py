@@ -106,10 +106,10 @@ def test_callback_registered_and_dispatched() -> None:
         # wire 格式应该有 $handler
         node = channel.last_tree[0]
         assert "$handler" in node["onClick"]
-        assert node["onClick"] == {"$handler": {}}
+        assert node["onClick"] == {"$handler": 0}
 
         # dispatch event
-        await vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}})
+        await vp.handle_event({"source": ["btn"], "event": "onClick", "handlerId": 0, "data": {}})
         await view.rendered()
         assert view.clicked is True
 
@@ -147,7 +147,7 @@ def test_bind_wire_format() -> None:
         node = channel.last_tree[0]
         on_change = node["onChange"]
         assert "$handler" in on_change
-        assert on_change["$handler"]["$args"] == ["$0.target.value"]
+        assert on_change["args"] == ["$0.target.value"]
         assert "obj" not in on_change
         assert "attr" not in on_change
 
@@ -165,6 +165,7 @@ def test_bind_setattr() -> None:
 
         await vp.handle_event({
             "source": ["name"], "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": ["Alice"]},
         })
         await view.rendered()
@@ -187,6 +188,7 @@ def test_bind_number() -> None:
 
         await vp.handle_event({
             "source": ["age"], "event": "onChange",
+            "handlerId": 1,
             "data": {"$args": [25]},
         })
         await view.rendered()
@@ -233,7 +235,7 @@ def test_event_handler_falls_through_to_on_event() -> None:
         assert view.last_event is not None
         assert view.last_event.component_id == "x"
         assert view.last_event.name == "onChange"
-        assert view.last_event.data == {"value": "test"}
+        assert view.last_event.kwargs == {"value": "test"}
 
     asyncio.run(_test())
 
@@ -269,6 +271,7 @@ def test_conditional_rendering() -> None:
 
         await vp.handle_event({
             "source": ["toggle"], "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": [True]},
         })
         await view.rendered()
@@ -334,7 +337,7 @@ def test_nested_children() -> None:
         assert inner["$component"] == "Input"
         assert inner["value"] == "nested"
         assert "$handler" in inner["onChange"]
-        assert inner["onChange"]["$handler"]["$args"] == ["$0"]
+        assert inner["onChange"]["args"] == ["$0"]
 
     asyncio.run(_test())
 
@@ -369,7 +372,7 @@ def test_callback_does_not_auto_invalidate() -> None:
 
         initial_count = len(channel.messages)
 
-        await vp.handle_event({"source": ["btn"], "event": "onClick", "data": {}})
+        await vp.handle_event({"source": ["btn"], "event": "onClick", "handlerId": 0, "data": {}})
         # Callback 不自动 invalidate，不应产生新 render
         await asyncio.sleep(0.05)
         assert len(channel.messages) == initial_count
@@ -395,6 +398,7 @@ def test_bind_auto_invalidates() -> None:
 
         await vp.handle_event({
             "source": ["name"], "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": ["Bob"]},
         })
         await view.rendered()

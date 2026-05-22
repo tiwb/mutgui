@@ -187,14 +187,10 @@ function MutguiComponent({ schema }: { schema: ComponentSchema }) {
               typeof spec === 'object' &&
               '$handler' in (spec as Record<string, unknown>)
             ) {
-              const inner = (
-                (spec as Record<string, unknown>).$handler || {}
-              ) as Record<string, unknown>;
-              const argPaths = (inner.$args || []) as string[];
-              const kwargPaths: Record<string, string> = {};
-              for (const [k, v] of Object.entries(inner)) {
-                if (k !== '$args') kwargPaths[k] = v as string;
-              }
+              const handlerSpec = spec as Record<string, unknown>;
+              const handlerId = handlerSpec.$handler as number;
+              const argPaths = (handlerSpec.args || []) as string[];
+              const kwargPaths = (handlerSpec.kwargs || {}) as Record<string, string>;
               const data: Record<string, unknown> = {};
               for (const k of Object.keys(kwargPaths)) {
                 data[k] = finalVal;
@@ -206,6 +202,7 @@ function MutguiComponent({ schema }: { schema: ComponentSchema }) {
                 JSON.stringify({
                   source: [...scope, componentId],
                   event: 'onChange',
+                  handlerId,
                   data,
                 }),
               );
@@ -297,17 +294,13 @@ function createHandler(
   eventName: string,
   conn: MutguiConnection,
 ) {
-  const inner = (spec.$handler || {}) as Record<string, unknown>;
+  const handlerId = spec.$handler as number;
+  const argPaths = (spec.args || []) as string[];
+  const kwargPaths = (spec.kwargs || {}) as Record<string, string>;
 
-  // $menu 标记 → 走菜单触发逻辑
-  if (inner.$menu) {
+  // menu 标记 → 走菜单触发逻辑
+  if (spec.menu) {
     return createMenuTriggerHandler(spec, scope, componentId, eventName, conn);
-  }
-
-  const argPaths = (inner.$args || []) as string[];
-  const kwargPaths: Record<string, string> = {};
-  for (const [k, v] of Object.entries(inner)) {
-    if (k !== '$args') kwargPaths[k] = v as string;
   }
   const source = [...scope, componentId];
   return (...args: unknown[]) => {
@@ -320,6 +313,6 @@ function createHandler(
     if (extractedArgs.length > 0) {
       data.$args = extractedArgs;
     }
-    conn.send(JSON.stringify({ source, event: eventName, data }));
+    conn.send(JSON.stringify({ source, event: eventName, handlerId, data }));
   };
 }

@@ -12,7 +12,7 @@ import mutobj
 from mutobj import impl
 
 from ._viewport_context import set_current_viewport, reset_current_viewport
-from ._view_impl import ViewObservers, ViewRenderState
+from ._view_impl import ViewObservers, ViewRenderState, handle_raw_event
 from .channel import Channel
 from .view import View, WireNode, WireTree
 from .viewport import ViewPort
@@ -73,7 +73,7 @@ async def view_port_initialize(self: ViewPort) -> None:
             initial_hash = ""
         token = set_current_viewport(self)
         try:
-            await view.handle_event({
+            await handle_raw_event(view, {
                 "source": [],
                 "event": "$hashchange",
                 "data": {
@@ -102,7 +102,7 @@ async def view_port_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     event["_viewport_id"] = ext.channel.channel_id
     token = set_current_viewport(self)
     try:
-        await ext.view.handle_event(event)
+        await handle_raw_event(ext.view, event)
     finally:
         reset_current_viewport(token)
 

@@ -63,12 +63,12 @@ class HashTrackerView(View):
 
     async def on_event(self, event: Event) -> bool:
         if event.name == "$hashchange":
-            self.hash_events.append({**event.data})
+            self.hash_events.append({**event.kwargs})
             self.invalidate()
             return True
         # 非系统事件：走默认 handler 分派逻辑
         ext = render_ext(self)
-        handler = ext.handlers.get((event.component_id, event.name))
+        handler = ext.handlers.get(event.handler_id)
         if handler is not None:
             return await handler.handle(self, event)
         return False

@@ -80,7 +80,7 @@ def test_root_event_passes_through_filter() -> None:
         assert len(f.events_received) == 1
         assert f.events_received[0].component_id == ""
         assert f.events_received[0].name == "$hashchange"
-        assert f.events_received[0].data == {"hash": "#foo"}
+        assert f.events_received[0].kwargs == {"hash": "#foo"}
 
         # on_event 也被调用
         assert len(view.events_received) == 1

@@ -55,8 +55,8 @@ class MenuView(View):
 class MenuTrigger(EventHandler):
     """菜单触发器 — 声明"此事件弹出菜单"。
 
-    复用 $handler + resolvePath 机制，通过 $menu key 标识身份。
-    前端看到 $menu → 走菜单逻辑（记住坐标、发 context、等 push、渲染）。
+    复用 $handler + resolvePath 机制，通过 menu key 标识身份。
+    前端看到 menu → 走菜单逻辑（记住坐标、发 context、等 push、渲染）。
     """
     menu_factory: "Callable[..., MenuView]"
     placement: MenuPlacement
@@ -87,7 +87,7 @@ class MenuTrigger(EventHandler):
         """创建 MenuView 并挂载到宿主 View。"""
         ...
 
-    def to_wire(self) -> WireNode:
+    def to_wire(self, handler_id: int) -> WireNode:
         ...
 
 

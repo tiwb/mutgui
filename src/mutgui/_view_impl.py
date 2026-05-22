@@ -41,7 +41,7 @@ class ViewObservers(mutobj.Extension[View]):
 class ViewRenderState(mutobj.Extension[View]):
     """View 的渲染状态 — handlers、children、wire_tree 缓存、dirty 标记。"""
 
-    handlers: dict[tuple[str | int, str], EventHandler] = mutobj.field(default_factory=dict)
+    handlers: dict[int, EventHandler] = mutobj.field(default_factory=dict)
     children: dict[str | int, View] = mutobj.field(default_factory=dict)
     event_filters: list[EventFilter] = mutobj.field(default_factory=list)
     wire_tree: WireTree = mutobj.field(default_factory=list)
@@ -69,7 +69,7 @@ def view_render(self: View) -> ViewBlock:
 @impl(View.on_event)
 async def view_on_event(self: View, event: Event) -> bool:
     ext = render_ext(self)
-    handler = ext.handlers.get((event.component_id, event.name))
+    handler = ext.handlers.get(event.handler_id)
     if handler is not None:
         return await handler.handle(self, event)
     return False
@@ -124,16 +124,23 @@ def view_install_event_filter(self: View, filter: EventFilter) -> None:
     ext.event_filters.append(filter)
 
 
-@impl(View.handle_event)
-async def view_handle_event(self: View, event: Mapping[str, WireValue]) -> None:
-    source = cast("Sequence[str | int]", event.get("source", []))
-    event_name = event.get("event", "")
+async def handle_raw_event(view: View, raw_msg: Mapping[str, WireValue]) -> None:
+    """解析 wire 消息，路由到目标 View 的 on_event。
+
+    这是框架内部管道函数，取代了原本公开的 View.handle_event 声明方法。
+    用户不应调用此函数——事件处理通过 View.on_event(event) 进入领域层。
+    """
+    source = cast("Sequence[str | int]", raw_msg.get("source", []))
+    event_name = raw_msg.get("event", "")
     if not isinstance(event_name, str):
         event_name = ""
-    data = cast(dict[str, WireValue], event.get("data", {}))
-    viewport_id_raw = event.get("_viewport_id")
-    viewport_id: int | None = viewport_id_raw if isinstance(viewport_id_raw, int) else None
-    await _route_event(self, source, event_name, data, viewport_id=viewport_id)
+    data = cast(dict[str, WireValue], raw_msg.get("data", {}))
+    handler_id_raw = raw_msg.get("handlerId")
+    handler_id = handler_id_raw if isinstance(handler_id_raw, int) else -1
+    viewport_id_raw = raw_msg.get("_viewport_id")
+    viewport_id = viewport_id_raw if isinstance(viewport_id_raw, int) else None
+    await _route_event(view, source, event_name, data,
+                       handler_id=handler_id, viewport_id=viewport_id)
 
 
 @impl(View.render_viewport)
@@ -166,9 +173,10 @@ async def _route_event(
     event_name: str,
     data: Mapping[str, WireValue],
     *,
+    handler_id: int = -1,
     viewport_id: int | None = None,
 ) -> None:
-    """按 source 数组逐层路由事件。"""
+    """按 source 数组逐层路由事件，在叶子节点拆解 wire data → Event。"""
     ext = render_ext(view)
     if len(source) > 1:
         child_id = source[0]
@@ -185,17 +193,21 @@ async def _route_event(
 
             if child_vp is current_vp or child_vp is None:
                 await _route_event(child_view, source[1:], event_name, data,
-                                   viewport_id=viewport_id)
+                                   handler_id=handler_id, viewport_id=viewport_id)
             else:
                 token = set_current_viewport(child_vp)  # pyright: ignore[reportArgumentType]
                 try:
                     await _route_event(child_view, source[1:], event_name, data,
-                                       viewport_id=viewport_id)
+                                       handler_id=handler_id, viewport_id=viewport_id)
                 finally:
                     reset_current_viewport(token)
     elif len(source) == 1:
         component_id = str(source[0])
-        event = Event(component_id, event_name, data, viewport_id=viewport_id)
+        args_raw = data.get("$args", ())
+        args = list(args_raw) if isinstance(args_raw, list) else []
+        kwargs = {k: v for k, v in data.items() if k != "$args"}
+        event = Event(component_id, event_name, args, kwargs,
+                      handler_id=handler_id, viewport_id=viewport_id)
 
         # Filter 链
         for f in ext.event_filters:
@@ -204,7 +216,11 @@ async def _route_event(
 
         await view.on_event(event)
     else:
-        event = Event("", event_name, data, viewport_id=viewport_id)
+        args_raw = data.get("$args", ())
+        args = list(args_raw) if isinstance(args_raw, list) else []
+        kwargs = {k: v for k, v in data.items() if k != "$args"}
+        event = Event("", event_name, args, kwargs,
+                      handler_id=handler_id, viewport_id=viewport_id)
 
         # Filter 链
         for f in ext.event_filters:
@@ -303,7 +319,6 @@ def _process_value(
     value: RenderValue,
     *,
     component_id: str | int = "",
-    event_name: str = "",
 ) -> WireValue:
     if value is None or isinstance(value, (str, bytes, int, float, bool)):
         return value
@@ -313,18 +328,16 @@ def _process_value(
     elif isinstance(value, EventHandler):
         if component_id == "":
             raise ValueError(
-                f"Component has handler '{event_name}' but missing $id. "
-                f"Every component with an event handler must have a $id."
+                "Component has event handler but missing $id. "
+                "Every component with an event handler must have a $id."
             )
-        state.handlers[(component_id, event_name)] = value
-        return value.to_wire()
+        handler_id = len(state.handlers)
+        state.handlers[handler_id] = value
+        return value.to_wire(handler_id)
     elif isinstance(value, Sequence):
         return [
-            _process_value(view, state, item,
-                component_id=component_id,
-                event_name=f"{event_name}.{index}" if event_name else event_name,
-            )
-            for index, item in enumerate(value)
+            _process_value(view, state, item, component_id=component_id)
+            for item in value
         ]
     else:
         assert isinstance(value, Mapping)
@@ -343,14 +356,7 @@ def _process_value(
 
         result: dict[str, WireValue] = {}
         for key, inner in value.items():
-            if key == "$children":
-                child_event = ""  # scope 边界，事件名重置
-            elif event_name:
-                child_event = f"{event_name}.{key}"
-            else:
-                child_event = key
             result[key] = _process_value(view, state, inner,
                 component_id=component_id,
-                event_name=child_event,
             )
         return result

@@ -103,6 +103,7 @@ def test_view_can_send_command_in_current_viewport_context() -> None:
         await vp.handle_event({
             "source": ["child", "child-send"],
             "event": "onClick",
+            "handlerId": 0,
             "data": {},
         })
 
@@ -128,6 +129,7 @@ def test_command_messages_keep_order_and_do_not_break_render_flow() -> None:
         await vp.handle_event({
             "source": ["send"],
             "event": "onClick",
+            "handlerId": 0,
             "data": {},
         })
         await view.rendered()

@@ -30,32 +30,40 @@ class _Menu(MenuView):
 
 def test_menu_trigger_to_wire_minimal() -> None:
     mt = MenuTrigger(_Menu)
-    assert mt.to_wire() == {"$handler": {"$menu": True}}
+    assert mt.to_wire(0) == {"$handler": 0, "menu": True}
 
 
 def test_menu_trigger_to_wire_with_context() -> None:
     mt = MenuTrigger(_Menu, item_id=Expr.wire("$0.target.dataset.id"))
-    assert mt.to_wire() == {
-        "$handler": {"$menu": True, "item_id": "$0.target.dataset.id"},
+    assert mt.to_wire(0) == {
+        "$handler": 0,
+        "kwargs": {"item_id": "$0.target.dataset.id"},
+        "menu": True,
     }
 
 
 def test_menu_trigger_to_wire_with_placement() -> None:
     mt = MenuTrigger(_Menu, placement="bottom-start")
-    assert mt.to_wire() == {
-        "$handler": {"$menu": True, "$placement": "bottom-start"},
+    assert mt.to_wire(0) == {
+        "$handler": 0,
+        "menu": True,
+        "placement": "bottom-start",
     }
 
 
 def test_menu_trigger_to_wire_with_additional_placements() -> None:
     mt = MenuTrigger(_Menu, placement="right-start")
-    assert mt.to_wire() == {
-        "$handler": {"$menu": True, "$placement": "right-start"},
+    assert mt.to_wire(0) == {
+        "$handler": 0,
+        "menu": True,
+        "placement": "right-start",
     }
 
     mt = MenuTrigger(_Menu, placement="top-end")
-    assert mt.to_wire() == {
-        "$handler": {"$menu": True, "$placement": "top-end"},
+    assert mt.to_wire(0) == {
+        "$handler": 0,
+        "menu": True,
+        "placement": "top-end",
     }
 
 
@@ -63,9 +71,9 @@ def test_menu_trigger_to_wire_skips_direct_kwarg() -> None:
     """direct env kwarg 不序列化到 wire（只在本端 forward 给 menu_factory）。"""
     sentinel = object()
     mt = MenuTrigger(_Menu, item_id=Expr.wire("$0.target.id"), session=sentinel)
-    wire = mt.to_wire()
-    assert wire["$handler"]["item_id"] == "$0.target.id"
-    assert "session" not in wire["$handler"]
+    wire = mt.to_wire(0)
+    assert wire["kwargs"]["item_id"] == "$0.target.id"
+    assert "session" not in wire.get("kwargs", {})
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +134,8 @@ def test_trigger_creates_and_pushes_menu() -> None:
         await vp.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-42"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-42"},
         })
         await page.rendered()
 
@@ -165,7 +174,8 @@ def test_menu_item_click_routes_to_menu_view() -> None:
         await vp.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-1"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-1"},
         })
         await page.rendered()
 
@@ -176,6 +186,7 @@ def test_menu_item_click_routes_to_menu_view() -> None:
         await vp.handle_event({
             "source": [menu.id, "del"],
             "event": "onClick",
+            "handlerId": 0,
             "data": {},
         })
         await page.rendered()
@@ -197,7 +208,8 @@ def test_close_event_removes_menu() -> None:
         await vp.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-1"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-1"},
         })
         await page.rendered()
 
@@ -208,6 +220,7 @@ def test_close_event_removes_menu() -> None:
         await vp.handle_event({
             "source": [menu_id, ""],
             "event": "$close",
+            "handlerId": 0,
             "data": {},
         })
         await page.rendered()
@@ -239,7 +252,8 @@ def test_second_trigger_closes_first_menu() -> None:
         await vp.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-A"},
         })
         await page.rendered()
         state = ViewRenderState.get(page)
@@ -248,7 +262,8 @@ def test_second_trigger_closes_first_menu() -> None:
         await vp.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-B"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-B"},
         })
         await page.rendered()
 
@@ -294,7 +309,8 @@ def test_direct_kwarg_passes_through_to_factory() -> None:
         await vp.handle_event({
             "source": ["x"],
             "event": "onContextMenu",
-            "data": {"$menu": True},
+            "handlerId": 0,
+            "data": {},
         })
         await page.rendered()
 
@@ -338,7 +354,8 @@ def test_menu_only_renders_on_origin_viewport() -> None:
         await vp_a.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-A"},
         })
         await page.rendered()
 
@@ -382,7 +399,8 @@ def test_two_viewports_open_independent_menus() -> None:
         await vp_a.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-A"},
         })
         await page.rendered()
         state = ViewRenderState.get(page)
@@ -395,7 +413,8 @@ def test_two_viewports_open_independent_menus() -> None:
         await vp_b.handle_event({
             "source": ["pane"],
             "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-B"},
+            "handlerId": 0,
+            "data": {"item_id": "tab-B"},
         })
         await page.rendered()
 
@@ -433,11 +452,13 @@ def test_a_retrigger_does_not_close_b_menu() -> None:
         # A 、B 各自触发
         await vp_a.handle_event({
             "source": ["pane"], "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A"}})
+            "handlerId": 0,
+            "data": {"item_id": "tab-A"}})
         await page.rendered()
         await vp_b.handle_event({
             "source": ["pane"], "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-B"}})
+            "handlerId": 0,
+            "data": {"item_id": "tab-B"}})
         await page.rendered()
 
         state = ViewRenderState.get(page)
@@ -448,7 +469,8 @@ def test_a_retrigger_does_not_close_b_menu() -> None:
         # A 再次触发
         await vp_a.handle_event({
             "source": ["pane"], "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A2"}})
+            "handlerId": 0,
+            "data": {"item_id": "tab-A2"}})
         await page.rendered()
 
         # B 的菜单还在
@@ -473,11 +495,13 @@ def test_detach_cleans_up_origin_menus() -> None:
 
         await vp_a.handle_event({
             "source": ["pane"], "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-A"}})
+            "handlerId": 0,
+            "data": {"item_id": "tab-A"}})
         await page.rendered()
         await vp_b.handle_event({
             "source": ["pane"], "event": "onContextMenu",
-            "data": {"$menu": True, "item_id": "tab-B"}})
+            "handlerId": 0,
+            "data": {"item_id": "tab-B"}})
         await page.rendered()
 
         state = ViewRenderState.get(page)

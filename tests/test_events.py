@@ -24,10 +24,10 @@ from mutgui._expr_impl import (
 # ---------------------------------------------------------------------------
 
 def test_event_fields() -> None:
-    e = Event("btn", "onClick", {"x": 1})
+    e = Event("btn", "onClick", kwargs={"x": 1})
     assert e.component_id == "btn"
     assert e.name == "onClick"
-    assert e.data == {"x": 1}
+    assert e.kwargs == {"x": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +142,7 @@ def test_parse_host_expr_rejects_syntax_error() -> None:
 # ---------------------------------------------------------------------------
 
 def test_eval_host_expr_attribute() -> None:
-    e = Event("btn", "onClick", {}, viewport_id=7)
+    e = Event("btn", "onClick", viewport_id=7)
     assert eval_host_expr("event.viewport_id", {"event": e}) == 7
 
 
@@ -170,24 +170,24 @@ def test_eval_host_expr_unknown_name() -> None:
 
 def test_event_handler_to_wire_with_wire_expr() -> None:
     h = EventHandler(value=Expr.wire("$0.target.value"))
-    assert h.to_wire() == {"$handler": {"value": "$0.target.value"}}
+    assert h.to_wire(0) == {"$handler": 0, "kwargs": {"value": "$0.target.value"}}
 
 
 def test_event_handler_to_wire_empty() -> None:
     h = EventHandler()
-    assert h.to_wire() == {"$handler": {}}
+    assert h.to_wire(0) == {"$handler": 0}
 
 
 def test_event_handler_direct_kwarg_not_in_wire() -> None:
     """direct env 的参数不写入 wire payload。"""
     h = EventHandler(view="some_obj", count=42)
-    assert h.to_wire() == {"$handler": {}}
+    assert h.to_wire(0) == {"$handler": 0}
 
 
 def test_event_handler_does_not_consume() -> None:
     async def _test() -> None:
         h = EventHandler(value=Expr.wire("$0.target.value"))
-        e = Event("x", "onChange", {"value": "test"})
+        e = Event("x", "onChange", kwargs={"value": "test"})
         result = await h.handle(None, e)  # type: ignore[arg-type]
         assert result is False
 
@@ -200,12 +200,12 @@ def test_event_handler_does_not_consume() -> None:
 
 def test_callback_to_wire_no_args() -> None:
     cb = Callback(lambda: None)
-    assert cb.to_wire() == {"$handler": {}}
+    assert cb.to_wire(0) == {"$handler": 0}
 
 
 def test_callback_to_wire_positional_wire() -> None:
     cb = Callback(lambda x: None, Expr.wire("$0.target.value"))
-    assert cb.to_wire() == {"$handler": {"$args": ["$0.target.value"]}}
+    assert cb.to_wire(0) == {"$handler": 0, "args": ["$0.target.value"]}
 
 
 def test_callback_to_wire_keyword_wire() -> None:
@@ -214,7 +214,7 @@ def test_callback_to_wire_keyword_wire() -> None:
         start=Expr.wire("$0.start"),
         end=Expr.wire("$0.end"),
     )
-    inner = cb.to_wire()["$handler"]
+    inner = cb.to_wire(0)["kwargs"]
     assert inner["start"] == "$0.start"
     assert inner["end"] == "$0.end"
 
@@ -230,9 +230,9 @@ def test_callback_to_wire_mixed_envs() -> None:
         viewport_id=Expr.host("event.viewport_id"),  # host kwarg
         value=Expr.wire("$0.target.value"),  # wire kwarg
     )
-    wire = cb.to_wire()["$handler"]
-    assert wire["$args"] == ["$0.x", "$0.y"]
-    assert wire["value"] == "$0.target.value"
+    wire = cb.to_wire(0)
+    assert wire["args"] == ["$0.x", "$0.y"]
+    assert wire["kwargs"]["value"] == "$0.target.value"
     assert "view" not in wire
     assert "viewport_id" not in wire
 
@@ -249,7 +249,7 @@ def test_callback_handle_positional_wire() -> None:
 
     async def _test() -> None:
         cb = Callback(fn, Expr.wire("$0.target.value"))
-        e = Event("x", "onChange", {"$args": ["hello"]})
+        e = Event("x", "onChange", args=["hello"])
         result = await cb.handle(None, e)  # type: ignore[arg-type]
         assert result is True
         assert received == ["hello"]
@@ -269,7 +269,7 @@ def test_callback_handle_keyword_wire() -> None:
             start=Expr.wire("$0.start"),
             end=Expr.wire("$0.end"),
         )
-        e = Event("x", "onViewport", {"start": 0, "end": 10})
+        e = Event("x", "onViewport", kwargs={"start": 0, "end": 10})
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert received == {"start": 0, "end": 10}
 
@@ -286,7 +286,7 @@ def test_callback_handle_direct_kwarg() -> None:
 
     async def _test() -> None:
         cb = Callback(fn, view=sentinel, count=42)
-        e = Event("x", "onClick", {})
+        e = Event("x", "onClick")
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert received["view"] is sentinel
         assert received["count"] == 42
@@ -303,7 +303,7 @@ def test_callback_handle_host_kwarg() -> None:
 
     async def _test() -> None:
         cb = Callback(fn, viewport_id=Expr.host("event.viewport_id"))
-        e = Event("x", "onClick", {}, viewport_id=99)
+        e = Event("x", "onClick", viewport_id=99)
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert received == {"viewport_id": 99}
 
@@ -324,7 +324,7 @@ def test_callback_handle_mixed_positional() -> None:
             "const",
             Expr.wire("$0.y"),
         )
-        e = Event("x", "onMove", {"$args": [10, 20]})
+        e = Event("x", "onMove", args=[10, 20])
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert received == [10, "const", 20]
 
@@ -339,7 +339,7 @@ def test_callback_handle_no_args() -> None:
 
     async def _test() -> None:
         cb = Callback(fn)
-        e = Event("btn", "onClick", {})
+        e = Event("btn", "onClick")
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert called[0] is True
 
@@ -354,7 +354,7 @@ def test_callback_handle_async() -> None:
 
     async def _test() -> None:
         cb = Callback(fn)
-        e = Event("btn", "onClick", {})
+        e = Event("btn", "onClick")
         await cb.handle(None, e)  # type: ignore[arg-type]
         assert called[0] is True
 
@@ -373,19 +373,19 @@ def test_callback_construct_does_not_validate_types() -> None:
 def test_bind_to_wire_str_shorthand() -> None:
     obj = type("Obj", (), {"name": ""})()
     b = Bind(obj, "name", "$0.target.value")
-    assert b.to_wire() == {"$handler": {"$args": ["$0.target.value"]}}
+    assert b.to_wire(0) == {"$handler": 0, "args": ["$0.target.value"]}
 
 
 def test_bind_to_wire_explicit_expr() -> None:
     obj = type("Obj", (), {"name": ""})()
     b = Bind(obj, "name", Expr.wire("$0.target.value"))
-    assert b.to_wire() == {"$handler": {"$args": ["$0.target.value"]}}
+    assert b.to_wire(0) == {"$handler": 0, "args": ["$0.target.value"]}
 
 
 def test_bind_to_wire_default_path() -> None:
     obj = type("Obj", (), {"x": 0})()
     b = Bind(obj, "x")
-    assert b.to_wire() == {"$handler": {"$args": ["$0"]}}
+    assert b.to_wire(0) == {"$handler": 0, "args": ["$0"]}
 
 
 def test_bind_rejects_host_expr() -> None:
@@ -409,7 +409,7 @@ def test_bind_handle_setattr() -> None:
 
     async def _test() -> None:
         b = Bind(obj, "name", "$0.target.value")
-        e = Event("x", "onChange", {"$args": ["Alice"]})
+        e = Event("x", "onChange", args=["Alice"])
         result = await b.handle(FakeView(), e)  # type: ignore[arg-type]
         assert result is True
         assert obj.name == "Alice"
@@ -424,7 +424,7 @@ def test_bind_handle_setattr() -> None:
 def test_event_filter_default_does_not_consume() -> None:
     async def _test() -> None:
         f = EventFilter()
-        e = Event("x", "onClick", {})
+        e = Event("x", "onClick")
         result = await f.on_event_filter(None, e)  # type: ignore[arg-type]
         assert result is False
 

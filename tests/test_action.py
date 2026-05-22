@@ -327,7 +327,7 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
     actions = tabset["actions"]
 
     assert actions[0]["variant"] == "split"
-    assert actions[0]["onMenuClick"]["$handler"]["$menu"] is True
+    assert actions[0]["onMenuClick"]["menu"] is True
     assert actions[1]["variant"] == "widget"
     assert actions[1]["$children"][0]["$component"] == "span"
 

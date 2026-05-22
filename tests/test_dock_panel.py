@@ -273,6 +273,7 @@ async def test_end_to_end_two_viewports() -> None:
     await vp1.handle_event({
         "source": ["dock", "dock"],
         "event": "onResize",
+        "handlerId": 0,
         "data": {"width": 800, "height": 600},
     })
     await root.rendered()
@@ -289,6 +290,7 @@ async def test_end_to_end_two_viewports() -> None:
     await vp2.handle_event({
         "source": ["dock", "dock"],
         "event": "onResize",
+        "handlerId": 0,
         "data": {"width": 400, "height": 600},
     })
     await root.rendered()

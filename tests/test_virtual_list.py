@@ -205,6 +205,7 @@ def test_virtual_list_end_to_end_render() -> None:
         await vp.handle_event({
             "source": ["vl", "list"],
             "event": "onViewport",
+            "handlerId": 0,
             "data": {"start": 0, "end": 5},
         })
         await root.rendered()
@@ -346,6 +347,7 @@ def test_per_vp_push_filtering_e2e() -> None:
         await vp1.handle_event({
             "source": ["vl", "list"],
             "event": "onViewport",
+            "handlerId": 0,
             "data": {"start": 0, "end": 3},
         })
         await vl.rendered()
@@ -356,6 +358,7 @@ def test_per_vp_push_filtering_e2e() -> None:
         await vp2.handle_event({
             "source": ["vl", "list"],
             "event": "onViewport",
+            "handlerId": 0,
             "data": {"start": 10, "end": 13},
         })
         await vl.rendered()
@@ -409,12 +412,14 @@ def test_vp_disconnect_cleanup() -> None:
         await vp1.handle_event({
             "source": ["vl", "list"],
             "event": "onViewport",
+            "handlerId": 0,
             "data": {"start": 0, "end": 5},
         })
         await vl.rendered()
         await vp2.handle_event({
             "source": ["vl", "list"],
             "event": "onViewport",
+            "handlerId": 0,
             "data": {"start": 50, "end": 55},
         })
         await vl.rendered()

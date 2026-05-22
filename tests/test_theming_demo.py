@@ -42,6 +42,7 @@ def test_theming_buttons_switch_backend_state_and_request_reload() -> None:
         await vp.handle_event({
             "source": ["use-dark"],
             "event": "onClick",
+            "handlerId": 1,
             "data": {},
         })
 
@@ -57,6 +58,7 @@ def test_theming_buttons_switch_backend_state_and_request_reload() -> None:
         await vp.handle_event({
             "source": ["use-none"],
             "event": "onClick",
+            "handlerId": 0,
             "data": {},
         })
 

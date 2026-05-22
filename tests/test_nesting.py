@@ -100,6 +100,7 @@ def test_event_routes_to_child_view() -> None:
         await vp.handle_event({
             "source": ["child", "val"],
             "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": [42]},
         })
         await view.child.rendered()
@@ -143,6 +144,7 @@ def test_event_to_parent_component() -> None:
         await vp.handle_event({
             "source": ["btn"],
             "event": "onClick",
+            "handlerId": 0,
             "data": {},
         })
         await view.rendered()
@@ -208,6 +210,7 @@ def test_deeply_nested_event_routing() -> None:
         await vp.handle_event({
             "source": ["middle", "inner", "txt"],
             "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": ["hello"]},
         })
         await view.middle.inner.rendered()
@@ -382,6 +385,7 @@ def test_multi_client_invalidate_notifies_all() -> None:
         # 通过 vp_a 修改状态 → 自动 push 给所有 ViewPort
         await vp_a.handle_event({
             "source": ["val"], "event": "onChange",
+            "handlerId": 0,
             "data": {"$args": [99]},
         })
         await view.rendered()

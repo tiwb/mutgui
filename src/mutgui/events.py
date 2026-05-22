@@ -8,7 +8,8 @@ EventHandler / Callback / Bind / MenuTrigger 构成事件处理策略层次，
 
 from __future__ import annotations
 
-from typing import Any, Callable, TYPE_CHECKING, Mapping
+from dataclasses import dataclass, field, KW_ONLY
+from typing import Any, Callable, TYPE_CHECKING, Mapping, Sequence
 
 import mutobj
 
@@ -21,24 +22,17 @@ if TYPE_CHECKING:
 # Event
 # ---------------------------------------------------------------------------
 
+@dataclass(slots=True)
 class Event:
     """运行时事件 — 纯数据，不含处理逻辑。"""
 
-    __slots__ = ("component_id", "name", "data", "viewport_id")
-
-    def __init__(
-        self,
-        component_id: str,
-        name: str,
-        data: Mapping[str, WireValue],
-        *,
-        viewport_id: int | None = None,
-    ) -> None:
-        super().__init__()
-        self.component_id = component_id
-        self.name = name
-        self.data = data
-        self.viewport_id = viewport_id
+    component_id: str
+    name: str
+    args: Sequence["WireValue"] = field(default_factory=list["WireValue"])
+    kwargs: Mapping[str, "WireValue"] = field(default_factory=dict[str, "WireValue"])
+    _: KW_ONLY
+    handler_id: int = -1
+    viewport_id: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -57,16 +51,16 @@ class EventHandler(mutobj.Declaration):
         - ``Expr.host(...)`` → host 环境，本端 walk
     """
     args: "tuple[Expr, ...]"
-    extract: "dict[str, Expr]"
+    kwargs: "dict[str, Expr]"
 
-    def __init__(self, *args: Any, **extract: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         ...
 
     async def handle(self, view: "View", event: Event) -> bool:
         """处理事件。返回 True 表示已消费。基类不消费。"""
         ...
 
-    def to_wire(self) -> WireNode:
+    def to_wire(self, handler_id: int) -> WireNode:
         """只把 wire 环境的参数写入 wire payload。"""
         ...
 
@@ -84,7 +78,7 @@ class Callback(EventHandler):
         callback: Callable[..., Any],
         /,
         *args: Any,
-        **extract: Any,
+        **kwargs: Any,
     ) -> None:
         """声明一个事件回调。
 
@@ -147,7 +141,7 @@ class Bind(EventHandler):
     async def handle(self, view: "View", event: Event) -> bool:
         ...
 
-    def to_wire(self) -> WireNode:
+    def to_wire(self, handler_id: int) -> WireNode:
         ...
 
 
