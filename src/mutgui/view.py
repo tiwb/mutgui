@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TYPE_CHECKING, TypeAlias, Union
 
 import mutobj
@@ -16,10 +16,6 @@ if TYPE_CHECKING:
     from .events import Event, EventFilter, EventHandler
     from .viewport import ViewPort
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Wire 域：纯 JSON 兼容子集，线上实际传输
-# ═══════════════════════════════════════════════════════════════════════════
-#
 # 设计要点：value 联合用协变的 Sequence/Mapping，具体容器用 list/dict。
 # 这样既能在 "流转" 侧让 list[dict[str, WireValue]] ⊆ WireValue（绕过 list 不变性），
 # 又能在 "构建" 侧保留可写的 list[WireValue]/dict[str, WireValue] 具体类型。
@@ -28,15 +24,37 @@ WireValue: TypeAlias = None | bool | int | float | str | Sequence["WireValue"] |
 WireNode: TypeAlias = dict[str, "WireValue"]
 WireTree: TypeAlias = list[WireNode]
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Render 域：View render 后的结果
-# ═══════════════════════════════════════════════════════════════════════════
-
-RenderValue: TypeAlias = None | bool | int | float | str | "View" | "EventHandler" | Sequence["RenderValue"] | Mapping[str, "RenderValue"]
+RenderValue: TypeAlias = (
+    None | bool | int | float | str
+    | "View" | "EventHandler" | "PerViewport"
+    | Sequence["RenderValue"] | Mapping[str, "RenderValue"]
+)
 RenderComponent: TypeAlias = dict[str, RenderValue]
-RenderNode: TypeAlias = Union[RenderComponent, "View"]
+RenderNode: TypeAlias = Union[RenderComponent, "View", "PerViewport"]
 RenderTree: TypeAlias = list[RenderNode]
+
+
+class PerViewport(mutobj.Declaration):
+    """Per-viewport 值原语。类似 Callback 的参数捕获语义。
+
+    标记需要在不同 viewport 下取不同内容的位置。可出现在 dict 值位、
+    list 元素位等任意 RenderValue 位置。
+    """
+
+    def __init__(
+        self, fn: Callable[..., "RenderValue"], /, *args: Any, **kwargs: Any,
+    ) -> None:
+        """创建 PerViewport。
+
+        fn 签名：``fn(viewport_id: int, *args, **kwargs) -> RenderValue``
+        viewport_id 始终作为第一个位置参数注入。
+        *args / **kwargs 在构造期捕获，求值时原样 forward。
+        """
+        ...
+
+    def get(self, viewport_id: int) -> "RenderValue":
+        """按 viewport_id 取值。"""
+        ...
 
 
 class ViewBlock:
@@ -111,17 +129,13 @@ class View(mutobj.Declaration):
         """注册 event filter。filter 在 on_event 之前看到事件。"""
         ...
 
-    def render_viewport(self, wire_tree: WireTree, channel_id: int) -> WireTree:
-        """为指定 viewport 特化 wire tree。
+    @property
+    def active_viewport_ids(self) -> Sequence[int]:
+        """当前观察此 View 的所有活跃 viewport（channel）id 列表。
 
-        render() 产出模板树（一次），render_viewport() 在每次 push 时
-        为每个 viewport 调用，返回该 viewport 应收到的 wire tree。
-        默认原样返回。子类覆写可实现 per-viewport 差异化。
+        在 render() 内部使用，配合 PerViewport 主动构造 per-VP 内容。
+        无活跃 viewport 时返回空列表。顺序未排序。
         """
-        ...
-
-    def render_to_wire(self, value: RenderValue) -> WireValue:
-        """ 将渲染结果转换为可传输的wire值。 """
         ...
 
     async def rendered(self) -> None:

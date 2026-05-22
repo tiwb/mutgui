@@ -11,6 +11,7 @@ import logging
 from typing import Any, Sequence, Mapping, TYPE_CHECKING, cast
 
 import mutobj
+from collections.abc import Callable
 from mutobj import impl
 
 from ._viewport_context import (
@@ -19,7 +20,7 @@ from ._viewport_context import (
     set_current_viewport,
 )
 from .events import Event, EventFilter, EventHandler
-from .view import View, ViewBlock, RenderValue, WireValue, WireTree, WireNode, RenderNode
+from .view import View, ViewBlock, PerViewport, RenderValue, WireValue, WireTree, WireNode, RenderNode
 
 if TYPE_CHECKING:
     from .viewport import ViewPort
@@ -44,12 +45,21 @@ class ViewRenderState(mutobj.Extension[View]):
     handlers: dict[int, EventHandler] = mutobj.field(default_factory=dict)
     children: dict[str | int, View] = mutobj.field(default_factory=dict)
     event_filters: list[EventFilter] = mutobj.field(default_factory=list)
-    wire_tree: WireTree = mutobj.field(default_factory=list)
+    # per-VP 缓存：key 为 channel_id。多 VP 下可能各自不同（PerViewport 介入）。
+    wire_tree_per_vp: dict[int, WireTree] = mutobj.field(default_factory=dict)
     dirty: bool = True
     render_scheduled: bool = False
     render_event: asyncio.Event | None = None
     overlay_children: dict[str | int, View] = mutobj.field(default_factory=dict)  # 框架注入的子 View（如菜单）
     view_block: ViewBlock | None = None
+
+
+class PerViewportState(mutobj.Extension[PerViewport]):
+    """PerViewport 的运行时私有状态。"""
+
+    fn: Callable[..., RenderValue] | None = None
+    args: tuple[Any, ...] = ()
+    kwargs: dict[str, Any] = mutobj.field(default_factory=dict)
 
 
 
@@ -124,6 +134,28 @@ def view_install_event_filter(self: View, filter: EventFilter) -> None:
     ext.event_filters.append(filter)
 
 
+@impl(View.active_viewport_ids.getter)  # type: ignore[attr-defined]
+def getter_active_viewport_ids(self: View) -> Sequence[int]:
+    return _active_channel_ids(self)
+
+
+def _active_channel_ids(view: View) -> list[int]:
+    """获取观察 view 的所有活跃 channel_id 列表。
+
+    懒导入 ViewPortRuntime 避免循环 import。顺序与 ViewObservers.viewports 一致。
+    """
+    from ._viewport_impl import ViewPortRuntime  # 延迟避免循环 import
+    obs = ViewObservers.get(view)
+    if obs is None:
+        return []
+    ids: list[int] = []
+    for vp in obs.viewports:
+        rt = ViewPortRuntime.get(vp)
+        if rt is not None and rt.channel is not None:
+            ids.append(rt.channel.channel_id)
+    return ids
+
+
 async def handle_raw_event(view: View, raw_msg: Mapping[str, WireValue]) -> None:
     """解析 wire 消息，路由到目标 View 的 on_event。
 
@@ -143,15 +175,6 @@ async def handle_raw_event(view: View, raw_msg: Mapping[str, WireValue]) -> None
                        handler_id=handler_id, viewport_id=viewport_id)
 
 
-@impl(View.render_viewport)
-def view_render_viewport(self: View, wire_tree: WireTree, channel_id: int) -> WireTree:
-    return wire_tree
-
-
-@impl(View.render_to_wire)
-def view_render_to_wire(self: View, value: RenderValue) -> WireValue:
-    return _process_value(self, render_ext(self), value)
-
 @impl(View.rendered)
 async def view_rendered(self: View) -> None:
     ext = render_ext(self)
@@ -161,6 +184,29 @@ async def view_rendered(self: View) -> None:
         ext.render_event = asyncio.Event()
     ext.render_event.clear()
     await ext.render_event.wait()
+
+
+# ---------------------------------------------------------------------------
+# @impl — PerViewport 实现
+# ---------------------------------------------------------------------------
+
+@impl(PerViewport.__init__)
+def per_viewport_init(
+    self: PerViewport, fn: Callable[..., RenderValue], /, *args: Any, **kwargs: Any,
+) -> None:
+    """创建 PerViewport 实例。"""
+    ext = PerViewportState.get_or_create(self)
+    ext.fn = fn
+    ext.args = args
+    ext.kwargs = kwargs
+
+
+@impl(PerViewport.get)
+def per_viewport_get(self: PerViewport, viewport_id: int) -> RenderValue:
+    """按 viewport_id 取值。"""
+    ext = PerViewportState.get_or_create(self)
+    assert ext.fn is not None, "PerViewport.get() called without fn"
+    return ext.fn(viewport_id, *ext.args, **ext.kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -234,8 +280,17 @@ async def _route_event(
 # 内部实现 — render / cache / push
 # ---------------------------------------------------------------------------
 
-def _render_and_cache(view: View) -> None:
-    """render -> serialize -> 缓存 wire_tree + handlers + children。"""
+def _render_and_cache(view: View, *, channel_ids: Sequence[int] | None = None) -> None:
+    """render -> serialize -> 缓存 per-VP wire_tree + handlers + children。
+
+    对每个活跃 viewport 跑一次 to_wire，PerViewport 在任意位置按 vid 解析。
+    children / handlers 取跨 VP 并集（先 clear 再聚合），保障事件路由不丢子。
+
+    channel_ids 参数服务于“初次递归 cascade”：父在 _render_and_cache 阶段递归调子
+    _render_and_cache 时，子的 ViewObservers 还未被创建（子 ViewPort 在后续
+    _vp_push_render 中才 new），此时传入父的 active_ids 作为 hint——同步上下文下
+    子的 channel id 集必与父一致（子 ViewPort 复用父的 channel）。
+    """
     ext = render_ext(view)
     block = view.render()
 
@@ -243,21 +298,41 @@ def _render_and_cache(view: View) -> None:
     ext.children = {}
     ext.view_block = block
 
-    wire_tree: WireTree = [_process_node(view, ext, node) for node in block.items]
+    if channel_ids is None:
+        active_ids: Sequence[int] = _active_channel_ids(view)
+    else:
+        active_ids = channel_ids
+    wire_per_vp: dict[int, WireTree] = {}
 
-    # 注入 overlay children（如活跃菜单）
-    if ext.overlay_children:
-        for child_id, child_view in ext.overlay_children.items():
-            ext.children[child_id] = child_view
-            wire_tree.append({"$view": child_id})
+    if not active_ids:
+        # 无活跃 VP 也跑一次解析（vid=0 占位）以注册 children/handlers，
+        # 但不缓存。这让 view.render() 后不含 PerViewport 的测试也能拿到一致状态。
+        for node in block.items:
+            _process_node(view, ext, node, viewport_id=0)
+    else:
+        for cid in active_ids:
+            wire_tree: WireTree = [
+                _process_node(view, ext, node, viewport_id=cid)
+                for node in block.items
+            ]
+            # 注入 overlay children（如活跃菜单）——保持旧行为：所有 VP 末尾 append，
+            # 后续 _vp_push_render 按 origin_channel_id 过滤。
+            if ext.overlay_children:
+                for child_id, child_view in ext.overlay_children.items():
+                    ext.children[child_id] = child_view
+                    wire_tree.append({"$view": child_id})
+            wire_per_vp[cid] = wire_tree
 
-    ext.wire_tree = wire_tree
+    ext.wire_tree_per_vp = wire_per_vp
 
-    # 递归 render dirty 子 View
+    # 递归 render dirty 子 View（跨 VP 并集后的 children）。
+    # 子 ViewPort 还未被 _vp_push_render 创建，所以 _active_channel_ids(child) 为空；
+    # 这里把父的 active_ids 下发为 hint，让子预警生正确的 wire_tree_per_vp 缓存，
+    # 其 channel 与父复用。
     for child_view in ext.children.values():
         child_ext = render_ext(child_view)
         if child_ext.dirty:
-            _render_and_cache(child_view)
+            _render_and_cache(child_view, channel_ids=active_ids)
             child_ext.dirty = False
 
 
@@ -306,11 +381,17 @@ async def _deferred_render(view: View) -> None:
 
 _MISSING: RenderValue = {}
 
-def _process_node(view: View, state: ViewRenderState, node: RenderNode) -> WireNode:
+def _process_node(
+    view: View, state: ViewRenderState, node: RenderNode, *, viewport_id: int,
+) -> WireNode:
+    if isinstance(node, PerViewport):
+        # PerViewport 在 RenderNode 位：get() 返回 RenderValue，但处于此位的
+        # PerViewport 约定解析结果为 RenderNode（RenderComponent | View | PerViewport）。
+        node = cast(RenderNode, node.get(viewport_id))
     if isinstance(node, Mapping):
         if "$component" not in node:
             raise ValueError(f"Invalid component node: missing $component key")
-    return cast(WireNode, _process_value(view, state, node))
+    return cast(WireNode, _process_value(view, state, node, viewport_id=viewport_id))
 
 
 def _process_value(
@@ -318,7 +399,7 @@ def _process_value(
     state: ViewRenderState,
     value: RenderValue,
     *,
-    component_id: str | int = "",
+    viewport_id: int,
 ) -> WireValue:
     if value is None or isinstance(value, (str, bytes, int, float, bool)):
         return value
@@ -326,17 +407,20 @@ def _process_value(
         state.children[value.id] = value
         return {"$view": value.id}
     elif isinstance(value, EventHandler):
-        if component_id == "":
-            raise ValueError(
-                "Component has event handler but missing $id. "
-                "Every component with an event handler must have a $id."
-            )
         handler_id = len(state.handlers)
         state.handlers[handler_id] = value
         return value.to_wire(handler_id)
+    elif isinstance(value, PerViewport):
+        # PerViewport 出现在任意位置（dict 值位 / 嵌套 list 元素位）都递归处理。
+        # 注意：list 元素位的语义约束（必须返回单个 node，不 splice）由上层递归自然满足。
+        return _process_value(
+            view, state, value.get(viewport_id),
+            viewport_id=viewport_id,
+        )
     elif isinstance(value, Sequence):
         return [
-            _process_value(view, state, item, component_id=component_id)
+            _process_value(view, state, item,
+                           viewport_id=viewport_id)
             for item in value
         ]
     else:
@@ -352,6 +436,26 @@ def _process_value(
             if tmp_id is not _MISSING:
                 if not isinstance(tmp_id, (str, int)):
                     raise ValueError("$id must be string or int.")
-                component_id = tmp_id
 
-        return {k: _process_value(view, state, inner, component_id=component_id) for k, inner in value.items()}
+        return {
+            k: _process_value(view, state, inner,
+                              viewport_id=viewport_id)
+            for k, inner in value.items()
+        }
+
+
+# ---------------------------------------------------------------------------
+# 测试辅助 — 对外不作为公开 API，仅供 tests 与高阶场景使用。
+# ---------------------------------------------------------------------------
+
+def _resolve_for_viewport(  # pyright: ignore[reportUnusedFunction] — 供 tests 与调试场景使用
+    view: View, items: Sequence[RenderNode], viewport_id: int,
+) -> WireTree:
+    """在指定 viewport_id 下将一棵 RenderTree 解析为 WireTree。
+
+    服务于测试与调试场景。产生的 children/handlers 作为副作用写入 view 的
+    ViewRenderState，与正常路径一致。调用前需手动 ``ext.handlers.clear()`` /
+    ``ext.children = {}`` 避免上一轮残留。
+    """
+    ext = render_ext(view)
+    return [_process_node(view, ext, node, viewport_id=viewport_id) for node in items]

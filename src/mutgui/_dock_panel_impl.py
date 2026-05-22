@@ -16,7 +16,10 @@ from ._action_registry import resolve_actions, ResolvedAction
 from .dock_panel import DockPanel, LayoutNode, PanelDef, SplitNode, TabSetNode
 from .events import Callback
 from .expr import Expr
-from .view import ViewBlock, RenderComponent, RenderValue, WireTree, WireValue, View, RenderTree
+from .view import (
+    ViewBlock, RenderComponent, RenderValue, WireTree, WireValue, View, RenderTree,
+    PerViewport,
+)
 
 SPLITTER_SIZE = 4
 TAB_BAR_SIZE = 36
@@ -194,10 +197,7 @@ def dock_panel_render(self: DockPanel) -> ViewBlock:
 
     all_views = list(self.panel_views.values())
 
-    return ViewBlock([{
-        "$component": "mutgui.DockPanel",
-        "$id": "dock",
-        "panels": panels_data,
+    callbacks: dict[str, RenderValue] = {
         "onResize": Callback(
             _dock_panel_on_resize,
             self,
@@ -244,23 +244,33 @@ def dock_panel_render(self: DockPanel) -> ViewBlock:
             fromTabset=Expr.wire("$0.fromTabset"), panelId=Expr.wire("$0.panelId"),
             edge=Expr.wire("$0.edge"),
         ),
-        "$children": all_views,
+    }
+
+    return ViewBlock([{
+        "$component": "mutgui.DockPanel",
+        "$id": "dock",
+        "panels": panels_data,
+        **callbacks,
+        "$children": PerViewport(_dock_panel_children, self, all_views),
     }])
 
 
-@impl(DockPanel.render_viewport)
-def dock_panel_render_viewport(
-    self: DockPanel, wire_tree: WireTree, channel_id: int,
-) -> WireTree:
-    size = _dp_ext(self).viewport_sizes.get(channel_id)
+def _dock_panel_children(
+    vid: int, self: DockPanel, all_views: list[View],
+) -> RenderTree:
+    """PerViewport 回调：为指定 viewport 构建 $children。
+
+    首次 render（未收到 onResize）返回所有 panel_view 让框架注册子 View；
+    onResize 后按 viewport 尺寸计算坍缩后的 layout 子节点。
+    """
+    size = _dp_ext(self).viewport_sizes.get(vid)
     if not size:
-        return wire_tree
+        return list(all_views)
     collapsed_ids: set[str] = set()
-    layout = _dock_panel_compute_layout(self, self.layout, *size, channel_id, collapsed_ids)
-    vp_node = self.render_to_wire(_dock_panel_build_component(self, layout, collapsed_ids))
-    if wire_tree:
-        return [{**wire_tree[0], "$children": [vp_node]}, *wire_tree[1:]]
-    return wire_tree
+    layout = _dock_panel_compute_layout(
+        self, self.layout, size[0], size[1], vid, collapsed_ids,
+    )
+    return [_dock_panel_build_component(self, layout, collapsed_ids)]
 
 
 # ---------------------------------------------------------------------------

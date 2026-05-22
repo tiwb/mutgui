@@ -5,7 +5,17 @@ from typing import Any
 
 from mutgui import View, ViewBlock, ViewPort, Channel, VirtualList, VirtualListItemAdapter
 from mutgui._view_impl import ViewRenderState
+from mutgui._view_impl import _resolve_for_viewport, render_ext as _render_ext
 from mutgui._virtual_list_impl import _virtual_list_on_viewport, _virtual_list_on_scroll, _vl_ext
+
+
+def _vl_resolve(vl: VirtualList, vid: int) -> list[dict[str, Any]]:
+    """测试辅助：在指定 vid 下解析 VirtualList 的 ViewBlock 为 wire tree。"""
+    ext = _render_ext(vl)
+    ext.handlers.clear()
+    ext.children = {}
+    block = vl.render()
+    return _resolve_for_viewport(vl, block.items, vid)
 
 
 class MockChannel(Channel):
@@ -58,14 +68,14 @@ def test_virtual_list_initial_render_empty_viewport() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    tree = vl.render()
-    assert tree.items[0]["$component"] == "mutgui.VirtualList"
-    assert tree.items[0]["itemCount"] == 100
-    assert tree.items[0]["itemIds"] == []
-    assert tree.items[0]["viewportStart"] == 0
-    assert tree.items[0]["stickToBottom"] is False
-    assert tree.items[0]["estimatedItemHeight"] == 32
-    assert tree.items[0]["$children"] == []
+    tree = _vl_resolve(vl, 0)
+    assert tree[0]["$component"] == "mutgui.VirtualList"
+    assert tree[0]["itemCount"] == 100
+    assert tree[0]["itemIds"] == []
+    assert tree[0]["viewportStart"] == 0
+    assert tree[0]["stickToBottom"] is False
+    assert tree[0]["estimatedItemHeight"] == 32
+    assert tree[0]["$children"] == []
 
 
 def test_virtual_list_on_viewport_creates_views() -> None:
@@ -74,17 +84,17 @@ def test_virtual_list_on_viewport_creates_views() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
-    tree = vl.render()
+    tree = _vl_resolve(vl, 1)
 
-    assert tree.items[0]["itemIds"] == ["item-0", "item-1", "item-2"]
-    children = tree.items[0]["$children"]
+    assert tree[0]["itemIds"] == ["item-0", "item-1", "item-2"]
+    children = tree[0]["$children"]
     assert len(children) == 3
-    # children 是 View 实例
-    assert all(isinstance(c, View) for c in children)
-    # id 被自动赋值
-    assert children[0].id == "item-0"
-    assert children[1].id == "item-1"
-    assert children[2].id == "item-2"
+    # children 是 $view 节点（被 to_wire 转换后不再保留 View 实例）
+    for child in children:
+        assert "$view" in child
+    assert children[0]["$view"] == "item-0"
+    assert children[1]["$view"] == "item-1"
+    assert children[2]["$view"] == "item-2"
 
 
 def test_virtual_list_view_reuse() -> None:
@@ -93,13 +103,13 @@ def test_virtual_list_view_reuse() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
     view_0 = _vl_ext(vl).item_views["item-0"]
     view_2 = _vl_ext(vl).item_views["item-2"]
 
     # 滚动：viewport 从 [0,3) 变为 [1,4)
     _virtual_list_on_viewport(vl, start=1, end=4, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
 
     # item-1 和 item-2 复用，item-0 被清理，item-3 新建
     assert "item-0" not in _vl_ext(vl).item_views
@@ -113,11 +123,11 @@ def test_virtual_list_cleanup_old_views() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=5, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
     assert len(_vl_ext(vl).item_views) == 5
 
     _virtual_list_on_viewport(vl, start=50, end=53, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
     assert len(_vl_ext(vl).item_views) == 3
     assert all(k.startswith("item-5") for k in _vl_ext(vl).item_views)
 
@@ -141,14 +151,14 @@ def test_adapter_invalidate_refreshes_data() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
     assert _vl_ext(vl).item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
 
     # 修改 adapter 数据
     adapter.items = ["NEW-0", "NEW-1", "NEW-2"] + items[3:]
     # id 没变（item-0），所以 View 实例不变，但数据确实变了
     # 注意：View 复用意味着 text 没更新——这是预期行为（View 持有旧引用）
-    vl.render()
+    _vl_resolve(vl, 1)
     assert _vl_ext(vl).item_views["item-0"].text == "row-0"  # type: ignore[attr-defined]
 
 
@@ -158,7 +168,7 @@ def test_virtual_list_item_view_id_assignment() -> None:
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
 
     for i in range(3):
         view = _vl_ext(vl).item_views[f"item-{i}"]
@@ -230,7 +240,6 @@ def test_virtual_list_end_to_end_render() -> None:
 
 def test_per_vp_viewport_storage() -> None:
     """不同 VP 的 onViewport 独立存储，不互相覆盖。"""
-    from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
@@ -245,14 +254,13 @@ def test_per_vp_viewport_storage() -> None:
 
 def test_union_rendering() -> None:
     """多 VP 时 render 的 item 是 viewport 并集。"""
-    from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     _virtual_list_on_viewport(vl, start=5, end=8, viewport_id=2)
-    vl.render()
+    _vl_resolve(vl, 1)
 
     # union = [0, 8)，应有 8 个 item
     assert len(_vl_ext(vl).visible_ids) == 8
@@ -263,14 +271,13 @@ def test_union_rendering() -> None:
 
 def test_overlapping_viewports_union() -> None:
     """重叠 viewport 的 union 计算正确。"""
-    from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=5, end=15, viewport_id=1)
     _virtual_list_on_viewport(vl, start=10, end=20, viewport_id=2)
-    vl.render()
+    _vl_resolve(vl, 1)
 
     # union = [5, 20)
     assert len(_vl_ext(vl).visible_ids) == 15
@@ -280,7 +287,6 @@ def test_overlapping_viewports_union() -> None:
 
 def test_viewport_update_replaces_old_range() -> None:
     """同一 VP 更新 viewport 时替换旧范围。"""
-    from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
@@ -292,25 +298,24 @@ def test_viewport_update_replaces_old_range() -> None:
 
 
 # ---------------------------------------------------------------------------
-# render_viewport per-VP 过滤
+# PerViewport 按 VP 拆分
 # ---------------------------------------------------------------------------
 
 def test_render_viewport_per_vp() -> None:
-    """render_viewport 为每个 VP 返回正确过滤后的 wire tree。"""
-    from mutgui.events import Event
+    """PerViewport 解析为每个 VP 返回正确过滤后的 wire tree。"""
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
     _virtual_list_on_viewport(vl, start=5, end=8, viewport_id=2)
-    tree = vl.render()
+
+    # _vl_resolve → render() → _refresh_visible 填充 viewport_item_ids
+    vp1_tree = _vl_resolve(vl, 1)
+    vp2_tree = _vl_resolve(vl, 2)
 
     assert _vl_ext(vl).viewport_item_ids[1] == {"item-0", "item-1", "item-2"}
     assert _vl_ext(vl).viewport_item_ids[2] == {"item-5", "item-6", "item-7"}
-    wire_tree = tree.items
-    vp1_tree = vl.render_viewport(wire_tree, 1)
-    vp2_tree = vl.render_viewport(wire_tree, 2)
     assert vp1_tree[0]["viewportStart"] == 0
     assert vp2_tree[0]["viewportStart"] == 5
     assert vp1_tree[0]["itemIds"] == ["item-0", "item-1", "item-2"]
@@ -450,8 +455,8 @@ def test_sync_scroll_render_props() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter, sync_scroll=True)
 
-    tree = vl.render()
-    props = tree.items[0]
+    tree = _vl_resolve(vl, 0)
+    props = tree[0]
     assert "scrollTop" in props
     assert props["scrollTop"] == 0
     assert "onScroll" in props
@@ -467,8 +472,8 @@ def test_virtual_list_custom_props_render() -> None:
         estimated_item_height=120,
     )
 
-    tree = vl.render()
-    props = tree.items[0]
+    tree = _vl_resolve(vl, 0)
+    props = tree[0]
     assert props["stickToBottom"] is True
     assert props["estimatedItemHeight"] == 120
 
@@ -496,8 +501,8 @@ def test_sync_scroll_disabled_no_props() -> None:
     adapter = SimpleAdapter([f"row-{i}" for i in range(100)])
     vl = VirtualList(id="list", adapter=adapter)
 
-    tree = vl.render()
-    props = tree.items[0]
+    tree = _vl_resolve(vl, 0)
+    props = tree[0]
     assert "scrollTop" not in props
     assert "onScroll" not in props
 
@@ -510,24 +515,23 @@ def test_sync_scroll_state_update() -> None:
     _virtual_list_on_scroll(vl, scrollTop=123.5)
     assert _vl_ext(vl).scroll_top == 123.5
 
-    tree = vl.render()
-    assert tree.items[0]["scrollTop"] == 123.5
+    tree = _vl_resolve(vl, 0)
+    assert tree[0]["scrollTop"] == 123.5
 
 
 def test_no_viewports_clears_filter() -> None:
     """所有 viewport 移除后，_viewport_item_ids 被清空。"""
-    from mutgui.events import Event
 
     adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
     vl = VirtualList(id="list", adapter=adapter)
 
     _virtual_list_on_viewport(vl, start=0, end=3, viewport_id=1)
-    vl.render()
+    _vl_resolve(vl, 1)
     assert len(_vl_ext(vl).visible_ids) == 3
 
     # 移除所有 viewport
     _vl_ext(vl).viewport_ranges.clear()
-    vl.render()
+    _vl_resolve(vl, 0)
     assert _vl_ext(vl).visible_ids == []
     assert len(_vl_ext(vl).item_views) == 0
     assert _vl_ext(vl).viewport_item_ids == {}

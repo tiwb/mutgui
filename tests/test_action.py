@@ -20,6 +20,19 @@ from mutgui._action_registry import (
     resolve_actions,
 )
 from mutgui._dock_panel_impl import _dp_ext
+from mutgui._view_impl import _resolve_for_viewport, render_ext as _render_ext
+
+
+def _dock_resolve(dock: DockPanel, vid: int) -> list[dict[str, object]]:
+    """测试辅助：在指定 vid 下解析 dock 的 ViewBlock 为 wire tree。
+
+    为保证与生产路径一致的 children/handlers 语义，调用前先清理 ext。
+    """
+    ext = _render_ext(dock)
+    ext.handlers.clear()
+    ext.children = {}
+    block = dock.render()
+    return _resolve_for_viewport(dock, block.items, vid)
 
 
 class StaticAction(Action):
@@ -321,7 +334,7 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
     dock.set_panel_view("b", ToolbarWidget())
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
-    result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
+    result = _dock_resolve(dock, 1)
     split = result[0]["$children"][0]
     tabset = split["$children"][0]
     actions = tabset["actions"]
@@ -346,7 +359,7 @@ def test_dockpanel_action_context_data_is_merged() -> None:
     dock.set_panel_view("a", ToolbarWidget())
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
-    result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
+    result = _dock_resolve(dock, 1)
     tabset = result[0]["$children"][0]
     actions = tabset["actions"]
     assert actions[0]["variant"] == "widget"
@@ -496,7 +509,7 @@ def test_dockpanel_action_wire_carries_group_name() -> None:
     dock.set_panel_view("a", ToolbarWidget())
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
-    result = dock.render_viewport([{"$component": "mutgui.DockPanel", "$id": "dock"}], 1)
+    result = _dock_resolve(dock, 1)
     tabset = result[0]["$children"][0]
     actions = tabset["actions"]
     assert [action["groupName"] for action in actions] == ["alpha", "beta"]

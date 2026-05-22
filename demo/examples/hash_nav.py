@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mutgui import View, ViewBlock, Callback, Event
+from mutgui import View, ViewBlock, Callback, PerViewport, Event
 
 from demo.framework import MutguiRoute, DemoApp
 
@@ -225,7 +225,7 @@ class HashNavView(View):
                             {"$component": "div", "$id": "status-hash",
                              "children": f'后端持有的 hash：{self._hash!r}'},
                             {"$component": "div", "$id": "connection-id",
-                             "children": "当前连接 channel_id：pending（render_viewport 注入）"},
+                             "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}")},
                             {"$component": "div", "$id": "status-hint",
                              "children": "channel_id 切换不同 section 时不变 → WebSocket 没有重连。"},
                         ],
@@ -277,18 +277,6 @@ class HashNavView(View):
                 ],
             },
         ])
-
-    def render_viewport(
-        self,
-        wire_tree: list[dict[str, object]],
-        channel_id: int,
-    ) -> list[dict[str, object]]:
-        return _replace_children(
-            wire_tree,
-            "connection-id",
-            f"当前连接 channel_id：{channel_id}",
-        )
-
 
 app = DemoApp([
     MutguiRoute("/", HashNavView(), title="Hash Navigation", layout="plain"),

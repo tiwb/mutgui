@@ -3,34 +3,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from mutgui import View, ViewBlock, Callback
+from mutgui import View, ViewBlock, Callback, PerViewport
 
 from demo.framework import DemoApp, MutguiRoute
 
 ThemeMode = Literal["none", "dark"]
-
-
-def _replace_children(
-    tree: list[dict[str, object]],
-    node_id: str,
-    children: str,
-) -> list[dict[str, object]]:
-    result: list[dict[str, object]] = []
-    for node in tree:
-        copied = dict(node)
-        if copied.get("$id") == node_id:
-            copied["children"] = children
-        raw_children = copied.get("$children")
-        if isinstance(raw_children, list):
-            nested: list[object] = []
-            for child in raw_children:
-                if isinstance(child, dict):
-                    nested.extend(_replace_children([child], node_id, children))
-                else:
-                    nested.append(child)
-            copied["$children"] = nested
-        result.append(copied)
-    return result
 
 
 class ThemingDemoView(View):
@@ -59,10 +36,10 @@ class ThemingDemoView(View):
                  "再通过 mutgui.reload() 让浏览器重连并重新安装对应扩展。"
              )},
             {"$component": "antd.Typography.Paragraph", "$id": "theme-status",
-             "children": "当前主题：pending"},
+             "children": PerViewport(lambda vid: f"当前主题：{self.theme_mode}")},
             {"$component": "antd.Typography.Paragraph", "$id": "connection-id",
              "type": "secondary",
-             "children": "当前连接 channel_id：pending"},
+             "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}")},
             {"$component": "div", "$id": "actions",
              "style": {"display": "flex", "gap": 8, "flexWrap": "wrap", "marginBottom": 16},
              "$children": [
@@ -84,14 +61,6 @@ class ThemingDemoView(View):
              "children": f"Primary Button ({self.click_count})",
              "onClick": Callback(self._on_click)},
         ])
-
-    def render_viewport(
-        self,
-        wire_tree: list[dict[str, object]],
-        channel_id: int,
-    ) -> list[dict[str, object]]:
-        themed = _replace_children(wire_tree, "theme-status", f"当前主题：{self.theme_mode}")
-        return _replace_children(themed, "connection-id", f"当前连接 channel_id：{channel_id}")
 
 
 class ThemingRoute(MutguiRoute):

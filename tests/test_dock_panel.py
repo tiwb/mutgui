@@ -11,6 +11,16 @@ from mutgui._dock_panel_impl import (
     _dock_panel_on_tab_switch, _dock_panel_on_tab_reorder,
     _dp_ext,
 )
+from mutgui._view_impl import _resolve_for_viewport, render_ext as _render_ext
+
+
+def _dock_resolve(dock: DockPanel, vid: int) -> list[dict[str, Any]]:
+    """测试辅助：在指定 vid 下解析 dock 的 ViewBlock 为 wire tree。"""
+    ext = _render_ext(dock)
+    ext.handlers.clear()
+    ext.children = {}
+    block = dock.render()
+    return _resolve_for_viewport(dock, block.items, vid)
 
 
 class MockChannel(Channel):
@@ -110,11 +120,11 @@ def test_compute_layout_per_viewport_orders() -> None:
 # ---------------------------------------------------------------------------
 
 def test_render_template_includes_all_views() -> None:
-    """render 输出所有面板 View 作为 children。"""
+    """未设尺寸时，dock 解析输出的 $children 包含所有面板 View。"""
     dock = _make_dock()
-    block = dock.render()
-    children = block.items[0]["$children"]
-    child_ids = {v.id for v in children}
+    result = _dock_resolve(dock, 0)
+    children = result[0]["$children"]
+    child_ids = {c["$view"] for c in children if isinstance(c, dict) and "$view" in c}
     assert child_ids == {"a", "b", "c"}
 
 
@@ -123,29 +133,31 @@ def test_render_template_includes_all_views() -> None:
 # ---------------------------------------------------------------------------
 
 def test_transform_no_size_passthrough() -> None:
-    """viewport 未报告尺寸时，transform 透传模板树。"""
+    """viewport 未报告尺寸时，解析输出仅含 base 节点 + 全部 panel View 作为 $children。"""
     dock = _make_dock()
-    template = [{"$component": "test", "$children": []}]
-    result = dock.render_viewport(template, channel_id=99)
-    assert result is template
+    result = _dock_resolve(dock, 99)
+    assert len(result) == 1
+    node = result[0]
+    assert node["$component"] == "mutgui.DockPanel"
+    children = node["$children"]
+    view_ids = {c["$view"] for c in children if isinstance(c, dict) and "$view" in c}
+    assert view_ids == {"a", "b", "c"}
 
 
 def test_transform_wide_viewport() -> None:
-    """宽屏 viewport 不坍缩 → transform 输出 Split 结构。"""
+    """宽屏 viewport 不坍缩 → 解析输出 Split 结构。"""
     dock = _make_dock()
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
-    template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
-    result = dock.render_viewport(template, channel_id=1)
+    result = _dock_resolve(dock, 1)
     inner = result[0]["$children"][0]
     assert inner["$component"] == "mutgui.DockPanel.Split"
 
 
 def test_transform_narrow_viewport() -> None:
-    """窄屏 viewport 坍缩 → transform 输出 TabSet + collapsed 标记。"""
+    """窄屏 viewport 坍缩 → 解析输出 TabSet + collapsed 标记。"""
     dock = _make_dock()
     _dp_ext(dock).viewport_sizes[1] = (400, 600)
-    template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
-    result = dock.render_viewport(template, channel_id=1)
+    result = _dock_resolve(dock, 1)
     inner = result[0]["$children"][0]
     assert inner["$component"] == "mutgui.DockPanel.TabSet"
     assert inner["collapsed"] is True
@@ -156,21 +168,19 @@ def test_transform_two_viewports_independent() -> None:
     dock = _make_dock()
     _dp_ext(dock).viewport_sizes[1] = (800, 600)  # 宽屏
     _dp_ext(dock).viewport_sizes[2] = (400, 600)  # 窄屏
-    template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
 
-    r1 = dock.render_viewport(template, channel_id=1)
-    r2 = dock.render_viewport(template, channel_id=2)
+    r1 = _dock_resolve(dock, 1)
+    r2 = _dock_resolve(dock, 2)
 
     assert r1[0]["$children"][0]["$component"] == "mutgui.DockPanel.Split"
     assert r2[0]["$children"][0]["$component"] == "mutgui.DockPanel.TabSet"
 
 
 def test_transform_view_refs() -> None:
-    """transform 输出的 wire tree 包含 $view 引用。"""
+    """解析输出的 wire tree 包含 $view 引用。"""
     dock = _make_dock()
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
-    template = [{"$component": "mutgui.DockPanel", "$id": "dock"}]
-    result = dock.render_viewport(template, channel_id=1)
+    result = _dock_resolve(dock, 1)
 
     # Split 下有两个 TabSet，各有一个 $view child
     split = result[0]["$children"][0]
@@ -181,16 +191,13 @@ def test_transform_view_refs() -> None:
 
 
 def test_transform_preserves_overlay_siblings() -> None:
-    """render_viewport 不能丢掉根节点后面的 overlay siblings。"""
+    """新设计下 dock.render() 仅产 1 个顶层节点；overlay 由框架在 _render_and_cache 阶段
+    末尾 append。这里仅校验 dock 自身解析输出仍是预期结构（不主动追加 overlay）。"""
     dock = _make_dock()
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
-    template = [
-        {"$component": "mutgui.DockPanel", "$id": "dock"},
-        {"$view": "$menu:test"},
-    ]
-    result = dock.render_viewport(template, channel_id=1)
-    assert len(result) == 2
-    assert result[1] == {"$view": "$menu:test"}
+    result = _dock_resolve(dock, 1)
+    assert len(result) == 1
+    assert result[0]["$component"] == "mutgui.DockPanel"
 
 
 # ---------------------------------------------------------------------------

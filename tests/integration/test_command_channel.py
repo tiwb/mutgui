@@ -5,33 +5,10 @@ from __future__ import annotations
 import pytest
 from playwright.async_api import expect
 
-from mutgui import View, ViewBlock, Callback
+from mutgui import View, ViewBlock, Callback, PerViewport
 
 
 pytestmark = pytest.mark.integration
-
-
-def _replace_children(
-    tree: list[dict[str, object]],
-    node_id: str,
-    children: str,
-) -> list[dict[str, object]]:
-    result: list[dict[str, object]] = []
-    for node in tree:
-        copied = dict(node)
-        if copied.get("$id") == node_id:
-            copied["children"] = children
-        raw_children = copied.get("$children")
-        if isinstance(raw_children, list):
-            nested: list[object] = []
-            for child in raw_children:
-                if isinstance(child, dict):
-                    nested.extend(_replace_children([child], node_id, children))
-                else:
-                    nested.append(child)
-            copied["$children"] = nested
-        result.append(copied)
-    return result
 
 
 class CommandChannelView(View):
@@ -93,7 +70,7 @@ class ReloadView(View):
                 "$component": "div",
                 "$id": "connection-id",
                 "data-testid": "connection-id",
-                "children": "Connection pending",
+                "children": PerViewport(lambda vid: f"Connection {vid}"),
             },
             {
                 "$component": "button",
@@ -106,13 +83,6 @@ class ReloadView(View):
 
     async def _reload(self) -> None:
         await self.send_command("mutgui.reload")
-
-    def render_viewport(
-        self,
-        wire_tree: list[dict[str, object]],
-        channel_id: int,
-    ) -> list[dict[str, object]]:
-        return _replace_children(wire_tree, "connection-id", f"Connection {channel_id}")
 
 
 async def test_command_redirect_and_history(app, page):

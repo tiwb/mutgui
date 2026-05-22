@@ -2,32 +2,9 @@
 
 from __future__ import annotations
 
-from mutgui import View, ViewBlock, Callback
+from mutgui import View, ViewBlock, Callback, PerViewport
 
 from demo.framework import MutguiRoute, DemoApp
-
-
-def _replace_children(
-    tree: list[dict[str, object]],
-    node_id: str,
-    children: str,
-) -> list[dict[str, object]]:
-    result: list[dict[str, object]] = []
-    for node in tree:
-        copied = dict(node)
-        if copied.get("$id") == node_id:
-            copied["children"] = children
-        raw_children = copied.get("$children")
-        if isinstance(raw_children, list):
-            nested: list[object] = []
-            for child in raw_children:
-                if isinstance(child, dict):
-                    nested.extend(_replace_children([child], node_id, children))
-                else:
-                    nested.append(child)
-            copied["$children"] = nested
-        result.append(copied)
-    return result
 
 
 class CommandHomeView(View):
@@ -66,7 +43,7 @@ class CommandHomeView(View):
                     {
                         "$component": "p",
                         "$id": "connection-id",
-                        "children": "当前连接 channel_id：pending",
+                        "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}"),
                     },
                     {
                         "$component": "div",
@@ -118,13 +95,6 @@ class CommandHomeView(View):
                 ],
             },
         ])
-
-    def render_viewport(
-        self,
-        wire_tree: list[dict[str, object]],
-        channel_id: int,
-    ) -> list[dict[str, object]]:
-        return _replace_children(wire_tree, "connection-id", f"当前连接 channel_id：{channel_id}")
 
 
 class CommandTargetView(View):
@@ -186,10 +156,8 @@ class CommandTargetView(View):
                 "$children": [
                     {"$component": "h2", "$id": "title", "children": self.title},
                     {"$component": "p", "$id": "desc", "children": self.description},
-                    {
-                        "$component": "p",
-                        "$id": "connection-id",
-                        "children": "当前连接 channel_id：pending",
+                    {"$component": "p", "$id": "connection-id",
+                     "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}"),
                     },
                     {
                         "$component": "div",
@@ -204,13 +172,6 @@ class CommandTargetView(View):
                 ],
             },
         ])
-
-    def render_viewport(
-        self,
-        wire_tree: list[dict[str, object]],
-        channel_id: int,
-    ) -> list[dict[str, object]]:
-        return _replace_children(wire_tree, "connection-id", f"当前连接 channel_id：{channel_id}")
 
 
 app = DemoApp([

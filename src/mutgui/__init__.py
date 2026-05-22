@@ -4,7 +4,7 @@ __version__ = "0.9.999"
 
 from .events import Event, EventHandler, Callback, Bind, EventFilter
 from .expr import Expr
-from .view import View, ViewBlock
+from .view import View, ViewBlock, PerViewport
 from .channel import Channel
 from .viewport import ViewPort
 from .virtual_list import VirtualList, VirtualListItemAdapter
@@ -25,6 +25,7 @@ from .modules import ModuleRegistry
 __all__ = [
     "View",
     "ViewBlock",
+    "PerViewport",
     "Channel",
     "ViewPort",
     "VirtualList",

@@ -12,7 +12,7 @@ import mutobj
 from mutobj import impl
 
 from ._viewport_context import set_current_viewport, reset_current_viewport
-from ._view_impl import ViewObservers, ViewRenderState, handle_raw_event
+from ._view_impl import ViewObservers, ViewRenderState, handle_raw_event, _render_and_cache  # pyright: ignore[reportPrivateUsage]
 from .channel import Channel
 from .view import View, WireTree
 from .viewport import ViewPort
@@ -86,12 +86,32 @@ async def view_port_initialize(self: ViewPort) -> None:
             reset_current_viewport(token)
 
     render_state = ViewRenderState.get(view)
-    if render_state is not None and not render_state.dirty and render_state.wire_tree:
-        # View 已 render 且 clean — 直接推送缓存
+    if (
+        render_state is not None
+        and not render_state.dirty
+        and ext.channel is not None
+        and ext.channel.channel_id in render_state.wire_tree_per_vp
+    ):
+        # View 已 render 且当前 VP 有缓存 — 直接推送
         await _vp_push_render(self)
     else:
-        # 需要 render — invalidate 触发延迟调度
-        view.invalidate()
+        # 需要 render（首次 attach 这个 VP 时其 channel_id 不在缓存里）。
+        # 同步跑 _render_and_cache 后推送，避免调用者必须额外 await rendered()。
+        try:
+            _render_and_cache(view)
+        except Exception:
+            import logging
+            logging.getLogger("mutgui.render").exception(
+                "Render failed for %s during ViewPort.initialize",
+                type(view).__name__,
+            )
+            return
+        render_state = ViewRenderState.get(view)
+        if render_state is not None:
+            render_state.dirty = False
+            if render_state.render_event is not None:
+                render_state.render_event.set()
+        await _vp_push_render(self)
 
 
 @impl(ViewPort.handle_event)
@@ -210,10 +230,27 @@ async def _vp_push_render(vp: ViewPort) -> None:
     if render_state is None:
         return
 
-    wire_tree = render_state.wire_tree
     channel_id = ext.channel.channel_id
+    wire_tree = render_state.wire_tree_per_vp.get(channel_id)
+    if wire_tree is None:
+        # 本 VP 未参与上次 _render_and_cache（如仅在递归中临时创建的子 ViewPort）。
+        # 同步补一次，不走 invalidate 避免需调用者 await rendered()。
+        try:
+            _render_and_cache(view)
+        except Exception:
+            import logging
+            logging.getLogger("mutgui.render").exception(
+                "Render failed during _vp_push_render fallback for %s",
+                type(view).__name__,
+            )
+            return
+        render_state.dirty = False
+        if render_state.render_event is not None:
+            render_state.render_event.set()
+        wire_tree = render_state.wire_tree_per_vp.get(channel_id)
+        if wire_tree is None:
+            return
 
-    wire_tree = view.render_viewport(wire_tree, channel_id)
     # 按 origin 过滤 overlay $view 节点（per-viewport 作用域）。
     # duck typing：避免 _viewport_impl 反向 import menu 模块。
     wire_tree = _filter_overlays_by_channel(wire_tree, render_state.children, channel_id)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import mutobj
 
-from .view import View, ViewBlock, WireTree
+from .view import View, ViewBlock
 
 
 class VirtualListItemAdapter(mutobj.Declaration):
@@ -75,11 +75,7 @@ class VirtualList(View):
     ) -> None: ...
 
     def render(self) -> ViewBlock:
-        """返回 VirtualList 容器 + 当前 viewport 并集内的 item View。"""
-        ...
-
-    def render_viewport(self, wire_tree: WireTree, channel_id: int) -> WireTree:
-        """为指定 viewport 裁剪 $children，只保留该 VP 可见的 item。"""
+        """返回 VirtualList 容器 + 当前 viewport 并集内的 item View（按 PerViewport 拆分表达）。"""
         ...
 
 

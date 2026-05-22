@@ -6,13 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
-
 import mutobj
 from mutobj import impl
 
 from .virtual_list import VirtualList, VirtualListItemAdapter
-from .view import View, ViewBlock, WireTree, WireNode
+from .view import View, ViewBlock, RenderComponent, RenderTree, PerViewport
 from .events import Callback
 from .expr import Expr
 
@@ -97,16 +95,14 @@ def virtual_list_init(
 
 @impl(VirtualList.render)
 def virtual_list_render(self: VirtualList) -> ViewBlock:
-    """返回 VirtualList 容器 + 当前 viewport 并集内的 item View。"""
+    """返回 VirtualList 容器，per-VP 拆分 itemIds / viewportStart / $children。"""
     ext = _vl_ext(self)
     _refresh_visible(self)
-    visible_items = [ext.item_views[vid] for vid in ext.visible_ids]
-    props: dict[str, Any] = {
+
+    common: RenderComponent = {
         "$component": "mutgui.VirtualList",
         "$id": "list",
         "itemCount": self.adapter.item_count,
-        "itemIds": ext.visible_ids,
-        "viewportStart": 0,
         "stickToBottom": self.stick_to_bottom,
         "estimatedItemHeight": self.estimated_item_height,
         "onViewport": Callback(
@@ -116,16 +112,34 @@ def virtual_list_render(self: VirtualList) -> ViewBlock:
             end=Expr.wire("$0.end"),
             viewport_id=Expr.host("event.viewport_id"),
         ),
-        "$children": visible_items,
     }
     if self.sync_scroll:
-        props["scrollTop"] = ext.scroll_top
-        props["onScroll"] = Callback(
+        common["scrollTop"] = ext.scroll_top
+        common["onScroll"] = Callback(
             _virtual_list_on_scroll,
             self,
             scrollTop=Expr.wire("$0.scrollTop"),
         )
-    return ViewBlock([props])
+
+    return ViewBlock([PerViewport(_vl_for_vp, self, common)])
+
+
+def _vl_for_vp(
+    vid: int, self: VirtualList, common: RenderComponent,
+) -> RenderComponent:
+    """PerViewport 回调：为指定 viewport 构建带 per-VP itemIds / viewportStart / $children 的节点。"""
+    ext = _vl_ext(self)
+    item_ids = ext.rendered_viewport_ids.get(vid, [])
+    viewport_start = ext.rendered_viewport_ranges.get(vid, (0, 0))[0]
+    children: RenderTree = [
+        ext.item_views[iid] for iid in item_ids if iid in ext.item_views
+    ]
+    return {
+        **common,
+        "itemIds": list(item_ids),
+        "viewportStart": viewport_start,
+        "$children": children,
+    }
 
 
 def _virtual_list_on_viewport(
@@ -140,31 +154,6 @@ def _virtual_list_on_scroll(self: VirtualList, *, scrollTop: float) -> None:
     """Callback 回调：sync scroll 模式下前端报告滚动位置。"""
     _vl_ext(self).scroll_top = scrollTop
     self.invalidate()
-
-
-@impl(VirtualList.render_viewport)
-def virtual_list_render_viewport(
-    self: VirtualList, wire_tree: WireTree, channel_id: int,
-) -> WireTree:
-    """为指定 viewport 裁剪 $children，只保留该 VP 可见的 item。"""
-    ext = _vl_ext(self)
-    allowed = ext.viewport_item_ids.get(channel_id, set())
-    result: WireTree = []
-    for idx, node in enumerate(wire_tree):
-        raw_children = node.get("$children", None)
-        if isinstance(raw_children, Sequence):
-            filtered: list[Any] = [
-                c for c in raw_children
-                if not isinstance(c, Mapping) or c.get("$view") in allowed
-            ]
-            node = {**node, "$children": filtered}
-        if idx == 0:
-            node: WireNode = {**node}
-            start, _ = ext.rendered_viewport_ranges.get(channel_id, (0, 0))
-            node["viewportStart"] = start
-            node["itemIds"] = ext.rendered_viewport_ids.get(channel_id, [])
-        result.append(node)
-    return result
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .action import ActionRef
-from .view import View, ViewBlock, WireTree
+from .view import View, ViewBlock
 
 
 # ---------------------------------------------------------------------------
@@ -73,12 +73,6 @@ class DockPanel(View):
 
     def render(self) -> ViewBlock:
         """产出 DockPanel 完整 wire tree。"""
-        ...
-
-    def render_viewport(
-        self, wire_tree: WireTree, channel_id: int,
-    ) -> WireTree:
-        """为指定 viewport 计算响应式坍缩后的 layout。"""
         ...
 
 
