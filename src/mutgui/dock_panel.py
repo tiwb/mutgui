@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from .action import ActionRef
+from .action import ActionContext, ActionRef
 from .view import View, ViewBlock
 
 
@@ -19,11 +19,11 @@ from .view import View, ViewBlock
 
 @dataclass
 class PanelDef:
-    id: str
     title: str
     icon: str | None = None
     min_width: int = 0
     min_height: int = 0
+    view: View | None = None
 
 
 @dataclass
@@ -55,21 +55,17 @@ LayoutNode = SplitNode | TabSetNode
 
 class DockPanel(View):
     panels: dict[str, PanelDef]
-    panel_views: dict[str, View]
     layout: LayoutNode
-    default_collapse_below: int
+    default_collapse_below: int = 0
+    action_context: ActionContext | None = None
 
     def __init__(
         self,
         id: str,
-        panels: list[PanelDef],
+        panels: dict[str, PanelDef],
         layout: LayoutNode,
         default_collapse_below: int = 0,
     ) -> None: ...
-
-    def set_panel_view(self, panel_id: str, view: View) -> None:
-        """为 panel_id 设置内容 View。"""
-        ...
 
     def render(self) -> ViewBlock:
         """产出 DockPanel 完整 wire tree。"""

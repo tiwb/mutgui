@@ -479,11 +479,11 @@ class ActionDemoPage(View):
 
         self.dock = DockPanel(
             id="dock",
-            panels=[
-                PanelDef("scene", "Scene", icon="🗺"),
-                PanelDef("inspector", "Inspector", icon="🧩"),
-                PanelDef("console", "Console", icon="📜"),
-            ],
+            panels={
+                "scene":     PanelDef("Scene",     icon="🗺",  view=PanelView("Scene")),
+                "inspector": PanelDef("Inspector", icon="🧩", view=PanelView("Inspector")),
+                "console":   PanelDef("Console",   icon="📜", view=PanelView("Console")),
+            },
             layout=SplitNode(
                 direction="horizontal",
                 ratio=0.65,
@@ -503,10 +503,7 @@ class ActionDemoPage(View):
                 ),
             ),
         )
-        self.dock.action_context_data["page"] = self
-        self.dock.set_panel_view("scene", PanelView("Scene"))
-        self.dock.set_panel_view("inspector", PanelView("Inspector"))
-        self.dock.set_panel_view("console", PanelView("Console"))
+        self.dock.action_context = ActionContext(data={"page": self})
 
     def render(self) -> ViewBlock:
         context = self._action_context()

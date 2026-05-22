@@ -17,7 +17,7 @@ from .dock_panel import DockPanel, LayoutNode, PanelDef, SplitNode, TabSetNode
 from .events import Callback
 from .expr import Expr
 from .view import (
-    ViewBlock, RenderComponent, RenderValue, WireTree, WireValue, View, RenderTree,
+    ViewBlock, RenderComponent, RenderValue, WireTree, WireValue, RenderTree,
     PerViewport,
 )
 
@@ -35,7 +35,7 @@ class DockPanelRuntime(mutobj.Extension[DockPanel]):
     viewport_collapsed_active: dict[int, dict[str, str]] = mutobj.field(default_factory=dict)
     viewport_collapsed_orders: dict[int, dict[str, list[str]]] = mutobj.field(default_factory=dict)
     id_counter: int = 0
-    action_context_data: dict[str, Any] = mutobj.field(default_factory=dict)
+
 
 
 def _dp_ext(self: DockPanel) -> DockPanelRuntime:
@@ -157,14 +157,16 @@ def set_active_in_subtree(node: LayoutNode, panel_id: str) -> bool:
 def dock_panel_init(
     self: DockPanel,
     id: str,
-    panels: list[PanelDef],
+    panels: dict[str, PanelDef],
     layout: LayoutNode,
     default_collapse_below: int = 0,
 ) -> None:
     super(DockPanel, self).__init__()
     self.id = id
-    self.panels = {p.id: p for p in panels}
-    self.panel_views = {}
+    self.panels = panels
+    for pid, p in panels.items():
+        if p.view is not None:
+            p.view.id = pid
     self.layout = layout
     self.default_collapse_below = default_collapse_below
     ext = _dp_ext(self)
@@ -172,14 +174,8 @@ def dock_panel_init(
     ext.viewport_sizes = {}
     ext.viewport_collapsed_active = {}
     ext.viewport_collapsed_orders = {}
-    ext.action_context_data = {}
+    self.action_context = None
     _dock_panel_assign_ids(self, layout)
-
-
-@impl(DockPanel.set_panel_view)
-def dock_panel_set_panel_view(self: DockPanel, panel_id: str, view: View) -> None:
-    view.id = panel_id
-    self.panel_views[panel_id] = view
 
 
 @impl(DockPanel.render)
@@ -187,15 +183,13 @@ def dock_panel_render(self: DockPanel) -> ViewBlock:
     _dock_panel_cleanup_viewports(self)
 
     panels_data: dict[str, Any] = {}
-    for p in self.panels.values():
-        panels_data[p.id] = {
+    for pid, p in self.panels.items():
+        panels_data[pid] = {
             "title": p.title,
             "icon": p.icon,
             "minWidth": p.min_width,
             "minHeight": p.min_height,
         }
-
-    all_views = list(self.panel_views.values())
 
     callbacks: dict[str, RenderValue] = {
         "onResize": Callback(
@@ -251,21 +245,22 @@ def dock_panel_render(self: DockPanel) -> ViewBlock:
         "$id": "dock",
         "panels": panels_data,
         **callbacks,
-        "$children": PerViewport(_dock_panel_children, self, all_views),
+        "$children": PerViewport(_dock_panel_children, self),
     }])
 
 
 def _dock_panel_children(
-    vid: int, self: DockPanel, all_views: list[View],
+    vid: int, self: DockPanel,
 ) -> RenderTree:
     """PerViewport 回调：为指定 viewport 构建 $children。
 
-    首次 render（未收到 onResize）返回所有 panel_view 让框架注册子 View；
-    onResize 后按 viewport 尺寸计算坍缩后的 layout 子节点。
+    首次 render（未收到 onResize）不展示子 View；
+    onResize 后按 viewport 尺寸计算坍缩后的 layout。
     """
     size = _dp_ext(self).viewport_sizes.get(vid)
     if not size:
-        return list(all_views)
+        # 尚未收到 onResize，不展示任何子 View，避免假尺寸算错布局
+        return []
     collapsed_ids: set[str] = set()
     layout = _dock_panel_compute_layout(
         self, self.layout, size[0], size[1], vid, collapsed_ids,
@@ -335,13 +330,13 @@ def _dock_panel_build_tabset_component(
     for pid in node.panel_ids:
         p = self.panels.get(pid)
         if p:
-            tab: RenderComponent = {"id": p.id, "title": p.title}
+            tab: RenderComponent = {"id": pid, "title": p.title}
             if p.icon:
                 tab["icon"] = p.icon
             tabs.append(tab)
 
     active_id = node.active_id
-    active_view = self.panel_views.get(active_id) if active_id else None
+    active_view = (self.panels[active_id].view) if active_id and active_id in self.panels else None
     children: RenderTree = [active_view] if active_view else []
     result: RenderComponent = {
         "$component": "mutgui.DockPanel.TabSet",
@@ -422,7 +417,8 @@ def _dock_panel_tabset_action_context(
         "tabset": node,
         "active_panel_id": node.active_id,
     }
-    data.update(_dp_ext(self).action_context_data)
+    if self.action_context is not None:
+        data.update(self.action_context.data)
     return ActionContext(
         surface="dock",
         data=data,
@@ -471,7 +467,7 @@ def _dock_panel_tabs_for_node(
     for pid in node.panel_ids:
         p = self.panels.get(pid)
         if p:
-            tab: dict[str, WireValue] = {"id": p.id, "title": p.title}
+            tab: dict[str, WireValue] = {"id": pid, "title": p.title}
             if p.icon:
                 tab["icon"] = p.icon
             tabs.append(tab)

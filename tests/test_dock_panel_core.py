@@ -41,7 +41,7 @@ def _tree() -> SplitNode:
 
 
 def _make_dock(layout: SplitNode | None = None) -> DockPanel:
-    panels = [PanelDef(id=c, title=c.upper()) for c in "abcde"]
+    panels = {c: PanelDef(c.upper()) for c in "abcde"}
     return DockPanel(id="dock", panels=panels,
                      layout=layout or _tree())
 
@@ -357,7 +357,7 @@ def _make_simple_dock() -> DockPanel:
     )
     return DockPanel(
         id="dock",
-        panels=[PanelDef(id=c, title=c.upper()) for c in "abc"],
+        panels={c: PanelDef(c.upper()) for c in "abc"},
         layout=layout,
     )
 
@@ -384,7 +384,7 @@ def test_tab_move_source_emptied_cleanup() -> None:
     )
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef(id="a", title="A"), PanelDef(id="b", title="B")],
+        panels={"a": PanelDef("A"), "b": PanelDef("B")},
         layout=layout,
     )
     left_id = dock.layout.children[0].id  # type: ignore[union-attr]
@@ -494,7 +494,7 @@ def test_tab_dock_source_emptied() -> None:
     )
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef(id="a", title="A"), PanelDef(id="b", title="B")],
+        panels={"a": PanelDef("A"), "b": PanelDef("B")},
         layout=layout,
     )
     src_id = dock.layout.children[0].id  # type: ignore[union-attr]
@@ -571,7 +571,7 @@ def test_build_split_wire_merge_bars() -> None:
     )
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef(id=c, title=c.upper()) for c in "abc"],
+        panels={c: PanelDef(c.upper()) for c in "abc"},
         layout=layout,
     )
     wire = _dock_panel_build_split_component(dock, dock.layout, set())  # type: ignore[arg-type]
@@ -599,7 +599,7 @@ def test_build_split_wire_no_merge_bars() -> None:
     )
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef(id="a", title="A"), PanelDef(id="b", title="B")],
+        panels={"a": PanelDef("A"), "b": PanelDef("B")},
         layout=layout,
     )
     wire = _dock_panel_build_split_component(dock, dock.layout, set())  # type: ignore[arg-type]

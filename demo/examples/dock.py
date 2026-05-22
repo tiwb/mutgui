@@ -46,19 +46,19 @@ class SimplePanelView(View):
 class DockView(View):
     def __init__(self) -> None:
         super().__init__()
-        panels = [
-            PanelDef("explorer", "Explorer", icon="📁"),
-            PanelDef("search", "Search", icon="🔍"),
-            PanelDef("git", "Git", icon="🔀"),
-            PanelDef("settings", "Settings", icon="⚙️"),
-            PanelDef("main-py", "main.py", icon="📄"),
-            PanelDef("utils-py", "utils.py", icon="📄"),
-            PanelDef("readme", "README", icon="📝"),
-            PanelDef("outline", "Outline", icon="📋"),
-            PanelDef("problems", "Problems", icon="⚠️"),
-            PanelDef("output", "Output", icon="📤"),
-            PanelDef("terminal", "Terminal", icon="💻"),
-        ]
+        panels = {
+            "explorer":  PanelDef("Explorer",  icon="📁", view=SimplePanelView("explorer", "Explorer")),
+            "search":    PanelDef("Search",    icon="🔍", view=SimplePanelView("search", "Search")),
+            "git":       PanelDef("Git",       icon="🔀", view=SimplePanelView("git", "Git")),
+            "settings":  PanelDef("Settings",  icon="⚙️", view=SimplePanelView("settings", "Settings")),
+            "main-py":   PanelDef("main.py",   icon="📄", view=SimplePanelView("main-py", "main.py")),
+            "utils-py":  PanelDef("utils.py",  icon="📄", view=SimplePanelView("utils-py", "utils.py")),
+            "readme":    PanelDef("README",    icon="📝", view=SimplePanelView("readme", "README")),
+            "outline":   PanelDef("Outline",   icon="📋", view=SimplePanelView("outline", "Outline")),
+            "problems":  PanelDef("Problems",  icon="⚠️", view=SimplePanelView("problems", "Problems")),
+            "output":    PanelDef("Output",    icon="📤", view=SimplePanelView("output", "Output")),
+            "terminal":  PanelDef("Terminal",  icon="💻", view=SimplePanelView("terminal", "Terminal")),
+        }
 
         layout = SplitNode(
             direction="horizontal", merge_bars=True, collapse_below=500,
@@ -93,9 +93,6 @@ class DockView(View):
 
         self.dock = DockPanel(id="dock", panels=panels, layout=layout,
                               default_collapse_below=300)
-
-        for p in panels:
-            self.dock.set_panel_view(p.id, SimplePanelView(p.id, p.title))
 
     def render(self) -> ViewBlock:
         return ViewBlock([self.dock])

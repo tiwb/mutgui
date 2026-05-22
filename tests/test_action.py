@@ -314,7 +314,7 @@ class DuplicateProvider(ActionCategoryProvider):
 def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() -> None:
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef("a", "A"), PanelDef("b", "B")],
+        panels={"a": PanelDef("A", view=ToolbarWidget()), "b": PanelDef("B", view=ToolbarWidget())},
         layout=SplitNode(
             direction="horizontal",
             children=(
@@ -330,8 +330,6 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
             ),
         ),
     )
-    dock.set_panel_view("a", ToolbarWidget())
-    dock.set_panel_view("b", ToolbarWidget())
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = _dock_resolve(dock, 1)
@@ -348,15 +346,14 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
 def test_dockpanel_action_context_data_is_merged() -> None:
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef("a", "A")],
+        panels={"a": PanelDef("A", view=ToolbarWidget())},
         layout=TabSetNode(
             panel_ids=["a"],
             active_id="a",
             actions=[ActionRef(action=ContextProbeAction)],
         ),
     )
-    _dp_ext(dock).action_context_data["marker"] = "from-dock"
-    dock.set_panel_view("a", ToolbarWidget())
+    dock.action_context = ActionContext(data={"marker": "from-dock"})
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = _dock_resolve(dock, 1)
@@ -496,7 +493,7 @@ def test_action_toolbar_default_label_mode_keeps_icon_and_text() -> None:
 def test_dockpanel_action_wire_carries_group_name() -> None:
     dock = DockPanel(
         id="dock",
-        panels=[PanelDef("a", "A")],
+        panels={"a": PanelDef("A", view=ToolbarWidget())},
         layout=TabSetNode(
             panel_ids=["a"],
             active_id="a",
@@ -506,7 +503,6 @@ def test_dockpanel_action_wire_carries_group_name() -> None:
             ],
         ),
     )
-    dock.set_panel_view("a", ToolbarWidget())
     _dp_ext(dock).viewport_sizes[1] = (800, 600)
 
     result = _dock_resolve(dock, 1)

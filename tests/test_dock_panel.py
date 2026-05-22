@@ -56,14 +56,12 @@ def _make_dock(collapse_below: int = 600) -> DockPanel:
         ),
         collapse_below=collapse_below,
     )
-    panels = [
-        PanelDef(id="a", title="Panel A"),
-        PanelDef(id="b", title="Panel B"),
-        PanelDef(id="c", title="Panel C"),
-    ]
+    panels = {
+        "a": PanelDef("Panel A", view=PanelView("a")),
+        "b": PanelDef("Panel B", view=PanelView("b")),
+        "c": PanelDef("Panel C", view=PanelView("c")),
+    }
     dock = DockPanel(id="dock", panels=panels, layout=layout)
-    for pid in ["a", "b", "c"]:
-        dock.set_panel_view(pid, PanelView(pid))
     return dock
 
 
@@ -120,12 +118,10 @@ def test_compute_layout_per_viewport_orders() -> None:
 # ---------------------------------------------------------------------------
 
 def test_render_template_includes_all_views() -> None:
-    """未设尺寸时，dock 解析输出的 $children 包含所有面板 View。"""
+    """未设尺寸时，dock $children 为空（不展示子 View，等待 onResize）。"""
     dock = _make_dock()
     result = _dock_resolve(dock, 0)
-    children = result[0]["$children"]
-    child_ids = {c["$view"] for c in children if isinstance(c, dict) and "$view" in c}
-    assert child_ids == {"a", "b", "c"}
+    assert result[0]["$children"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -133,15 +129,12 @@ def test_render_template_includes_all_views() -> None:
 # ---------------------------------------------------------------------------
 
 def test_transform_no_size_passthrough() -> None:
-    """viewport 未报告尺寸时，解析输出仅含 base 节点 + 全部 panel View 作为 $children。"""
+    """viewport 未报告尺寸时，$children 为空（不展示子 View，等待 onResize）。"""
     dock = _make_dock()
     result = _dock_resolve(dock, 99)
     assert len(result) == 1
-    node = result[0]
-    assert node["$component"] == "mutgui.DockPanel"
-    children = node["$children"]
-    view_ids = {c["$view"] for c in children if isinstance(c, dict) and "$view" in c}
-    assert view_ids == {"a", "b", "c"}
+    assert result[0]["$component"] == "mutgui.DockPanel"
+    assert result[0]["$children"] == []
 
 
 def test_transform_wide_viewport() -> None:
