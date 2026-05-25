@@ -14,7 +14,7 @@ from mutobj import impl
 from ._viewport_context import set_current_viewport, reset_current_viewport
 from ._view_impl import ViewObservers, ViewRenderState, handle_raw_event, _render_and_cache  # pyright: ignore[reportPrivateUsage]
 from .channel import Channel
-from .view import View, WireTree
+from .view import View, ViewId, WireTree
 from .viewport import ViewPort
 
 
@@ -28,7 +28,7 @@ class ViewPortRuntime(mutobj.Extension[ViewPort]):
     view: View | None = None
     channel: Channel | None = None
     path: list[str | int] = mutobj.field(default_factory=list)
-    child_viewports: dict[str | int, ViewPort] = mutobj.field(default_factory=dict)
+    child_viewports: dict[ViewId, ViewPort] = mutobj.field(default_factory=dict)
     # 根 ViewPort 持有的浏览器侧握手信息（子 ViewPort 为空）。
     client: dict[str, Any] | None = None
 
@@ -183,12 +183,12 @@ def _cleanup_overlays_for_channel(view: View, channel_id: int | None) -> None:
 # Push render — 由 _view_impl._deferred_render 调用
 # ---------------------------------------------------------------------------
 
-def _extract_view_refs(tree: WireTree) -> set[str]:
+def _extract_view_refs(tree: WireTree) -> set[ViewId]:
     """从 wire tree 中递归提取所有 $view 引用 ID。"""
-    refs: set[str] = set()
+    refs: set[ViewId] = set()
     for node in tree:
         view_id = node.get("$view")
-        if isinstance(view_id, str):
+        if isinstance(view_id, ViewId):
             refs.add(view_id)
         children = node.get("$children")
         if isinstance(children, (list, tuple)):
@@ -198,7 +198,7 @@ def _extract_view_refs(tree: WireTree) -> set[str]:
 
 def _filter_overlays_by_channel(
     wire_tree: WireTree,
-    children: dict[str | int, View],
+    children: dict[ViewId, View],
     channel_id: int,
 ) -> WireTree:
     """过滤 wire_tree 顶层 `$view` 节点：若指向 View 的 `origin_channel_id`
@@ -285,7 +285,7 @@ async def _vp_push_render(vp: ViewPort) -> None:
         old_vp.detach()
 
 
-def _vp_child_viewport(vp: ViewPort, child_id: str | int) -> ViewPort | None:
+def _vp_child_viewport(vp: ViewPort, child_id: ViewId) -> ViewPort | None:
     return _ext(vp).child_viewports.get(child_id)
 
 

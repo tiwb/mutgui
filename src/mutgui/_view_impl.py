@@ -20,7 +20,7 @@ from ._viewport_context import (
     set_current_viewport,
 )
 from .events import Event, EventFilter, EventHandler
-from .view import View, ViewBlock, PerViewport, RenderValue, WireValue, WireTree, WireNode, RenderNode
+from .view import View, ViewBlock, ViewId, PerViewport, RenderValue, WireValue, WireTree, WireNode, RenderNode
 
 if TYPE_CHECKING:
     from .viewport import ViewPort
@@ -43,14 +43,14 @@ class ViewRenderState(mutobj.Extension[View]):
     """View 的渲染状态 — handlers、children、wire_tree 缓存、dirty 标记。"""
 
     handlers: dict[int, EventHandler] = mutobj.field(default_factory=dict)
-    children: dict[str | int, View] = mutobj.field(default_factory=dict)
+    children: dict[ViewId, View] = mutobj.field(default_factory=dict)
     event_filters: list[EventFilter] = mutobj.field(default_factory=list)
     # per-VP 缓存：key 为 channel_id。多 VP 下可能各自不同（PerViewport 介入）。
     wire_tree_per_vp: dict[int, WireTree] = mutobj.field(default_factory=dict)
     dirty: bool = True
     render_scheduled: bool = False
     render_event: asyncio.Event | None = None
-    overlay_children: dict[str | int, View] = mutobj.field(default_factory=dict)  # 框架注入的子 View（如菜单）
+    overlay_children: dict[ViewId, View] = mutobj.field(default_factory=dict)  # 框架注入的子 View（如菜单）
     view_block: ViewBlock | None = None
 
 

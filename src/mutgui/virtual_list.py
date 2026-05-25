@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import mutobj
 
-from .view import View, ViewBlock
+from .view import View, ViewBlock, ViewId
 
 
 class VirtualListItemAdapter(mutobj.Declaration):
@@ -27,7 +27,7 @@ class VirtualListItemAdapter(mutobj.Declaration):
         """当前可用的 item 总数。"""
         ...
 
-    def item_id(self, index: int) -> str:
+    def item_id(self, index: int) -> ViewId:
         """返回 index 位置的 stable ID。
 
         驱动 View 复用——同一 id 的 View 实例保持不变。
@@ -73,6 +73,10 @@ class VirtualList(View):
         stick_to_bottom: bool = False,
         estimated_item_height: int = 32,
     ) -> None: ...
+
+    def get_item_view(self, item_id: ViewId) -> View | None:
+        """按 item_id 查找已存在的 item View。不存在返回 None。"""
+        ...
 
     def render(self) -> ViewBlock:
         """返回 VirtualList 容器 + 当前 viewport 并集内的 item View（按 PerViewport 拆分表达）。"""

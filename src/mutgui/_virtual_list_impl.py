@@ -10,7 +10,7 @@ import mutobj
 from mutobj import impl
 
 from .virtual_list import VirtualList, VirtualListItemAdapter
-from .view import View, ViewBlock, RenderComponent, RenderTree, PerViewport
+from .view import View, ViewBlock, ViewId, RenderComponent, RenderTree, PerViewport
 from .events import Callback
 from .expr import Expr
 
@@ -21,12 +21,12 @@ from .expr import Expr
 
 class VirtualListRuntime(mutobj.Extension[VirtualList]):
     """VirtualList 的运行时私有状态 — viewport 渲染内部簿记。"""
-    item_views: dict[str, View] = mutobj.field(default_factory=dict)
+    item_views: dict[ViewId, View] = mutobj.field(default_factory=dict)
     viewport_ranges: dict[int, tuple[int, int]] = mutobj.field(default_factory=dict)
-    viewport_item_ids: dict[int, set[str]] = mutobj.field(default_factory=dict)
+    viewport_item_ids: dict[int, set[ViewId]] = mutobj.field(default_factory=dict)
     rendered_viewport_ranges: dict[int, tuple[int, int]] = mutobj.field(default_factory=dict)
-    rendered_viewport_ids: dict[int, list[str]] = mutobj.field(default_factory=dict)
-    visible_ids: list[str] = mutobj.field(default_factory=list)
+    rendered_viewport_ids: dict[int, list[ViewId]] = mutobj.field(default_factory=dict)
+    visible_ids: list[ViewId] = mutobj.field(default_factory=list)
     scroll_top: float = 0.0
 
 
@@ -91,6 +91,11 @@ def virtual_list_init(
     ext.rendered_viewport_ids = {}
     ext.visible_ids = []
     ext.scroll_top = 0.0
+
+
+@impl(VirtualList.get_item_view)
+def virtual_list_get_item_view(self: VirtualList, item_id: ViewId) -> View | None:
+    return _vl_ext(self).item_views.get(item_id)
 
 
 @impl(VirtualList.render)
@@ -212,9 +217,9 @@ def _refresh_visible(self: VirtualList) -> None:
     ext.visible_ids = new_ids
 
     # 预计算 per-VP 的 item ID 集合
-    viewport_item_ids: dict[int, set[str]] = {}
+    viewport_item_ids: dict[int, set[ViewId]] = {}
     rendered_viewport_ranges: dict[int, tuple[int, int]] = {}
-    rendered_viewport_ids: dict[int, list[str]] = {}
+    rendered_viewport_ids: dict[int, list[ViewId]] = {}
     for vp_id, (s, e) in ext.viewport_ranges.items():
         s, e = min(s, count), min(e, count)
         rendered_viewport_ranges[vp_id] = (s, e)

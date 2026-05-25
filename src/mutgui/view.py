@@ -33,6 +33,8 @@ RenderComponent: TypeAlias = dict[str, RenderValue]
 RenderNode: TypeAlias = Union[RenderComponent, "View", "PerViewport"]
 RenderTree: TypeAlias = list[RenderNode]
 
+ViewId: TypeAlias = str | int
+
 
 class PerViewport(mutobj.Declaration):
     """Per-viewport 值原语。类似 Callback 的参数捕获语义。
@@ -73,7 +75,7 @@ class View(mutobj.Declaration):
     框架负责 render -> serialize -> send 循环。
     """
 
-    id: str | int = ""
+    id: ViewId = ""
 
     def render(self) -> ViewBlock:
         """声明当前 UI 应该长什么样。
