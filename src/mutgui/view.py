@@ -24,11 +24,11 @@ WireValue: TypeAlias = None | bool | int | float | str | Sequence["WireValue"] |
 WireNode: TypeAlias = dict[str, "WireValue"]
 WireTree: TypeAlias = list[WireNode]
 
-RenderValue: TypeAlias = (
-    None | bool | int | float | str
-    | "View" | "EventHandler" | "PerViewport"
-    | Sequence["RenderValue"] | Mapping[str, "RenderValue"]
-)
+RenderValue: TypeAlias = Union[
+    None, bool, int, float, str,
+    "View", "EventHandler", "PerViewport",
+    Sequence["RenderValue"], Mapping[str, "RenderValue"],
+]
 RenderComponent: TypeAlias = dict[str, RenderValue]
 RenderNode: TypeAlias = Union[RenderComponent, "View", "PerViewport"]
 RenderTree: TypeAlias = list[RenderNode]
