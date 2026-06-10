@@ -18,10 +18,7 @@ pytestmark = pytest.mark.integration
 
 class SharedCounterView(View):
     id = "shared-counter"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.count = 0
+    count: int = 0
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -74,10 +71,7 @@ class HashBroadcastView(View):
     """点击后在后台 broadcast `mutgui.setHash` 并 invalidate。"""
 
     id = "hash-broadcast"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.target_hash = ""
+    target_hash: str = ""
 
     def render(self) -> ViewBlock:
         return ViewBlock([

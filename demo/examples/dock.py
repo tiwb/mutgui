@@ -44,6 +44,8 @@ class SimplePanelView(View):
 
 
 class DockView(View):
+    dock: DockPanel
+
     def __init__(self) -> None:
         super().__init__()
         panels = {

@@ -3,6 +3,8 @@
 import asyncio
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, ViewPort, Channel, Callback, Bind, EventHandler, Expr
 from mutgui.events import Event
 
@@ -10,9 +12,7 @@ from mutgui.events import Event
 class MockChannel(Channel):
     """记录所有发送消息的 mock channel。"""
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -82,9 +82,7 @@ def test_plain_props_pass_through() -> None:
 # ---------------------------------------------------------------------------
 
 class CallbackView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.clicked = False
+    clicked: bool = False
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -121,10 +119,8 @@ def test_callback_registered_and_dispatched() -> None:
 # ---------------------------------------------------------------------------
 
 class BindView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.name = ""
-        self.age = 18
+    name: str = ""
+    age: int = 18
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -202,9 +198,7 @@ def test_bind_number() -> None:
 # ---------------------------------------------------------------------------
 
 class EventHandlerView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.last_event: Event | None = None
+    last_event: Event | None = None
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -245,9 +239,7 @@ def test_event_handler_falls_through_to_on_event() -> None:
 # ---------------------------------------------------------------------------
 
 class ConditionalView(View):
-    def __init__(self) -> None:
-        super().__init__()
-        self.show_extra = False
+    show_extra: bool = False
 
     def render(self) -> ViewBlock:
         tree: list[dict[str, Any]] = [
@@ -350,9 +342,7 @@ def test_callback_does_not_auto_invalidate() -> None:
     """Callback 事件不应自动 invalidate（与旧行为不同）。"""
 
     class CountView(View):
-        def __init__(self) -> None:
-            super().__init__()
-            self.count = 0
+        count: int = 0
 
         def render(self) -> ViewBlock:
             return ViewBlock([

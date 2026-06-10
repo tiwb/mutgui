@@ -697,6 +697,9 @@ def action_button(
 
 class TableView(View):
     id = "table"
+    game: MahjongGame
+    link_base: str
+    show_links: bool
 
     def __init__(
         self,
@@ -882,6 +885,11 @@ class TableView(View):
 
 
 class PlayerView(View):
+    game: MahjongGame
+    seat: Seat
+    show_back_button: bool
+    selected_index: int | None
+
     def __init__(
         self,
         game: MahjongGame,
@@ -1230,6 +1238,11 @@ class PlayerView(View):
 
 class AllDebugView(View):
     id = "all"
+    game: MahjongGame
+
+    game: MahjongGame
+    table_view: View
+    player_views: dict[Seat, View]
 
     def __init__(self, game: MahjongGame) -> None:
         super().__init__()

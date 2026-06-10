@@ -12,10 +12,7 @@ pytestmark = pytest.mark.integration
 
 class CounterView(View):
     id = "counter"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.count = 0
+    count: int = 0
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -52,10 +49,7 @@ async def test_button_click(app, page):
 
 class ToggleView(View):
     id = "toggle"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.visible = False
+    visible: bool = False
 
     def render(self) -> ViewBlock:
         items: list = [

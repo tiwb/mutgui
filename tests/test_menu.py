@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Any
+import mutobj
 
 from mutgui import (
     View, ViewBlock, ViewPort, Channel, Callback, Expr,
@@ -11,9 +12,7 @@ from mutgui._view_impl import ViewRenderState
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -96,6 +95,9 @@ def test_menu_view_ids_are_unique() -> None:
 # ---------------------------------------------------------------------------
 
 class TabMenu(MenuView):
+    item_id: str
+    delete_called: bool
+
     def __init__(self, item_id: str = "?") -> None:
         super().__init__()
         self.item_id = item_id

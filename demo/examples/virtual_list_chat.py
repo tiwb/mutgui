@@ -100,7 +100,7 @@ class ChatAdapter(VirtualListItemAdapter):
         item_id = f"msg-{uid}"
         updated = False
         for virtual_list in self.virtual_lists:
-            item_view = virtual_list.item_views.get(item_id)
+            item_view = virtual_list.get_item_view(item_id)
             if item_view is not None:
                 item_view.invalidate()
                 updated = True
@@ -155,12 +155,17 @@ class ChatAdapter(VirtualListItemAdapter):
         ]
         for role, author, text in seed_messages:
             self._append_raw(role, author, text)
-        for virtual_list in self.virtual_lists:
-            virtual_list.item_views.clear()
         self.invalidate()
 
 
 class VirtualListChatView(View):
+    adapter: ChatAdapter
+    chat_list: VirtualList
+    prompt: str
+    status: str
+    is_streaming: bool = False
+    _stream_task: asyncio.Task[None] | None = None
+
     def __init__(self) -> None:
         super().__init__()
         self.adapter = ChatAdapter()
@@ -172,7 +177,6 @@ class VirtualListChatView(View):
         )
         self.prompt = "为什么聊天列表不能继续假设所有 item 都是固定高度？"
         self.status = "点击发送后，最后一条助手消息会流式增长；向上滚动后再次触发，可观察解除跟随。"
-        self.is_streaming = False
         self._stream_task: asyncio.Task[None] | None = None
 
     def _build_reply(self, prompt: str) -> str:

@@ -35,6 +35,8 @@ CONTROL_STYLE = {
 
 
 class PanelView(View):
+    title: str
+
     def __init__(self, title: str) -> None:
         super().__init__()
         self.title = title
@@ -451,6 +453,7 @@ class ActionDemoPage(View):
     recent_files: list[str]
     toolbar: ActionToolbar
     compact_toolbar: ActionToolbar
+    dock: DockPanel
 
     def __init__(self) -> None:
         super().__init__()

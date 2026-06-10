@@ -5,6 +5,7 @@ import asyncio
 from typing import Any
 
 import pytest
+import mutobj
 from playwright.async_api import expect
 
 from mutgui import View, ViewBlock, Callback
@@ -19,10 +20,7 @@ class HashTrackerView(View):
     """记录所有收到的 $hashchange 事件，并提供 setHash 按钮。"""
 
     id = "hash-tracker"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.hash_events: list[dict[str, Any]] = []
+    hash_events: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     def render(self) -> ViewBlock:
         latest = self.hash_events[-1] if self.hash_events else {"hash": "", "cause": "none"}

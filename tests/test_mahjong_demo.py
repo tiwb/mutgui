@@ -3,15 +3,15 @@
 import asyncio
 from typing import Any
 
+import mutobj
+
 from mutgui import Channel, ViewPort
 
 from demo.games.mahjong import Seat, MahjongGame, Meld, PlayerView, TableView, all_view, app
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)

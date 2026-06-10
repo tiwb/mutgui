@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, Callback, PerViewport, Event
 
 from demo.framework import MutguiRoute, DemoApp
@@ -58,11 +60,11 @@ _SECTION_BODIES: dict[str, tuple[str, str]] = {
 
 class HashNavView(View):
     """单 View 内的 hash 路由 demo。"""
+    _hash: str = ""
+    _log: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     def __init__(self) -> None:
         super().__init__()
-        self._hash: str = ""
-        self._log: list[dict[str, Any]] = []  # 最新在前
 
     # ------------------------------------------------------------------
     # 事件处理

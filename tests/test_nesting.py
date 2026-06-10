@@ -3,14 +3,14 @@
 import asyncio
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, ViewPort, Channel, Callback, Expr
 from mutgui._view_impl import ViewObservers
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -25,10 +25,7 @@ class MockChannel(Channel):
 
 class ChildView(View):
     id = "child"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.value = 0
+    value: Any = 0
 
     def render(self) -> ViewBlock:
         return ViewBlock([
@@ -42,6 +39,9 @@ class ChildView(View):
 
 
 class ParentView(View):
+    child: View
+    title: str
+
     def __init__(self) -> None:
         super().__init__()
         self.child = ChildView()
@@ -121,6 +121,9 @@ def test_event_to_parent_component() -> None:
         channel = MockChannel()
 
         class ParentWithHandler(View):
+            clicked: bool
+            child: View
+
             def __init__(self) -> None:
                 super().__init__()
                 self.clicked = False
@@ -165,6 +168,7 @@ def test_deeply_nested_event_routing() -> None:
 
         class InnerView(View):
             id = "inner"
+            val: str
 
             def __init__(self) -> None:
                 super().__init__()
@@ -179,6 +183,7 @@ def test_deeply_nested_event_routing() -> None:
 
         class MiddleView(View):
             id = "middle"
+            inner: View
 
             def __init__(self) -> None:
                 super().__init__()
@@ -188,6 +193,8 @@ def test_deeply_nested_event_routing() -> None:
                 return ViewBlock([self.inner])
 
         class RootView(View):
+            middle: View
+
             def __init__(self) -> None:
                 super().__init__()
                 self.middle = MiddleView()
@@ -283,6 +290,8 @@ def test_view_inside_children() -> None:
                 return ViewBlock([{"$component": "Text", "$id": "label", "children": "Panel"}])
 
         class TabsView(View):
+            panel: View
+
             def __init__(self) -> None:
                 super().__init__()
                 self.panel = PanelView()
@@ -322,6 +331,9 @@ def test_dynamic_view_add_remove() -> None:
         channel = MockChannel()
 
         class DynamicParent(View):
+            child: View
+            show_child: bool
+
             def __init__(self) -> None:
                 super().__init__()
                 self.child = ChildView()

@@ -35,6 +35,8 @@ logger = logging.getLogger("mutgui.demo.starlette")
 # ---------------------------------------------------------------------------
 
 class StarletteChannel(Channel):
+    ws: WebSocket
+
     def __init__(self, ws: WebSocket) -> None:
         super().__init__()
         self.ws = ws

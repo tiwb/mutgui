@@ -16,15 +16,17 @@ from typing import Any
 
 import pytest
 
+import mutobj
 from mutgui import View, ViewBlock, ViewPort, Channel
 
 
 class MockChannel(Channel):
     """记录所有 send 调用的 channel。"""
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
+    fail: bool
 
     def __init__(self, *, fail: bool = False) -> None:
         super().__init__()
-        self.messages: list[dict[str, Any]] = []
         self.fail = fail
 
     async def send(self, message: dict[str, Any]) -> None:

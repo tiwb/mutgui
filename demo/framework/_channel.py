@@ -10,6 +10,7 @@ from mutio.net.server import WebSocketConnection
 
 class WebSocketChannel(Channel):
     """基于 mutio.net WebSocketConnection 的 Channel 实现。"""
+    _ws: WebSocketConnection
 
     def __init__(self, ws: WebSocketConnection) -> None:
         super().__init__()

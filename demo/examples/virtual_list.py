@@ -116,8 +116,9 @@ class RecordAdapter(VirtualListItemAdapter):
         self.records[index] = (uid, name, age, plan)
         item_id = self.item_id(index)
         for vl in self.virtual_lists:
-            if item_id in vl.item_views:
-                del vl.item_views[item_id]
+            item_view = vl.get_item_view(item_id)
+            if item_view:
+                item_view.invalidate()
         self.invalidate()
 
     def delete_record(self, uid: int) -> None:
@@ -129,16 +130,19 @@ class RecordAdapter(VirtualListItemAdapter):
 
 
 class VirtualListView(View):
+    adapter: RecordAdapter
+    record_list: VirtualList
+    name: str = ""
+    age: int = 18
+    editing_uid: int | None = None
+    message: str = ""
+
     def __init__(self) -> None:
         super().__init__()
         self.adapter = RecordAdapter(
             on_edit=self._on_edit, on_delete=self._on_delete,
         )
         self.record_list = VirtualList(id="records", adapter=self.adapter)
-        self.name = ""
-        self.age = 18
-        self.editing_uid: int | None = None
-        self.message = ""
 
     def _on_edit(self, uid: int) -> None:
         index = self.adapter._find_by_uid(uid)

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import mutobj
 from mutgui import View, ViewBlock, ViewPort, Channel
 from mutgui.dock_panel import (
     DockPanel, PanelDef, SplitNode, TabSetNode,
@@ -24,9 +25,7 @@ def _dock_resolve(dock: DockPanel, vid: int) -> list[dict[str, Any]]:
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -36,6 +35,8 @@ class MockChannel(Channel):
 
 
 class PanelView(View):
+    label: str
+
     def __init__(self, label: str) -> None:
         super().__init__()
         self.label = label

@@ -98,12 +98,12 @@ class CommandHomeView(View):
 
 
 class CommandTargetView(View):
+    title: str
+    description: str
+    show_history_back: bool
+
     def __init__(
-        self,
-        *,
-        title: str,
-        description: str,
-        show_history_back: bool,
+        self, *, title: str, description: str, show_history_back: bool,
     ) -> None:
         super().__init__()
         self.title = title

@@ -12,6 +12,8 @@ pytestmark = pytest.mark.integration
 
 
 class CommandChannelView(View):
+    redirect_url: str
+
     def __init__(self, *, redirect_url: str) -> None:
         super().__init__()
         self.redirect_url = redirect_url
@@ -133,6 +135,9 @@ async def test_unknown_command_warns_without_crashing(app, page):
 
 class SetHashView(View):
     """点击后发送 mutgui.setHash，可控 hash / replace。"""
+
+    hash_value: str
+    replace: bool
 
     def __init__(self, *, hash_value: str, replace: bool = False) -> None:
         super().__init__()

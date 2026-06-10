@@ -3,6 +3,8 @@
 import asyncio
 from typing import Any
 
+import mutobj
+
 from mutgui import View, ViewBlock, ViewPort, Channel, VirtualList, VirtualListItemAdapter
 from mutgui._view_impl import ViewRenderState
 from mutgui._view_impl import _resolve_for_viewport, render_ext as _render_ext
@@ -19,9 +21,7 @@ def _vl_resolve(vl: VirtualList, vid: int) -> list[dict[str, Any]]:
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -35,6 +35,8 @@ class MockChannel(Channel):
 # ---------------------------------------------------------------------------
 
 class SimpleItemView(View):
+    text: str
+
     def __init__(self, text: str) -> None:
         super().__init__()
         self.text = text
@@ -44,6 +46,8 @@ class SimpleItemView(View):
 
 
 class SimpleAdapter(VirtualListItemAdapter):
+    items: list[str]
+
     def __init__(self, items: list[str]) -> None:
         super().__init__()
         self.items = items
@@ -183,6 +187,8 @@ def test_virtual_list_end_to_end_render() -> None:
 
         # 模拟父 View 包含 VirtualList
         class RootView(View):
+            vlist: View
+            
             def __init__(self) -> None:
                 super().__init__()
                 self.vlist = vl
@@ -329,6 +335,8 @@ def test_per_vp_push_filtering_e2e() -> None:
         vl = VirtualList(id="vl", adapter=adapter)
 
         class RootView(View):
+            vlist: View
+            
             def __init__(self) -> None:
                 super().__init__()
                 self.vlist = vl
@@ -396,6 +404,8 @@ def test_vp_disconnect_cleanup() -> None:
         vl = VirtualList(id="vl", adapter=adapter)
 
         class RootView(View):
+            vlist: View
+            
             def __init__(self) -> None:
                 super().__init__()
                 self.vlist = vl

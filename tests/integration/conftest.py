@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from mutio.net.server import (
@@ -45,12 +45,14 @@ def _html_template(view_id: str) -> str:
 
 
 class _TestChannel(Channel):
+    _ws: Any  # WebSocketConnection，设为 Any 避免跨模块 import 循环
+
     def __init__(self, ws: WebSocketConnection) -> None:
         super().__init__()
         self._ws = ws
 
     async def send(self, message: dict[str, Any]) -> None:
-        await self._ws.send_json(message)
+        await cast(WebSocketConnection, self._ws).send_json(message)
 
 
 class TestApp:

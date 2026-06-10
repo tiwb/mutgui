@@ -6,6 +6,8 @@ bugfix: docs/specifications/bugfix-root-event-filter-chain.md
 import asyncio
 from typing import Any
 
+import mutobj
+
 from mutgui import (
     View,
     ViewBlock,
@@ -17,9 +19,7 @@ from mutgui import (
 
 
 class MockChannel(Channel):
-    def __init__(self) -> None:
-        super().__init__()
-        self.messages: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = mutobj.field(default_factory=list)
 
     async def send(self, message: dict[str, Any]) -> None:
         self.messages.append(message)
@@ -27,10 +27,7 @@ class MockChannel(Channel):
 
 class RootView(View):
     """根 View，记录 on_event 触发情况。"""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.events_received: list[Event] = []
+    events_received: list[Event] = mutobj.field(default_factory=list)
 
     def render(self) -> ViewBlock:
         return ViewBlock([])

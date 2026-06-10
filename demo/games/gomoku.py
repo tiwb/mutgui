@@ -390,6 +390,7 @@ def button(
 
 class GomokuView(View):
     id = "board"
+    game: GomokuGame
 
     def __init__(self, game: GomokuGame) -> None:
         super().__init__()
