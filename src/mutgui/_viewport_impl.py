@@ -93,7 +93,7 @@ async def view_port_initialize(self: ViewPort) -> None:
         and ext.channel.channel_id in render_state.wire_tree_per_vp
     ):
         # View 已 render 且当前 VP 有缓存 — 直接推送
-        await _vp_push_render(self)
+        await vp_push_render(self)
     else:
         # 需要 render（首次 attach 这个 VP 时其 channel_id 不在缓存里）。
         # 同步跑 _render_and_cache 后推送，避免调用者必须额外 await rendered()。
@@ -111,7 +111,7 @@ async def view_port_initialize(self: ViewPort) -> None:
             render_state.dirty = False
             if render_state.render_event is not None:
                 render_state.render_event.set()
-        await _vp_push_render(self)
+        await vp_push_render(self)
 
 
 @impl(ViewPort.handle_event)
@@ -219,7 +219,7 @@ def _filter_overlays_by_channel(
     return result
 
 
-async def _vp_push_render(vp: ViewPort) -> None:
+async def vp_push_render(vp: ViewPort) -> None:
     """推送 View 的缓存 wire_tree 到 ViewPort 的 Channel。"""
     ext = _ext(vp)
     view = ext.view
@@ -240,7 +240,7 @@ async def _vp_push_render(vp: ViewPort) -> None:
         except Exception:
             import logging
             logging.getLogger("mutgui.render").exception(
-                "Render failed during _vp_push_render fallback for %s",
+                "Render failed during vp_push_render fallback for %s",
                 type(view).__name__,
             )
             return
@@ -278,17 +278,15 @@ async def _vp_push_render(vp: ViewPort) -> None:
         ext.child_viewports[child_id] = child_vp
 
         # 递归推送子 View 的 wire_tree
-        await _vp_push_render(child_vp)
+        await vp_push_render(child_vp)
 
     # detach 被移除的子 ViewPort
     for old_vp in old_child_vps.values():
         old_vp.detach()
 
 
-def _vp_child_viewport(vp: ViewPort, child_id: ViewId) -> ViewPort | None:
+def vp_child_viewport(vp: ViewPort, child_id: ViewId) -> ViewPort | None:
     return _ext(vp).child_viewports.get(child_id)
 
 
-# 挂到 ViewPort 实例上供 _view_impl._deferred_render 调用
-setattr(ViewPort, "_push_render", _vp_push_render)
-setattr(ViewPort, "_child_viewport", _vp_child_viewport)
+

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import mutobj
 
@@ -11,7 +11,7 @@ import mutobj
 class ModuleRegistry(mutobj.Declaration):
     """聚合 Python 包内的前端 manifest，并生成运行时 import map。"""
 
-    URL_PREFIX = "/static/modules"
+    URL_PREFIX: ClassVar[str] = "/static/modules"
     packages: list[tuple[str, Path, dict[str, Any]]] = mutobj.field(default_factory=list)
 
     def add_from_package(self, package_name: str) -> None:

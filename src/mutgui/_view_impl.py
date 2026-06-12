@@ -231,11 +231,10 @@ async def _route_event(
             current_vp = get_current_viewport()
             child_vp = current_vp
             if current_vp is not None:
-                resolver = getattr(current_vp, "_child_viewport", None)
-                if callable(resolver):
-                    resolved = resolver(child_id)
-                    if resolved is not None:
-                        child_vp = resolved
+                from ._viewport_impl import vp_child_viewport
+                resolved = vp_child_viewport(current_vp, child_id)
+                if resolved is not None:
+                    child_vp = resolved
 
             if child_vp is current_vp or child_vp is None:
                 await _route_event(child_view, source[1:], event_name, data,
@@ -288,7 +287,7 @@ def _render_and_cache(view: View, *, channel_ids: Sequence[int] | None = None) -
 
     channel_ids 参数服务于“初次递归 cascade”：父在 _render_and_cache 阶段递归调子
     _render_and_cache 时，子的 ViewObservers 还未被创建（子 ViewPort 在后续
-    _vp_push_render 中才 new），此时传入父的 active_ids 作为 hint——同步上下文下
+    vp_push_render 中才 new），此时传入父的 active_ids 作为 hint——同步上下文下
     子的 channel id 集必与父一致（子 ViewPort 复用父的 channel）。
     """
     ext = render_ext(view)
@@ -316,7 +315,7 @@ def _render_and_cache(view: View, *, channel_ids: Sequence[int] | None = None) -
                 for node in block.items
             ]
             # 注入 overlay children（如活跃菜单）——保持旧行为：所有 VP 末尾 append，
-            # 后续 _vp_push_render 按 origin_channel_id 过滤。
+            # 后续 vp_push_render 按 origin_channel_id 过滤。
             if ext.overlay_children:
                 for child_id, child_view in ext.overlay_children.items():
                     ext.children[child_id] = child_view
@@ -326,7 +325,7 @@ def _render_and_cache(view: View, *, channel_ids: Sequence[int] | None = None) -
     ext.wire_tree_per_vp = wire_per_vp
 
     # 递归 render dirty 子 View（跨 VP 并集后的 children）。
-    # 子 ViewPort 还未被 _vp_push_render 创建，所以 _active_channel_ids(child) 为空；
+    # 子 ViewPort 还未被 vp_push_render 创建，所以 _active_channel_ids(child) 为空；
     # 这里把父的 active_ids 下发为 hint，让子预警生正确的 wire_tree_per_vp 缓存，
     # 其 channel 与父复用。
     for child_view in ext.children.values():
@@ -365,8 +364,9 @@ async def _deferred_render(view: View) -> None:
     try:
         obs = ViewObservers.get(view)
         if obs is not None:
+            from ._viewport_impl import vp_push_render
             for vp in obs.viewports:
-                await vp._push_render()  # type: ignore[attr-defined]
+                await vp_push_render(vp)
     except Exception:
         _logger.exception("Push render failed for %s", type(view).__name__)
     finally:

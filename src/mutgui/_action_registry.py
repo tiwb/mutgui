@@ -199,10 +199,10 @@ def _expand_category(
     try:
         refs: list[ActionRef] = []
         for action_cls in _action_classes():
-            if category in mutobj.field_default(action_cls.categories):
+            if category in mutobj.field_info(action_cls.categories).make_default():
                 refs.append(ActionRef(action=action_cls))
         for provider_cls in _provider_classes():
-            if category not in mutobj.field_default(provider_cls.categories):
+            if category not in mutobj.field_info(provider_cls.categories).make_default():
                 continue
             provider = provider_cls()
             refs.extend(provider.refs(context))
@@ -327,7 +327,7 @@ def _action_classes() -> list[type[Action]]:
         if sub is not Action
     ]
     return sorted(classes, key=lambda item: (
-        mutobj.field_default(item.order) or 0,
+        mutobj.field_info(item.order).make_default() or 0,
         item.__module__,
         item.__qualname__,
     ))
@@ -339,7 +339,7 @@ def _provider_classes() -> list[type[ActionCategoryProvider]]:
         if sub is not ActionCategoryProvider
     ]
     return sorted(classes, key=lambda item: (
-        mutobj.field_default(item.order),
+        mutobj.field_info(item.order).make_default(),
         item.__module__,
         item.__qualname__,
     ))
