@@ -38,18 +38,18 @@ def _vl_ext(self: VirtualList) -> VirtualListRuntime:
 # VirtualListItemAdapter 默认实现
 # ---------------------------------------------------------------------------
 
-@impl(VirtualListItemAdapter.item_count.getter)  # type: ignore[attr-defined]
-def getter_item_count(self: VirtualListItemAdapter) -> int:
+@impl(VirtualListItemAdapter.item_count.getter)
+def virtual_list_item_adapter_item_count(self: VirtualListItemAdapter) -> int:
     return 0
 
 
 @impl(VirtualListItemAdapter.item_id)
-def virtual_list_item_adapter_item_id(self: VirtualListItemAdapter, index: int) -> str:
+def virtual_list_item_adapter_item_id(self: VirtualListItemAdapter, index: int) -> ViewId:
     return str(index)
 
 
 @impl(VirtualListItemAdapter.create_item_view)
-def virtual_list_item_adapter_create_item_view(self: VirtualListItemAdapter, index: int):
+def virtual_list_item_adapter_create_item_view(self: VirtualListItemAdapter, index: int) -> View:
     raise NotImplementedError
 
 

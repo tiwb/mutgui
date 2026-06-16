@@ -85,8 +85,8 @@ async def view_on_event(self: View, event: Event) -> bool:
     return False
 
 
-@impl(View.viewport.getter)  # type: ignore[attr-defined]
-def getter_viewport(self: View) -> ViewPort:
+@impl(View.viewport.getter)
+def view_viewport(self: View) -> ViewPort:
     viewport = get_current_viewport()
     if viewport is None:
         raise RuntimeError("View.viewport 只能在 ViewPort 事件上下文中访问")
@@ -134,8 +134,8 @@ def view_install_event_filter(self: View, filter: EventFilter) -> None:
     ext.event_filters.append(filter)
 
 
-@impl(View.active_viewport_ids.getter)  # type: ignore[attr-defined]
-def getter_active_viewport_ids(self: View) -> Sequence[int]:
+@impl(View.active_viewport_ids.getter)
+def view_active_viewport_ids(self: View) -> Sequence[int]:
     return _active_channel_ids(self)
 
 

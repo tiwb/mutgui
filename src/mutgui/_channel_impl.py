@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from mutobj import impl
+from typing import Any
 
+from mutobj import impl
 from .channel import Channel
 
 _next_channel_id = 1
@@ -14,3 +15,8 @@ def channel_init(self: Channel) -> None:
     global _next_channel_id
     self.channel_id = _next_channel_id
     _next_channel_id += 1
+
+
+@impl(Channel.send)
+async def channel_send(self: Channel, message: dict[str, Any]) -> None:
+    raise NotImplementedError

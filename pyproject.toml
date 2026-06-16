@@ -76,5 +76,3 @@ include = ["src"]
 extraPaths = ["src"]
 typeCheckingMode = "strict"
 
-[tool.mutobj-lint]
-include = ["src"]
