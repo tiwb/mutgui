@@ -19,5 +19,6 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-args = _parse_args()
-run_gallery(host=args.host, port=args.port, debug=args.debug)
+if __name__ == "__main__":
+    args = _parse_args()
+    run_gallery(host=args.host, port=args.port, debug=args.debug)

@@ -1,6 +1,8 @@
 """菜单系统 demo — 右键菜单、placement、flip 与尺寸稳定性。"""
 from __future__ import annotations
 
+from typing import ClassVar
+
 import mutobj
 
 from mutgui import (
@@ -116,7 +118,7 @@ class TemplateSubmenu(MenuView):
 class CommandPalette(MenuView):
     """带搜索的菜单 — 演示菜单内放任意组件 + 持续交互。"""
 
-    ALL_COMMANDS = [
+    ALL_COMMANDS: ClassVar[list[tuple[str, str, str]]] = [
         ("file.new", "File: New", "Ctrl+N"),
         ("file.open", "File: Open...", "Ctrl+O"),
         ("file.save", "File: Save", "Ctrl+S"),
