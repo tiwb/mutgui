@@ -46,18 +46,18 @@ class ChatMessageView(View):
             "wordBreak": "break-word",
         }
         return ViewBlock([{
-            "$component": "div", "$id": "row",
+            "$component": "html.div", "$id": "row",
             "style": {
                 "display": "flex",
                 "justifyContent": "flex-end" if is_user else "flex-start",
                 "padding": "6px 0",
             },
             "$children": [
-                {"$component": "div", "$id": "bubble", "style": bubble_style,
+                {"$component": "html.div", "$id": "bubble", "style": bubble_style,
                  "$children": [
-                     {"$component": "div", "$id": "meta", "style": meta_style,
+                     {"$component": "html.div", "$id": "meta", "style": meta_style,
                       "children": self.message.author},
-                     {"$component": "div", "$id": "content", "style": content_style,
+                     {"$component": "html.div", "$id": "content", "style": content_style,
                       "children": self.message.text or "…"},
                  ]},
             ],
@@ -270,7 +270,7 @@ class VirtualListChatView(View):
               "style": {"marginBottom": 16},
               "message": f"当前消息数：{self.adapter.item_count}",
               "description": self.status},
-            {"$component": "div", "$id": "chat-shell",
+            {"$component": "html.div", "$id": "chat-shell",
               "style": {
                   "height": 560,
                  "display": "flex",
@@ -290,7 +290,7 @@ class VirtualListChatView(View):
                    "value": self.prompt,
                    "placeholder": "输入一条问题，然后点击发送并流式回复",
                    "onChange": Bind(self, "prompt", "$0.target.value")},
-                  {"$component": "div", "$id": "actions",
+                  {"$component": "html.div", "$id": "actions",
                    "style": {"display": "flex", "gap": "8px", "flexWrap": "wrap",
                              "justifyContent": "flex-end"},
                    "$children": action_items},

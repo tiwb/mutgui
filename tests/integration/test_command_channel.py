@@ -21,14 +21,14 @@ class CommandChannelView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "redirect-btn",
                 "data-testid": "redirect-btn",
                 "children": "Redirect",
                 "onClick": Callback(self._redirect),
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "missing-btn",
                 "data-testid": "missing-btn",
                 "children": "Unknown command",
@@ -47,13 +47,13 @@ class HistoryTargetView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "target-title",
                 "data-testid": "target-title",
                 "children": "Redirect target",
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "history-back-btn",
                 "data-testid": "history-back-btn",
                 "children": "History back",
@@ -69,13 +69,13 @@ class ReloadView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "connection-id",
                 "data-testid": "connection-id",
                 "children": PerViewport(lambda vid: f"Connection {vid}"),
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "reload-btn",
                 "data-testid": "reload-btn",
                 "children": "Reload",
@@ -147,7 +147,7 @@ class SetHashView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "set-hash-btn",
                 "data-testid": "set-hash-btn",
                 "children": "Set hash",

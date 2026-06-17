@@ -129,15 +129,15 @@ class HashNavView(View):
             title = "（未选中分段）"
             body = "当前 hash 不匹配任何 section。点上面的按钮，或手动在地址栏输 #/section/a 试试。"
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "section",
             "style": {
                 "padding": "16px",
             },
             "$children": [
-                {"$component": "h3", "$id": "section-title",
+                {"$component": "html.h3", "$id": "section-title",
                  "style": {"margin": "0 0 8px 0"}, "children": title},
-                {"$component": "p", "$id": "section-body",
+                {"$component": "html.p", "$id": "section-body",
                  "style": {"margin": "0"}, "children": body},
             ],
         }
@@ -145,7 +145,7 @@ class HashNavView(View):
     def _log_block(self) -> dict[str, object]:
         if not self._log:
             rows: list[dict[str, object]] = [{
-                "$component": "li",
+                "$component": "html.li",
                 "$id": "log-empty",
                 "style": {"fontStyle": "italic"},
                 "children": "（暂无 $hashchange 事件——首屏握手会自动产生一条 cause=initial）",
@@ -160,7 +160,7 @@ class HashNavView(View):
                     f'[{cause}]  prev={prev_repr}  →  now="{entry["hash"]}"'
                 )
                 rows.append({
-                    "$component": "li",
+                    "$component": "html.li",
                     "$id": f"log-{idx}",
                     "style": {
                         "fontFamily": "ui-monospace, monospace",
@@ -170,13 +170,13 @@ class HashNavView(View):
                     "children": line,
                 })
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "log-wrap",
             "$children": [
-                {"$component": "h3", "$id": "log-title",
+                {"$component": "html.h3", "$id": "log-title",
                  "style": {"margin": "0 0 8px 0", "fontSize": "16px"},
                  "children": "$hashchange 事件日志（最新在上）"},
-                {"$component": "ul", "$id": "log-list",
+                {"$component": "html.ul", "$id": "log-list",
                  "style": {"listStyle": "none", "padding": "0", "margin": "0"},
                  "$children": rows},
             ],
@@ -191,7 +191,7 @@ class HashNavView(View):
 
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "wrap",
                 "style": {
                     "padding": "24px",
@@ -202,9 +202,9 @@ class HashNavView(View):
                     "gap": "14px",
                 },
                 "$children": [
-                    {"$component": "h2", "$id": "title", "children": "Hash Navigation Demo"},
+                    {"$component": "html.h2", "$id": "title", "children": "Hash Navigation Demo"},
                     {
-                        "$component": "p",
+                        "$component": "html.p",
                         "$id": "desc",
                         "style": {"margin": "0"},
                         "children": (
@@ -213,7 +213,7 @@ class HashNavView(View):
                         ),
                     },
                     {
-                        "$component": "div",
+                        "$component": "html.div",
                         "$id": "status",
                         "style": {
                             "display": "flex",
@@ -224,16 +224,16 @@ class HashNavView(View):
                             "fontSize": "13px",
                         },
                         "$children": [
-                            {"$component": "div", "$id": "status-hash",
+                            {"$component": "html.div", "$id": "status-hash",
                              "children": f'后端持有的 hash：{self._hash!r}'},
-                            {"$component": "div", "$id": "connection-id",
+                            {"$component": "html.div", "$id": "connection-id",
                              "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}")},
-                            {"$component": "div", "$id": "status-hint",
+                            {"$component": "html.div", "$id": "status-hint",
                              "children": "channel_id 切换不同 section 时不变 → WebSocket 没有重连。"},
                         ],
                     },
                     {
-                        "$component": "div",
+                        "$component": "html.div",
                         "$id": "actions",
                         "style": {
                             "display": "flex",
@@ -241,37 +241,37 @@ class HashNavView(View):
                             "gap": "8px",
                         },
                         "$children": [
-                            {"$component": "button", "$id": "btn-a",
+                            {"$component": "html.button", "$id": "btn-a",
                              "children": "Section A (push)", "style": button_style,
                              "onClick": Callback(self._goto_a)},
-                            {"$component": "button", "$id": "btn-b",
+                            {"$component": "html.button", "$id": "btn-b",
                              "children": "Section B (push)", "style": button_style,
                              "onClick": Callback(self._goto_b)},
-                            {"$component": "button", "$id": "btn-c",
+                            {"$component": "html.button", "$id": "btn-c",
                              "children": "Section C (push)", "style": button_style,
                              "onClick": Callback(self._goto_c)},
-                            {"$component": "button", "$id": "btn-replace-a",
+                            {"$component": "html.button", "$id": "btn-replace-a",
                              "children": "→ A (replace)", "style": button_style,
                              "onClick": Callback(self._replace_to_a)},
-                            {"$component": "button", "$id": "btn-clear",
+                            {"$component": "html.button", "$id": "btn-clear",
                              "children": "清空 hash", "style": button_style,
                              "onClick": Callback(self._clear_hash)},
                         ],
                     },
                     self._section_block(),
                     {
-                        "$component": "ol",
+                        "$component": "html.ol",
                         "$id": "verify",
                         "style": {"margin": "0", "paddingLeft": "20px",
                                   "fontSize": "14px"},
                         "$children": [
-                            {"$component": "li", "$id": "v1",
+                            {"$component": "html.li", "$id": "v1",
                              "children": "防循环：点 Section B，地址栏变了但日志不会新增。"},
-                            {"$component": "li", "$id": "v2",
+                            {"$component": "html.li", "$id": "v2",
                              "children": "双向：按浏览器后退键，日志会出现 cause=user 一条。"},
-                            {"$component": "li", "$id": "v3",
+                            {"$component": "html.li", "$id": "v3",
                              "children": "首屏握手：复制当前 URL 到新 tab 打开，日志首条会是 cause=initial。"},
-                            {"$component": "li", "$id": "v4",
+                            {"$component": "html.li", "$id": "v4",
                              "children": "replace：点「→ A (replace)」后再后退，会跳过那一步（覆盖了历史记录）。"},
                         ],
                     },

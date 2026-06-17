@@ -17,8 +17,8 @@ describe('component registry', () => {
     expect(resolve('antdtest.Button')).toBe(reactObjectComponent);
   });
 
-  test('未命中时仍回退到原始标签名', () => {
-    expect(resolve('div')).toBe('div');
-    expect(resolve('unknown.Component')).toBe('unknown.Component');
+  test('未命中时返回 null（关闭 bare name fallback）', () => {
+    expect(resolve('div')).toBeNull();
+    expect(resolve('unknown.Component')).toBeNull();
   });
 });

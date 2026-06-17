@@ -717,11 +717,11 @@ class TableView(View):
     def render(self) -> ViewBlock:
         game = self.game
         items: list[dict[str, Any]] = [{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "title",
             "style": {"textAlign": "center", "marginBottom": 16},
             "$children": [{
-                "$component": "span",
+                "$component": "html.span",
                 "$id": "t1",
                 "style": {"fontSize": 20, "fontWeight": "bold"},
                 "children": "🀄 麻将牌桌",
@@ -729,7 +729,7 @@ class TableView(View):
         }]
 
         items.append({
-            "$component": "div",
+            "$component": "html.div",
             "$id": "status",
             "style": {
                 "textAlign": "center",
@@ -741,7 +741,7 @@ class TableView(View):
         })
 
         items.append({
-            "$component": "div",
+            "$component": "html.div",
             "$id": "center-info",
             "style": {
                 "textAlign": "center",
@@ -751,12 +751,12 @@ class TableView(View):
                 "marginBottom": 16,
             },
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "center-status",
                 "style": {"fontSize": 16, "marginBottom": 6},
                 "children": game.status_text(),
             }, {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "center-last",
                 "style": {"fontSize": 14, "color": "var(--mutgui-text-dim)"},
                 "children": f"{self._last_discard_text()} · 牌墙剩余：{len(game.wall)}",
@@ -764,7 +764,7 @@ class TableView(View):
         })
 
         items.append({
-            "$component": "div",
+            "$component": "html.div",
             "$id": "seat-grid",
             "style": {
                 "display": "flex",
@@ -777,7 +777,7 @@ class TableView(View):
         })
 
         items.append({
-            "$component": "div",
+            "$component": "html.div",
             "$id": "actions",
             "style": {"textAlign": "center", "marginTop": 24},
             "$children": [{
@@ -801,7 +801,7 @@ class TableView(View):
             name = f"{name} · AI"
 
         children: list[dict[str, Any] | View] = [{
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"label-{seat.value}",
             "style": {
                 "fontSize": 15,
@@ -812,28 +812,28 @@ class TableView(View):
         }]
         if game.hands[seat]:
             children.append({
-                "$component": "div",
+                "$component": "html.div",
                 "$id": f"hand-{seat.value}",
                 "style": tile_font_style(TABLE_TILE_SIZE, letterSpacing=2, margin="4px 0"),
                 "children": TILE_BACK * len(game.hands[seat]),
             })
         if game.melds[seat]:
             children.append({
-                "$component": "div",
+                "$component": "html.div",
                 "$id": f"melds-{seat.value}",
                 "style": tile_font_style(TABLE_MELD_SIZE, margin="4px 0"),
                 "children": f"亮: {meld_summary(game.melds[seat])}",
             })
         if game.discards[seat]:
             children.append({
-                "$component": "div",
+                "$component": "html.div",
                 "$id": f"disc-{seat.value}",
                 "style": tile_font_style(DISCARD_TILE_SIZE, color="var(--mutgui-text-dim)", margin="4px 0"),
                 "children": f"弃: {discard_summary(game.discards[seat])}",
             })
         if self.show_links:
             children.append({
-                "$component": "a",
+                "$component": "html.a",
                 "$id": f"enter-{seat.value}",
                 "href": f"{self.link_base}{seat.value}/",
                 "style": {
@@ -852,7 +852,7 @@ class TableView(View):
             style={"marginTop": 6},
         ))
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"seat-{seat.value}",
             "style": {
                 "flex": "1 1 240px",
@@ -924,7 +924,7 @@ class PlayerView(View):
             {"$component": "antd.Divider", "$id": "div1", "style": {"margin": "12px 0"}},
             self._my_discard_block(),
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "hand-label",
                 "style": {"fontSize": 14, "color": "var(--mutgui-text-dim)", "marginBottom": 4},
                 "children": "我的牌：",
@@ -936,7 +936,7 @@ class PlayerView(View):
 
         if is_ai:
             items.append({
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "ai-status",
                 "style": {"fontSize": 13, "color": "var(--mutgui-text-dim)", "marginTop": 4},
                 "children": "当前为 AI 托管，牌桌可切回人工。",
@@ -944,7 +944,7 @@ class PlayerView(View):
 
         if self.show_back_button:
             items.append({
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "back-wrap",
                 "style": {"marginTop": 8},
                 "$children": [{
@@ -958,16 +958,16 @@ class PlayerView(View):
 
     def _title_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "title",
             "style": {"textAlign": "center", "marginBottom": 12},
             "$children": [{
-                "$component": "span",
+                "$component": "html.span",
                 "$id": "t1",
                 "style": {"fontSize": 18, "fontWeight": "bold"},
                 "children": f"{SEAT_NAMES[self.seat]}家",
             }, {
-                "$component": "span",
+                "$component": "html.span",
                 "$id": "hint",
                 "style": {
                     "fontSize": 14,
@@ -980,7 +980,7 @@ class PlayerView(View):
 
     def _status_line_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "status-line",
             "style": {
                 "fontSize": 13,
@@ -1004,7 +1004,7 @@ class PlayerView(View):
 
     def _my_discard_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "my-discards",
             "style": tile_font_style(DISCARD_TILE_SIZE, marginBottom=8),
             "children": f"我的弃牌: {discard_summary(self.game.discards[self.seat])}",
@@ -1012,7 +1012,7 @@ class PlayerView(View):
 
     def _hand_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "my-hand",
             "style": {
                 "display": "flex",
@@ -1029,7 +1029,7 @@ class PlayerView(View):
 
     def _meld_spans(self) -> list[JsonBlock]:
         return [{
-            "$component": "span",
+            "$component": "html.span",
             "$id": f"my-meld-{index}",
             "style": tile_font_style(
                 HAND_MELD_SIZE,
@@ -1046,7 +1046,7 @@ class PlayerView(View):
         tiles: list[JsonBlock] = []
         for index, tile in enumerate(self.game.hands[self.seat]):
             tiles.append({
-                "$component": "span",
+                "$component": "html.span",
                 "$id": f"tile-{index}",
                 "style": self._hand_tile_style(index, tile, active_draw),
                 "children": tile_char(tile),
@@ -1083,7 +1083,7 @@ class PlayerView(View):
         primary_enabled: bool,
     ) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "actions",
             "style": {"marginTop": 16, "display": "flex", "gap": 8, "flexWrap": "wrap"},
             "$children": [
@@ -1112,11 +1112,11 @@ class PlayerView(View):
             for index, option in enumerate(chi_options)
         ] if len(chi_options) > 1 else []
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "chi-options",
             "style": {"minHeight": 40, "marginTop": 8},
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "chi-options-inner",
                 "style": {"display": "flex", "gap": 8, "flexWrap": "wrap"},
                 "$children": option_buttons,
@@ -1126,7 +1126,7 @@ class PlayerView(View):
     def _other_seat_block(self, seat: Seat, relation: str, *, is_last: bool = False) -> dict[str, Any]:
         game = self.game
         children: list[dict[str, Any]] = [{
-            "$component": "span",
+            "$component": "html.span",
             "$id": f"oname-{seat.value}",
             "style": {
                 "fontWeight": "bold",
@@ -1134,28 +1134,28 @@ class PlayerView(View):
             },
             "children": f"{relation}（{SEAT_NAMES[seat]}）",
         }, {
-            "$component": "span",
+            "$component": "html.span",
             "$id": f"ohand-{seat.value}",
             "style": tile_font_style(TABLE_TILE_SIZE, marginLeft=8),
             "children": TILE_BACK * len(game.hands[seat]),
         }, {
-            "$component": "span",
+            "$component": "html.span",
             "$id": f"omeld-{seat.value}",
             "style": tile_font_style(TABLE_MELD_SIZE, marginLeft=10),
             "children": f"亮: {meld_summary(game.melds[seat])}",
         }]
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"other-{seat.value}",
             "style": {"padding": "6px 0", "borderBottom": "none" if is_last else "1px solid var(--mutgui-border)"},
             "$children": [
                 {
-                    "$component": "div",
+                    "$component": "html.div",
                     "$id": f"other-top-{seat.value}",
                     "$children": children,
                 },
                 {
-                    "$component": "div",
+                    "$component": "html.div",
                     "$id": f"odisc-{seat.value}",
                     "style": tile_font_style(DISCARD_TILE_SIZE, color="var(--mutgui-text-dim)", marginTop=2),
                     "children": f"弃: {discard_summary(game.discards[seat])}",
@@ -1271,20 +1271,20 @@ class AllDebugView(View):
             })
 
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "all-wrap",
             "style": {"padding": 16, "display": "flex", "flexDirection": "column", "gap": 16},
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "all-title",
                 "style": {"textAlign": "center"},
                 "$children": [{
-                    "$component": "div",
+                    "$component": "html.div",
                     "$id": "all-title-main",
                     "style": {"fontSize": 20, "fontWeight": "bold"},
                     "children": "麻将调试视图（all）",
                 }, {
-                    "$component": "div",
+                    "$component": "html.div",
                     "$id": "all-title-sub",
                     "style": {"fontSize": 13, "color": "var(--mutgui-text-dim)", "marginTop": 4},
                     "children": "同屏观察牌桌并同时操作四家；此入口默认不在普通导航中展示。",
@@ -1296,7 +1296,7 @@ class AllDebugView(View):
                 "size": "small",
                 "$children": [self.table_view],
             }, {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "players-grid",
                 "style": {"display": "flex", "gap": 12, "flexWrap": "wrap"},
                 "$children": cards,

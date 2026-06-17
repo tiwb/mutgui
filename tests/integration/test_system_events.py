@@ -26,32 +26,32 @@ class HashTrackerView(View):
         latest = self.hash_events[-1] if self.hash_events else {"hash": "", "cause": "none"}
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "current-hash",
                 "data-testid": "current-hash",
                 "children": str(latest.get("hash", "")),
             },
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "current-cause",
                 "data-testid": "current-cause",
                 "children": str(latest.get("cause", "none")),
             },
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "event-count",
                 "data-testid": "event-count",
                 "children": str(len(self.hash_events)),
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "go-foo-btn",
                 "data-testid": "go-foo-btn",
                 "children": "Go foo",
                 "onClick": Callback(self._go_foo),
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "go-bar-btn",
                 "data-testid": "go-bar-btn",
                 "children": "Go bar",

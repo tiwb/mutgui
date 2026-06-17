@@ -11,9 +11,9 @@ class CounterView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "h3", "$id": "title",
+            {"$component": "html.h3", "$id": "title",
              "children": "mutgui — Basic Demo"},
-            {"$component": "button", "$id": "btn",
+            {"$component": "html.button", "$id": "btn",
              "style": {"padding": "8px 16px", "fontSize": 16,
                        "cursor": "pointer"},
              "children": f"Clicked {self.count} times",

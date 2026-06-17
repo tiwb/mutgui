@@ -222,7 +222,7 @@ def action_toolbar_render(self: ActionToolbar) -> ViewBlock:
     start_actions = [item for item in actions if item.position == "start"]
     end_actions = [item for item in actions if item.position != "start"]
     return ViewBlock([{
-        "$component": "div",
+        "$component": "html.div",
         "$id": "toolbar",
         "style": {
             "display": "flex",
@@ -232,7 +232,7 @@ def action_toolbar_render(self: ActionToolbar) -> ViewBlock:
         },
         "$children": [
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "start",
                 "style": {
                     "display": "flex",
@@ -247,12 +247,12 @@ def action_toolbar_render(self: ActionToolbar) -> ViewBlock:
                 ],
             },
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "spacer",
                 "style": {"flex": 1},
             },
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "end",
                 "style": {
                     "display": "flex",
@@ -303,7 +303,7 @@ def _toolbar_render_action(
             f"toolbar-widget-{item.ref_id}-{index}",
         )
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"widget-{index}",
             "title": item.tooltip,
             "style": {
@@ -316,7 +316,7 @@ def _toolbar_render_action(
 
     if item.variant == "split":
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"split-{index}",
             "style": {
                 "display": "inline-flex",
@@ -422,7 +422,7 @@ def _toolbar_button_schema(
         "borderBottomRightRadius": "6px" if right_rounded else "0",
     }
     node: RenderComponent = {
-        "$component": "button",
+        "$component": "html.button",
         "$id": component_id,
         "type": "button",
         "title": _toolbar_button_title(item),
@@ -451,23 +451,23 @@ def _toolbar_button_children(
         if not show_menu_arrow:
             return icon
         children: list[RenderComponent] = [
-            {"$component": "span", "$id": "icon", "children": icon},
+            {"$component": "html.span", "$id": "icon", "children": icon},
         ]
     elif icon and label:
         children = [
-            {"$component": "span", "$id": "icon", "children": icon},
-            {"$component": "span", "$id": "label", "children": label},
+            {"$component": "html.span", "$id": "icon", "children": icon},
+            {"$component": "html.span", "$id": "label", "children": label},
         ]
     else:
         text = icon or label
         if not show_menu_arrow:
             return text
         children = [
-            {"$component": "span", "$id": "label", "children": text},
+            {"$component": "html.span", "$id": "label", "children": text},
         ]
     if show_menu_arrow:
         children.append(
-            {"$component": "span", "$id": "arrow", "children": menu_arrow}
+            {"$component": "html.span", "$id": "arrow", "children": menu_arrow}
         )
     return children
 
@@ -489,7 +489,7 @@ def _toolbar_effective_label_mode(
 
 def _toolbar_group_separator(index: int) -> RenderComponent:
     return {
-        "$component": "div",
+        "$component": "html.div",
         "$id": f"divider-{index}",
         "ariaHidden": True,
         "style": {

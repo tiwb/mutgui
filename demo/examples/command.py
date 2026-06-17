@@ -23,7 +23,7 @@ class CommandHomeView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "wrap",
                 "style": {
                     "padding": "24px",
@@ -34,19 +34,19 @@ class CommandHomeView(View):
                     "gap": "12px",
                 },
                 "$children": [
-                    {"$component": "h2", "$id": "title", "children": "Protocol Command Channel Demo"},
+                    {"$component": "html.h2", "$id": "title", "children": "Protocol Command Channel Demo"},
                     {
-                        "$component": "p",
+                        "$component": "html.p",
                         "$id": "desc",
                         "children": "按钮点击先到后端，再由后端通过 command 通道要求浏览器执行导航原语。",
                     },
                     {
-                        "$component": "p",
+                        "$component": "html.p",
                         "$id": "connection-id",
                         "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}"),
                     },
                     {
-                        "$component": "div",
+                        "$component": "html.div",
                         "$id": "actions",
                         "style": {
                             "display": "flex",
@@ -55,25 +55,25 @@ class CommandHomeView(View):
                         },
                         "$children": [
                             {
-                                "$component": "button",
+                                "$component": "html.button",
                                 "$id": "redirect",
                                 "children": "后端触发 redirect",
                                 "onClick": Callback(self._redirect),
                             },
                             {
-                                "$component": "button",
+                                "$component": "html.button",
                                 "$id": "replace",
                                 "children": "后端触发 replace redirect",
                                 "onClick": Callback(self._replace),
                             },
                             {
-                                "$component": "button",
+                                "$component": "html.button",
                                 "$id": "reload",
                                 "children": "后端触发 reload",
                                 "onClick": Callback(self._reload),
                             },
                             {
-                                "$component": "button",
+                                "$component": "html.button",
                                 "$id": "missing",
                                 "children": "发送未知命令（看 console warning）",
                                 "onClick": Callback(self._missing),
@@ -81,14 +81,14 @@ class CommandHomeView(View):
                         ],
                     },
                     {
-                        "$component": "ul",
+                        "$component": "html.ul",
                         "$id": "notes",
                         "$children": [
-                            {"$component": "li", "$id": "note-redirect",
+                            {"$component": "html.li", "$id": "note-redirect",
                              "children": "redirected/ 页面会演示 history(-1) 返回上一页。"},
-                            {"$component": "li", "$id": "note-replace",
+                            {"$component": "html.li", "$id": "note-replace",
                              "children": "replaced/ 页面会说明 replace 覆盖当前 history 记录。"},
-                            {"$component": "li", "$id": "note-reload",
+                            {"$component": "html.li", "$id": "note-reload",
                              "children": "reload 会重新建立当前 websocket 连接，因此 channel_id 会变化。"},
                         ],
                     },
@@ -122,13 +122,13 @@ class CommandTargetView(View):
     def render(self) -> ViewBlock:
         actions: list[dict[str, object]] = [
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "home",
                 "children": "用普通 redirect 回到首页",
                 "onClick": Callback(self._go_home),
             },
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "reload",
                 "children": "后端触发 reload",
                 "onClick": Callback(self._reload),
@@ -136,14 +136,14 @@ class CommandTargetView(View):
         ]
         if self.show_history_back:
             actions.insert(0, {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "history-back",
                 "children": "后端触发 history(-1)",
                 "onClick": Callback(self._history_back),
             })
         return ViewBlock([
             {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "wrap",
                 "style": {
                     "padding": "24px",
@@ -154,13 +154,13 @@ class CommandTargetView(View):
                     "gap": "12px",
                 },
                 "$children": [
-                    {"$component": "h2", "$id": "title", "children": self.title},
-                    {"$component": "p", "$id": "desc", "children": self.description},
-                    {"$component": "p", "$id": "connection-id",
+                    {"$component": "html.h2", "$id": "title", "children": self.title},
+                    {"$component": "html.p", "$id": "desc", "children": self.description},
+                    {"$component": "html.p", "$id": "connection-id",
                      "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}"),
                     },
                     {
-                        "$component": "div",
+                        "$component": "html.div",
                         "$id": "actions",
                         "style": {
                             "display": "flex",

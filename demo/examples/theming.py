@@ -40,7 +40,7 @@ class ThemingDemoView(View):
             {"$component": "antd.Typography.Paragraph", "$id": "connection-id",
              "type": "secondary",
              "children": PerViewport(lambda vid: f"当前连接 channel_id：{vid}")},
-            {"$component": "div", "$id": "actions",
+            {"$component": "html.div", "$id": "actions",
              "style": {"display": "flex", "gap": 8, "flexWrap": "wrap", "marginBottom": 16},
              "$children": [
                  {"$component": "antd.Button", "$id": "use-none",

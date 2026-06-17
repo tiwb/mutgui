@@ -117,7 +117,7 @@ class TabMenu(MenuView):
 class Page(View):
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "div", "$id": "pane",
+            "$component": "html.div", "$id": "pane",
             "onContextMenu": MenuTrigger(
                 TabMenu, item_id=Expr.wire("$0.target.dataset.id"),
             ),
@@ -297,7 +297,7 @@ def test_direct_kwarg_passes_through_to_factory() -> None:
     class _P(View):
         def render(self) -> ViewBlock:
             return ViewBlock([{
-                "$component": "div", "$id": "x",
+                "$component": "html.div", "$id": "x",
                 "onContextMenu": MenuTrigger(_M, view=self),
             }])
 

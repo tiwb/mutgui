@@ -205,7 +205,8 @@ export function mount(
   ));
 }
 
-export { registerComponents, resolve } from './core/registry';
+export { registerComponents, registerNamespace, resolve } from './core/registry';
+export type { NamespaceResolver } from './core/registry';
 export { registerCommands, resolveCommand } from './core/commands';
 export type { CommandContext, MutguiCommand, CommandSource } from './core/commands';
 export { MutguiView, renderTree } from './core/renderer';

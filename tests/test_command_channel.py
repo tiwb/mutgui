@@ -20,7 +20,7 @@ class CommandView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "send",
                 "children": f"Clicks: {self.clicks}",
                 "onClick": Callback(self._on_click),
@@ -43,7 +43,7 @@ class ChildCommandView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([
             {
-                "$component": "button",
+                "$component": "html.button",
                 "$id": "child-send",
                 "children": "Child command",
                 "onClick": Callback(self._on_click),

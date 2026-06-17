@@ -50,6 +50,13 @@ export default defineFrontendProject({
       kind: 'lib',
     },
     {
+      importName: '@mutgui/html',
+      entry: 'src/integrations/html.ts',
+      outFile: 'mutgui-html.js',
+      peers: ['@mutgui/core'],
+      kind: 'lib',
+    },
+    {
       importName: '@mutgui/theme-dark',
       entry: 'src/plugins/theme-dark/index.ts',
       outFile: 'mutgui-theme-dark.js',

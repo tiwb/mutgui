@@ -407,16 +407,16 @@ class GomokuView(View):
 
     def _title_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "title",
             "style": {"textAlign": "center", "marginBottom": 16},
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "title-main",
                 "style": {"fontSize": 26, "fontWeight": "bold", "marginBottom": 6},
                 "children": "五子棋",
             }, {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "title-sub",
                 "style": {"fontSize": 14, "color": "var(--mutgui-text-dim)"},
                 "children": f"{self.game.status_text()} · 共 {len(self.game.history)} 手",
@@ -425,7 +425,7 @@ class GomokuView(View):
 
     def _controls_block(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "controls",
             "style": {"display": "flex", "gap": 8, "flexWrap": "wrap", "marginBottom": 14, "justifyContent": "center"},
             "$children": [
@@ -446,11 +446,11 @@ class GomokuView(View):
 
     def _board_wrap(self) -> JsonBlock:
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "board-wrap",
             "style": {"overflowX": "auto", "paddingBottom": 8},
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "board-grid",
                 "style": {
                     "display": "grid",
@@ -501,7 +501,7 @@ class GomokuView(View):
         elif clickable:
             style["color"] = "rgba(0, 0, 0, 0.14)"
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": f"cell-{row}-{col}",
             "style": style,
             "children": text,
@@ -512,7 +512,7 @@ class GomokuView(View):
         last = self.game.last_move()
         last_text = "无" if last is None else f"{STONE_NAMES[last.stone]} ({last.row + 1}, {last.col + 1})"
         return {
-            "$component": "div",
+            "$component": "html.div",
             "$id": "legend",
             "style": {
                 "marginTop": 12,
@@ -522,11 +522,11 @@ class GomokuView(View):
                 "lineHeight": 1.7,
             },
             "$children": [{
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "legend-line-1",
                 "children": "点击空位直接落子；先连成五子者获胜。",
             }, {
-                "$component": "div",
+                "$component": "html.div",
                 "$id": "legend-line-2",
                 "children": f"最后一手：{last_text}",
             }],

@@ -43,7 +43,7 @@ class PanelView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "panel",
             "style": {
                 "height": "100%",
@@ -51,10 +51,10 @@ class PanelView(View):
                 "boxSizing": "border-box",
             },
             "$children": [
-                {"$component": "div", "$id": "title",
+                {"$component": "html.div", "$id": "title",
                  "style": {"fontWeight": "bold", "marginBottom": "8px"},
                  "children": self.title},
-                {"$component": "div", "$id": "desc",
+                {"$component": "html.div", "$id": "desc",
                  "style": {"color": "var(--mutgui-text-dim)"},
                  "children": "DockPanel 上方动作与这里的 tabset actions 使用同一套 Action 模型。"},
             ],
@@ -69,16 +69,16 @@ class ZoomWidget(View):
         if self.page is not None:
             value = self.page.zoom_value
         return ViewBlock([{
-            "$component": "select",
+            "$component": "html.select",
             "$id": "zoom",
             "value": value,
             "style": dict(CONTROL_STYLE),
             "onChange": Callback(self._on_change, value=Expr.wire("$0.target.value")),
             "$children": [
-                {"$component": "option", "$id": "z80", "value": "80%", "children": "80%"},
-                {"$component": "option", "$id": "z100", "value": "100%", "children": "100%"},
-                {"$component": "option", "$id": "z125", "value": "125%", "children": "125%"},
-                {"$component": "option", "$id": "z150", "value": "150%", "children": "150%"},
+                {"$component": "html.option", "$id": "z80", "value": "80%", "children": "80%"},
+                {"$component": "html.option", "$id": "z100", "value": "100%", "children": "100%"},
+                {"$component": "html.option", "$id": "z125", "value": "125%", "children": "125%"},
+                {"$component": "html.option", "$id": "z150", "value": "150%", "children": "150%"},
             ],
         }])
 
@@ -100,7 +100,7 @@ class DockStatusWidget(View):
         if self.page is not None:
             zoom = self.page.zoom_value
         return ViewBlock([{
-            "$component": "span",
+            "$component": "html.span",
             "$id": "dock-status",
             "style": {"fontSize": "12px", "color": "var(--mutgui-text-dim)"},
             "children": f"缩放 {zoom}",
@@ -117,7 +117,7 @@ class GridConfigView(View):
             enabled = self.page.grid_enabled
             density = self.page.grid_density
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "grid-config",
             "style": {
                 "display": "flex",
@@ -129,32 +129,32 @@ class GridConfigView(View):
                 "color": "var(--mutgui-text)",
             },
             "$children": [
-                {"$component": "div", "$id": "title",
+                {"$component": "html.div", "$id": "title",
                  "style": {"fontWeight": "bold"},
                  "children": "网格设置"},
-                {"$component": "label", "$id": "toggle-wrap",
+                {"$component": "html.label", "$id": "toggle-wrap",
                  "style": {"display": "flex", "gap": "8px", "alignItems": "center"},
                  "$children": [
-                     {"$component": "input", "$id": "toggle",
+                     {"$component": "html.input", "$id": "toggle",
                       "type": "checkbox", "checked": enabled,
                       "style": {"accentColor": "var(--mutgui-accent)"},
                       "onChange": Callback(self._toggle_enabled,
                                            value=Expr.wire("$0.target.checked"))},
-                     {"$component": "span", "$id": "toggle-label",
+                     {"$component": "html.span", "$id": "toggle-label",
                       "children": "显示网格"},
                  ]},
-                {"$component": "label", "$id": "density-wrap",
+                {"$component": "html.label", "$id": "density-wrap",
                  "style": {"display": "flex", "gap": "8px", "alignItems": "center"},
                  "$children": [
-                     {"$component": "span", "$id": "density-label",
+                     {"$component": "html.span", "$id": "density-label",
                       "children": "密度"},
-                     {"$component": "input", "$id": "density",
+                     {"$component": "html.input", "$id": "density",
                        "type": "range", "min": 8, "max": 64, "step": 8,
                        "value": density,
                        "style": {"accentColor": "var(--mutgui-accent)"},
                        "onChange": Callback(self._set_density,
                                             value=Expr.wire("$0.target.value"))},
-                     {"$component": "span", "$id": "density-value",
+                     {"$component": "html.span", "$id": "density-value",
                       "children": str(density)},
                  ]},
             ],
@@ -188,7 +188,7 @@ class PaletteMenuView(View):
             keyword = self.page.palette_keyword
         swatches = ["#1677ff", "#722ed1", "#13c2c2", "#fa8c16", "#eb2f96"]
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "palette",
             "style": {
                 "display": "flex",
@@ -200,17 +200,17 @@ class PaletteMenuView(View):
                 "color": "var(--mutgui-text)",
             },
             "$children": [
-                {"$component": "div", "$id": "title",
+                {"$component": "html.div", "$id": "title",
                  "style": {"fontWeight": "bold"},
                  "children": "工具栏内嵌复杂菜单 UI"},
-                {"$component": "input", "$id": "search",
+                {"$component": "html.input", "$id": "search",
                  "value": keyword, "placeholder": "筛选调色板",
                  "style": dict(CONTROL_STYLE),
                  "onChange": Callback(self._set_keyword, value=Expr.wire("$0.target.value"))},
-                {"$component": "div", "$id": "swatches",
+                {"$component": "html.div", "$id": "swatches",
                  "style": {"display": "flex", "gap": "8px", "flexWrap": "wrap"},
                  "$children": [
-                     {"$component": "button", "$id": f"swatch-{index}",
+                     {"$component": "html.button", "$id": f"swatch-{index}",
                       "type": "button",
                       "style": {
                            "width": "28px",
@@ -511,7 +511,7 @@ class ActionDemoPage(View):
     def render(self) -> ViewBlock:
         context = self._action_context()
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "page",
             "style": {
                 "display": "flex",
@@ -522,38 +522,38 @@ class ActionDemoPage(View):
                 "boxSizing": "border-box",
             },
             "$children": [
-                {"$component": "div", "$id": "intro",
+                {"$component": "html.div", "$id": "intro",
                  "$children": [
-                     {"$component": "div", "$id": "title",
+                     {"$component": "html.div", "$id": "title",
                       "style": {"fontSize": "20px", "fontWeight": "bold"},
                       "children": "Action System Demo"},
-                     {"$component": "div", "$id": "desc",
+                     {"$component": "html.div", "$id": "desc",
                         "style": {"color": "#666"},
                         "children": "演示 toolbar separator 分组、toolbar 文本偏好、category 组合、toolbar widget、split button、复杂 dropdown UI 和 DockPanel richer actions。"},
                    ]},
-                {"$component": "div", "$id": "toolbar-title-default",
+                {"$component": "html.div", "$id": "toolbar-title-default",
                  "style": {"fontWeight": "bold"},
                  "children": "默认 toolbar（图标 + 文字）"},
                 self.toolbar,
-                {"$component": "div", "$id": "toolbar-title-compact",
+                {"$component": "html.div", "$id": "toolbar-title-compact",
                  "style": {"fontWeight": "bold", "marginTop": "4px"},
                  "children": "图标优先 toolbar（有图标时隐藏文字，无图标 action 仍显示文字）"},
                 self.compact_toolbar,
-                {"$component": "div", "$id": "actions-row",
+                {"$component": "html.div", "$id": "actions-row",
                   "style": {"display": "flex", "gap": "12px", "alignItems": "center"},
                   "$children": [
-                      {"$component": "button", "$id": "open-file-menu", "type": "button",
+                      {"$component": "html.button", "$id": "open-file-menu", "type": "button",
                        "children": "打开同组动作菜单",
                        "onClick": MenuTrigger(
                            lambda ctx=context:
                                ActionMenu(categories=["demo.toolbar.main"], context=ctx),
                            placement="bottom-start",
                        )},
-                      {"$component": "div", "$id": "hint",
+                      {"$component": "html.div", "$id": "hint",
                         "style": {"color": "#666"},
                         "children": f"这个菜单与上方 toolbar 收集同一组 action，可直接对比同一动作在两种呈现下的效果；当前缩放 {self.zoom_value} / 网格密度 {self.grid_density}"},
                    ]},
-                {"$component": "div", "$id": "context-target",
+                {"$component": "html.div", "$id": "context-target",
                  "style": {
                      "border": "1px dashed color-mix(in oklch, var(--mutgui-accent) 45%, var(--mutgui-border))",
                      "borderRadius": "8px",
@@ -567,10 +567,10 @@ class ActionDemoPage(View):
                          ActionMenu(categories=["demo.context.main"], context=ctx),
                      placement="cursor",
                  )},
-                {"$component": "div", "$id": "dock-wrap",
+                {"$component": "html.div", "$id": "dock-wrap",
                  "style": {"flex": 1, "minHeight": "280px"},
                  "$children": [self.dock]},
-                {"$component": "div", "$id": "log-wrap",
+                {"$component": "html.div", "$id": "log-wrap",
                  "style": {
                      "borderTop": "1px solid #f0f0f0",
                      "paddingTop": "12px",
@@ -579,11 +579,11 @@ class ActionDemoPage(View):
                      "gap": "6px",
                  },
                  "$children": [
-                     {"$component": "div", "$id": "log-title",
+                     {"$component": "html.div", "$id": "log-title",
                       "style": {"fontWeight": "bold"},
                       "children": "事件日志"},
                      *[
-                         {"$component": "div", "$id": f"log-{index}",
+                         {"$component": "html.div", "$id": f"log-{index}",
                           "style": {"fontFamily": "monospace"},
                           "children": line}
                          for index, line in enumerate(self.logs[-8:])

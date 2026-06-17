@@ -125,6 +125,11 @@ function MutguiComponent({ schema }: { schema: ComponentSchema }) {
 
   const resolved = schema.$component ? resolve(schema.$component) : null;
   if (!resolved) {
+    conn.send(JSON.stringify({
+      type: 'render.error',
+      component: schema.$component,
+      source: [...scope, schema.$id ?? ''],
+    }));
     return null;
   }
 

@@ -119,6 +119,17 @@ async def view_port_handle_event(self: ViewPort, event: dict[str, Any]) -> None:
     ext = _ext(self)
     assert ext.view is not None
     assert ext.channel is not None
+
+    # 前端 render.error → 打印 warning，不路由到 View
+    if event.get("type") == "render.error":
+        import logging
+        _render_logger = logging.getLogger("mutgui.render")
+        _render_logger.warning(
+            "组件解析失败: %s (source=%s)",
+            event.get("component"), event.get("source"),
+        )
+        return
+
     event["_viewport_id"] = ext.channel.channel_id
     token = set_current_viewport(self)
     try:

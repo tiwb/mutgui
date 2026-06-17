@@ -107,6 +107,7 @@ class TestApp:
                 for href in runtime_manifest["css"]:
                     await ws.send_json({"type": "runtime.css", "href": href})
                 await ws.send_json({"type": "runtime.import", "module": "@mutgui/antd"})
+                await ws.send_json({"type": "runtime.import", "module": "@mutgui/html"})
                 await ws.send_json({"type": "runtime.mount"})
                 channel = _TestChannel(ws)
                 vp = ViewPort(view, channel, _client=client)

@@ -90,7 +90,7 @@ class LookupOrderProvider(ActionCategoryProvider):
 class ToolbarWidget(View):
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "span",
+            "$component": "html.span",
             "$id": "widget",
             "children": "widget",
         }])
@@ -101,7 +101,7 @@ class MarkerView(View):
 
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "span",
+            "$component": "html.span",
             "$id": "marker",
             "children": self.marker,
         }])
@@ -118,7 +118,7 @@ class WidgetAction(Action):
 class SplitMenuView(View):
     def render(self) -> ViewBlock:
         return ViewBlock([{
-            "$component": "div",
+            "$component": "html.div",
             "$id": "menu-root",
             "children": "menu",
         }])
@@ -340,7 +340,7 @@ def test_dockpanel_action_wire_supports_nested_handlers_and_widget_children() ->
     assert actions[0]["variant"] == "split"
     assert actions[0]["onMenuClick"]["menu"] is True
     assert actions[1]["variant"] == "widget"
-    assert actions[1]["$children"][0]["$component"] == "span"
+    assert actions[1]["$children"][0]["$component"] == "html.span"
 
 
 def test_dockpanel_action_context_data_is_merged() -> None:

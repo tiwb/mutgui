@@ -213,7 +213,7 @@ class VirtualListView(View):
             {"$component": "antd.Space", "$id": "actions", "$children": action_items},
             {"$component": "antd.Divider", "$id": "div",
              "style": {"margin": "12px 0"}},
-            {"$component": "div", "$id": "list-wrapper",
+            {"$component": "html.div", "$id": "list-wrapper",
              "style": {"height": 500, "display": "flex", "flexDirection": "column"},
              "$children": [self.record_list]},
         ])

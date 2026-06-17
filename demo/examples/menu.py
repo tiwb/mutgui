@@ -138,10 +138,10 @@ class CommandPalette(MenuView):
         q = self.query.lower()
         filtered = [c for c in self.ALL_COMMANDS if q in c[1].lower()]
         items: list = [
-            {"$component": "div", "$id": "search-wrap",
+            {"$component": "html.div", "$id": "search-wrap",
              "style": {"padding": "6px"},
              "$children": [
-                 {"$component": "input", "$id": "search",
+                 {"$component": "html.input", "$id": "search",
                   "type": "text", "placeholder": "Search commands...",
                   "value": self.query,
                   "autoFocus": True,
@@ -159,7 +159,7 @@ class CommandPalette(MenuView):
         ]
         if not filtered:
             items.append({
-                "$component": "div", "$id": "empty",
+                "$component": "html.div", "$id": "empty",
                 "style": {"padding": "12px", "color": "var(--mutgui-text-dim)",
                           "fontSize": "12px", "textAlign": "center"},
                 "children": "No commands match",
@@ -186,7 +186,7 @@ class PlacementPreviewMenu(MenuView):
 
     def render(self) -> ViewBlock:
         return ViewBlock([
-            {"$component": "div", "$id": "meta",
+            {"$component": "html.div", "$id": "meta",
              "style": {
                  "padding": "8px 10px",
                  "fontSize": "12px",
@@ -214,7 +214,7 @@ class EdgeFlipMenu(MenuView):
 
     def render(self) -> ViewBlock:
         items: list[dict] = [
-            {"$component": "div", "$id": "title",
+            {"$component": "html.div", "$id": "title",
              "style": {
                  "padding": "8px 10px",
                  "fontSize": "12px",
@@ -247,14 +247,14 @@ class ResizeStableMenu(MenuView):
 
     def render(self) -> ViewBlock:
         items: list[dict] = [
-            {"$component": "div", "$id": "header",
+            {"$component": "html.div", "$id": "header",
              "style": {
                  "padding": "8px 10px 4px 10px",
                  "fontSize": "12px",
                  "color": "var(--mutgui-text-dim)",
              },
              "children": f"Resize stability — {self.placement_label}"},
-            {"$component": "div", "$id": "controls",
+            {"$component": "html.div", "$id": "controls",
              "style": {
                  "display": "flex",
                  "gap": "8px",
@@ -262,7 +262,7 @@ class ResizeStableMenu(MenuView):
                  "padding": "0 10px 8px 10px",
              },
              "$children": [
-                 {"$component": "button", "$id": "dec",
+                 {"$component": "html.button", "$id": "dec",
                   "style": {
                       "width": "28px",
                       "height": "28px",
@@ -274,10 +274,10 @@ class ResizeStableMenu(MenuView):
                   },
                   "children": "−",
                   "onClick": Callback(self._decrease)},
-                 {"$component": "div", "$id": "count",
+                 {"$component": "html.div", "$id": "count",
                   "style": {"minWidth": "96px", "fontSize": "12px"},
                   "children": f"{self.extra_count} dynamic items"},
-                 {"$component": "button", "$id": "inc",
+                 {"$component": "html.button", "$id": "inc",
                   "style": {
                       "width": "28px",
                       "height": "28px",
@@ -329,7 +329,7 @@ class MenuDemoPage(View):
 
     def render(self) -> ViewBlock:
         placement_buttons = [
-            {"$component": "button", "$id": f"placement-{placement}",
+            {"$component": "html.button", "$id": f"placement-{placement}",
              "onClick": MenuTrigger(
                  lambda placement=placement: PlacementPreviewMenu(
                      placement_label=placement,
@@ -350,7 +350,7 @@ class MenuDemoPage(View):
             for placement in SIDE_PLACEMENTS
         ]
         resize_buttons = [
-            {"$component": "button", "$id": f"stable-{placement}",
+            {"$component": "html.button", "$id": f"stable-{placement}",
              "onClick": MenuTrigger(
                  lambda placement=placement: ResizeStableMenu(
                      placement_label=placement,
@@ -371,24 +371,24 @@ class MenuDemoPage(View):
             for placement in SIDE_PLACEMENTS
         ]
         return ViewBlock([{
-            "$component": "div", "$id": "wrap",
+            "$component": "html.div", "$id": "wrap",
             "style": {"padding": "24px", "fontFamily": "system-ui", "margin": "0 auto"},
             "$children": [
-                {"$component": "h2", "$id": "h", "children": "Menu System Demo"},
+                {"$component": "html.h2", "$id": "h", "children": "Menu System Demo"},
 
                 # 右键菜单（多个 item）
-                {"$component": "div", "$id": "ctx-section",
+                {"$component": "html.div", "$id": "ctx-section",
                  "style": {"marginTop": "16px"},
                  "$children": [
-                     {"$component": "h4", "$id": "ctx-h",
+                     {"$component": "html.h4", "$id": "ctx-h",
                       "children": "Right-click menu (different per item)"},
-                     {"$component": "div", "$id": "ctx-list",
+                     {"$component": "html.div", "$id": "ctx-list",
                       "style": {
                           "display": "flex", "gap": "8px", "flexWrap": "wrap",
                           "marginTop": "8px",
                       },
                       "$children": [
-                          {"$component": "div", "$id": f"item-{n}",
+                          {"$component": "html.div", "$id": f"item-{n}",
                            "data-id": f"tab-{n}",
                            "onContextMenu": MenuTrigger(
                                lambda item_id: TabContextMenu(item_id=item_id, page=self),
@@ -408,12 +408,12 @@ class MenuDemoPage(View):
                  ]},
 
                 # 下拉菜单 + 子菜单
-                {"$component": "div", "$id": "dd-section",
+                {"$component": "html.div", "$id": "dd-section",
                  "style": {"marginTop": "24px"},
                  "$children": [
-                     {"$component": "h4", "$id": "dd-h",
+                     {"$component": "html.h4", "$id": "dd-h",
                       "children": "Dropdown menu (with submenu)"},
-                     {"$component": "button", "$id": "add-btn",
+                     {"$component": "html.button", "$id": "add-btn",
                        "onClick": MenuTrigger(
                            lambda: AddDropdownMenu(page=self),
                            placement="bottom-start",
@@ -429,12 +429,12 @@ class MenuDemoPage(View):
                  ]},
 
                 # 命令面板
-                {"$component": "div", "$id": "cmd-section",
+                {"$component": "html.div", "$id": "cmd-section",
                  "style": {"marginTop": "24px"},
                  "$children": [
-                     {"$component": "h4", "$id": "cmd-h",
+                     {"$component": "html.h4", "$id": "cmd-h",
                       "children": "Searchable menu (Command Palette)"},
-                     {"$component": "button", "$id": "cmd-btn",
+                     {"$component": "html.button", "$id": "cmd-btn",
                        "onClick": MenuTrigger(
                            lambda: CommandPalette(page=self),
                            placement="bottom-start",
@@ -450,19 +450,19 @@ class MenuDemoPage(View):
                   ]},
 
                  # placement 矩阵
-                 {"$component": "div", "$id": "placement-section",
+                 {"$component": "html.div", "$id": "placement-section",
                   "style": {"marginTop": "24px"},
                   "$children": [
-                      {"$component": "h4", "$id": "placement-h",
+                      {"$component": "html.h4", "$id": "placement-h",
                        "children": "Placement matrix"},
-                      {"$component": "div", "$id": "placement-help",
+                      {"$component": "html.div", "$id": "placement-help",
                        "style": {
                            "marginTop": "8px",
                            "fontSize": "12px",
                            "color": "var(--mutgui-text-dim)",
                        },
                        "children": "Right-click list covers cursor; buttons below cover the 10 side-align placements."},
-                      {"$component": "div", "$id": "placement-grid",
+                      {"$component": "html.div", "$id": "placement-grid",
                        "style": {
                            "display": "grid",
                            "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
@@ -473,12 +473,12 @@ class MenuDemoPage(View):
                   ]},
 
                  # 边缘 flip 演示
-                 {"$component": "div", "$id": "flip-section",
+                 {"$component": "html.div", "$id": "flip-section",
                   "style": {"marginTop": "24px"},
                   "$children": [
-                      {"$component": "h4", "$id": "flip-h",
+                      {"$component": "html.h4", "$id": "flip-h",
                        "children": "Edge flip"},
-                      {"$component": "div", "$id": "flip-box",
+                      {"$component": "html.div", "$id": "flip-box",
                        "style": {
                            "position": "relative",
                            "height": "240px",
@@ -488,7 +488,7 @@ class MenuDemoPage(View):
                            "background": "var(--mutgui-surface)",
                        },
                        "$children": [
-                           {"$component": "button", "$id": "flip-left-top",
+                           {"$component": "html.button", "$id": "flip-left-top",
                             "onClick": MenuTrigger(
                                 lambda: EdgeFlipMenu(title="left-start", page=self),
                                 placement="left-start",
@@ -505,7 +505,7 @@ class MenuDemoPage(View):
                                 "cursor": "pointer",
                             },
                             "children": "left-start @ top-left"},
-                           {"$component": "button", "$id": "flip-right-top",
+                           {"$component": "html.button", "$id": "flip-right-top",
                             "onClick": MenuTrigger(
                                 lambda: EdgeFlipMenu(title="top-end", page=self),
                                 placement="top-end",
@@ -522,7 +522,7 @@ class MenuDemoPage(View):
                                 "cursor": "pointer",
                             },
                             "children": "top-end @ top-right"},
-                           {"$component": "button", "$id": "flip-left-bottom",
+                           {"$component": "html.button", "$id": "flip-left-bottom",
                             "onClick": MenuTrigger(
                                 lambda: EdgeFlipMenu(title="bottom-start", page=self),
                                 placement="bottom-start",
@@ -539,7 +539,7 @@ class MenuDemoPage(View):
                                 "cursor": "pointer",
                             },
                             "children": "bottom-start @ bottom-left"},
-                           {"$component": "button", "$id": "flip-right-bottom",
+                           {"$component": "html.button", "$id": "flip-right-bottom",
                             "onClick": MenuTrigger(
                                 lambda: EdgeFlipMenu(title="right-end", page=self),
                                 placement="right-end",
@@ -560,19 +560,19 @@ class MenuDemoPage(View):
                   ]},
 
                  # 尺寸稳定性演示
-                 {"$component": "div", "$id": "stable-section",
+                 {"$component": "html.div", "$id": "stable-section",
                   "style": {"marginTop": "24px"},
                   "$children": [
-                      {"$component": "h4", "$id": "stable-h",
+                      {"$component": "html.h4", "$id": "stable-h",
                        "children": "Resize stability"},
-                      {"$component": "div", "$id": "stable-help",
+                      {"$component": "html.div", "$id": "stable-help",
                        "style": {
                            "marginTop": "8px",
                            "fontSize": "12px",
                            "color": "var(--mutgui-text-dim)",
                        },
                        "children": "Open any placement, then use +/- inside the menu to change item count and watch the anchored corner stay fixed."},
-                      {"$component": "div", "$id": "stable-grid",
+                      {"$component": "html.div", "$id": "stable-grid",
                        "style": {
                            "display": "grid",
                            "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
@@ -583,12 +583,12 @@ class MenuDemoPage(View):
                   ]},
 
                  # 操作日志
-                 {"$component": "div", "$id": "log-section",
+                 {"$component": "html.div", "$id": "log-section",
                   "style": {"marginTop": "24px"},
                   "$children": [
-                     {"$component": "h4", "$id": "log-h",
+                     {"$component": "html.h4", "$id": "log-h",
                       "children": "Action log"},
-                     {"$component": "pre", "$id": "log",
+                     {"$component": "html.pre", "$id": "log",
                       "style": {
                           "padding": "12px",
                           "background": "var(--mutgui-surface)",

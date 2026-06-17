@@ -8,7 +8,7 @@ from typing import Literal
 
 from mutgui import ModuleRegistry, View as GUIView
 
-DEFAULT_RUNTIME_IMPORTS = ("@mutgui/antd",)
+DEFAULT_RUNTIME_IMPORTS = ("@mutgui/antd", "@mutgui/html")
 DEFAULT_RUNTIME_INSTALLS = ("@mutgui/theme-dark",)
 LayoutMode = Literal["plain", "centered", "fullscreen"]
 

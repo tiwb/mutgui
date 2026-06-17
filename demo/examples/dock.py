@@ -22,13 +22,13 @@ class SimplePanelView(View):
             "color": "var(--mutgui-text)",
         }
         return ViewBlock([{
-            "$component": "div", "$id": "wrap",
+            "$component": "html.div", "$id": "wrap",
             "style": wrap_style,
             "$children": [
-                {"$component": "div", "$id": "title",
+                {"$component": "html.div", "$id": "title",
                  "style": {"fontSize": "16px", "fontWeight": "bold", "marginBottom": "8px"},
                  "children": self.title},
-                {"$component": "div", "$id": "info",
+                {"$component": "html.div", "$id": "info",
                  "style": {"fontSize": "13px", "color": "var(--mutgui-text-dim)"},
                  "children": f"Clicks: {self.click_count}"},
                 {"$component": "antd.Button", "$id": "btn",
