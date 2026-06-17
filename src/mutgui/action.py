@@ -184,8 +184,6 @@ class ActionToolbar(View):
     categories: list[str] = mutobj.field(default_factory=list)
     refs: list[ActionRef] = mutobj.field(default_factory=list)
     context: ActionContext | None = None
-    gap: int = 6
-    wrap: bool = True
     label_mode: ToolbarLabelMode = "auto"
 
     def render(self) -> ViewBlock:

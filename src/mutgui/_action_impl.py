@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Any
+from typing import Any
 
 from mutobj import impl
 
@@ -17,7 +17,7 @@ from .action import (
 from ._action_registry import resolve_actions, ResolvedAction, Stub
 from .events import Callback
 from .menu import MenuTrigger
-from .view import View, ViewBlock, RenderComponent, RenderTree
+from .view import View, ViewBlock, RenderComponent, RenderNode, RenderTree
 
 
 def _menu_arrow(placement: str) -> str:
@@ -207,10 +207,6 @@ def _menu_ensure_view_id(self: ActionMenu, view: View, suffix: str) -> View:
     return view
 
 
-# ---------------------------------------------------------------------------
-# ActionToolbar — render + private helpers
-# ---------------------------------------------------------------------------
-
 @impl(ActionToolbar.render)
 def action_toolbar_render(self: ActionToolbar) -> ViewBlock:
     context = _toolbar_base_context(self).with_updates(surface="toolbar")
@@ -222,44 +218,22 @@ def action_toolbar_render(self: ActionToolbar) -> ViewBlock:
     start_actions = [item for item in actions if item.position == "start"]
     end_actions = [item for item in actions if item.position != "start"]
     return ViewBlock([{
-        "$component": "html.div",
+        "$component": "mutgui.Toolbar",
         "$id": "toolbar",
-        "style": {
-            "display": "flex",
-            "alignItems": "center",
-            "width": "100%",
-            "gap": f"{self.gap}px",
-        },
         "$children": [
             {
-                "$component": "html.div",
+                "$component": "mutgui.Toolbar.Section",
                 "$id": "start",
-                "style": {
-                    "display": "flex",
-                    "gap": f"{self.gap}px",
-                    "alignItems": "center",
-                    "flexWrap": "wrap" if self.wrap else "nowrap",
-                },
                 "$children": [
                     *_toolbar_render_action_strip(
                         self, start_actions, context, start_index=0,
                     ),
                 ],
             },
+            {"$component": "mutgui.Toolbar.Spacer"},
             {
-                "$component": "html.div",
-                "$id": "spacer",
-                "style": {"flex": 1},
-            },
-            {
-                "$component": "html.div",
+                "$component": "mutgui.Toolbar.Section",
                 "$id": "end",
-                "style": {
-                    "display": "flex",
-                    "gap": f"{self.gap}px",
-                    "alignItems": "center",
-                    "flexWrap": "wrap" if self.wrap else "nowrap",
-                },
                 "$children": [
                     *_toolbar_render_action_strip(
                         self,
@@ -279,12 +253,15 @@ def _toolbar_render_action_strip(
     context: ActionContext,
     *,
     start_index: int,
-) -> list[RenderComponent]:
-    rendered: list[RenderComponent] = []
+) -> list[RenderNode]:
+    rendered: list[RenderNode] = []
     prev_group_name: str | None = None
     for offset, item in enumerate(actions, start=start_index):
         if rendered and item.group_name != prev_group_name:
-            rendered.append(_toolbar_group_separator(offset))
+            rendered.append({
+                "$component": "mutgui.Toolbar.Divider",
+                "$id": f"divider-{offset}",
+            })
         rendered.append(_toolbar_render_action(self, item, context, offset))
         prev_group_name = item.group_name
     return rendered
@@ -295,210 +272,68 @@ def _toolbar_render_action(
     item: ResolvedAction,
     context: ActionContext,
     index: int,
-) -> RenderComponent:
+) -> RenderNode:
+    # widget variant — 直接嵌入 action 的 toolbar_view
     if item.variant == "widget" and item.toolbar_view is not None:
         widget = _toolbar_ensure_view_id(
             self,
             item.toolbar_view,
             f"toolbar-widget-{item.ref_id}-{index}",
         )
-        return {
-            "$component": "html.div",
-            "$id": f"widget-{index}",
-            "title": item.tooltip,
-            "style": {
-                "display": "inline-flex",
-                "alignItems": "center",
-                "minHeight": "32px",
-            },
-            "$children": [widget],
-        }
+        return widget
+
+    # 公共展示属性
+    base_props: RenderComponent = {
+        "label": item.label,
+        "icon": item.icon,
+        "tooltip": item.tooltip,
+        "shortcut": item.shortcut,
+        "disabled": not item.enabled,
+        "checked": item.checked,
+        "labelMode": self.label_mode,
+    }
 
     if item.variant == "split":
-        return {
-            "$component": "html.div",
+        split_props: RenderComponent = {
+            "$component": "mutgui.Toolbar.SplitButton",
             "$id": f"split-{index}",
-            "style": {
-                "display": "inline-flex",
-                "alignItems": "stretch",
-            },
-            "$children": [
-                _toolbar_button_schema(
-                    self,
-                    item,
-                    component_id=f"main-{index}",
-                    on_click=(
-                        Callback(item.action.execute, context)
-                        if item.can_execute and item.enabled
-                        else None
-                    ),
-                    left_rounded=True,
-                    right_rounded=False,
-                ),
-                _toolbar_button_schema(
-                    self,
-                    item,
-                    component_id=f"menu-{index}",
-                    on_click=MenuTrigger(
-                        ActionMenu,
-                        source_action=item.action,
-                        context=context,
-                        placement=item.menu_placement,
-                    ),
-                    disabled=False,
-                    label=_menu_arrow(item.menu_placement),
-                    use_icon=False,
-                    left_rounded=False,
-                    right_rounded=True,
-                ),
-            ],
+            "arrow": _menu_arrow(item.menu_placement),
         }
+        split_props.update(base_props)
+        if item.can_execute and item.enabled:
+            split_props["mainOnClick"] = Callback(item.action.execute, context)
+        split_props["menuOnClick"] = MenuTrigger(
+            ActionMenu,
+            source_action=item.action,
+            context=context,
+            placement=item.menu_placement,
+        )
+        return split_props
 
     if item.variant == "dropdown":
-        return _toolbar_button_schema(
-            self,
-            item,
-            component_id=f"dropdown-{index}",
-            on_click=MenuTrigger(
+        dropdown_props: RenderComponent = {
+            "$component": "mutgui.Toolbar.Dropdown",
+            "$id": f"dropdown-{index}",
+            "arrow": _menu_arrow(item.menu_placement),
+            "onClick": MenuTrigger(
                 ActionMenu,
                 source_action=item.action,
                 context=context,
                 placement=item.menu_placement,
             ),
-            show_menu_arrow=True,
-            menu_arrow=_menu_arrow(item.menu_placement),
-        )
+        }
+        dropdown_props.update(base_props)
+        return dropdown_props
 
-    return _toolbar_button_schema(
-        self,
-        item,
-        component_id=f"button-{index}",
-        on_click=(
-            Callback(item.action.execute, context)
-            if item.can_execute and item.enabled
-            else None
-        ),
-    )
-
-
-def _toolbar_button_schema(
-    self: ActionToolbar,
-    item: ResolvedAction,
-    *,
-    component_id: str,
-    on_click: Callback | MenuTrigger | None,
-    disabled: bool | None = None,
-    label: str | None = None,
-    use_icon: bool = True,
-    show_menu_arrow: bool = False,
-    menu_arrow: str = "▾",
-    left_rounded: bool = True,
-    right_rounded: bool = True,
-) -> RenderComponent:
-    children = _toolbar_button_children(
-        self,
-        item.icon if use_icon else None,
-        label or item.label,
-        show_menu_arrow=show_menu_arrow,
-        menu_arrow=menu_arrow,
-    )
-    style: RenderComponent = {
-        "display": "inline-flex",
-        "alignItems": "center",
-        "gap": "6px",
-        "height": "32px",
-        "padding": "0 10px",
-        "border": "1px solid var(--mutgui-border, #d9d9d9)",
-        "background": (
-            "color-mix(in oklch, var(--mutgui-accent) 22%, var(--mutgui-bg))"
-            if item.checked
-            else "var(--mutgui-bg, #fff)"
-        ),
-        "color": "var(--mutgui-text, #111)",
-        "cursor": "pointer",
-        "borderTopLeftRadius": "6px" if left_rounded else "0",
-        "borderBottomLeftRadius": "6px" if left_rounded else "0",
-        "borderTopRightRadius": "6px" if right_rounded else "0",
-        "borderBottomRightRadius": "6px" if right_rounded else "0",
+    # default: button variant
+    button_props: RenderComponent = {
+        "$component": "mutgui.Toolbar.Button",
+        "$id": f"button-{index}",
     }
-    node: RenderComponent = {
-        "$component": "html.button",
-        "$id": component_id,
-        "type": "button",
-        "title": _toolbar_button_title(item),
-        "disabled": (not item.enabled) if disabled is None else disabled,
-        "style": style,
-    }
-    if on_click is not None:
-        node["onClick"] = on_click
-    if isinstance(children, list):
-        node["$children"] = children
-    else:
-        node["children"] = children
-    return node
-
-
-def _toolbar_button_children(
-    self: ActionToolbar,
-    icon: str | None,
-    label: str,
-    *,
-    show_menu_arrow: bool = False,
-    menu_arrow: str = "▾",
-) -> list[RenderComponent] | str:
-    mode = _toolbar_effective_label_mode(self)
-    if icon is not None and mode == "icon-only":
-        if not show_menu_arrow:
-            return icon
-        children: list[RenderComponent] = [
-            {"$component": "html.span", "$id": "icon", "children": icon},
-        ]
-    elif icon and label:
-        children = [
-            {"$component": "html.span", "$id": "icon", "children": icon},
-            {"$component": "html.span", "$id": "label", "children": label},
-        ]
-    else:
-        text = icon or label
-        if not show_menu_arrow:
-            return text
-        children = [
-            {"$component": "html.span", "$id": "label", "children": text},
-        ]
-    if show_menu_arrow:
-        children.append(
-            {"$component": "html.span", "$id": "arrow", "children": menu_arrow}
-        )
-    return children
-
-
-def _toolbar_button_title(item: ResolvedAction) -> str:
-    title = item.tooltip or item.label
-    if item.shortcut:
-        return f"{title} ({item.shortcut})"
-    return title
-
-
-def _toolbar_effective_label_mode(
-    self: ActionToolbar,
-) -> Literal["always", "icon-only"]:
-    if self.label_mode == "icon-only":
-        return "icon-only"
-    return "always"
-
-
-def _toolbar_group_separator(index: int) -> RenderComponent:
-    return {
-        "$component": "html.div",
-        "$id": f"divider-{index}",
-        "ariaHidden": True,
-        "style": {
-            "width": "1px",
-            "height": "20px",
-            "alignSelf": "center",
-            "background": "var(--mutgui-border, #d9d9d9)",
-        },
-    }
+    button_props.update(base_props)
+    if item.can_execute and item.enabled:
+        button_props["onClick"] = Callback(item.action.execute, context)
+    return button_props
 
 
 def _toolbar_base_context(self: ActionToolbar) -> ActionContext:

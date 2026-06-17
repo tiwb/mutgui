@@ -187,7 +187,8 @@ def test_action_toolbar_builds_start_and_end_groups() -> None:
     assert groups[0]["$id"] == "start"
     assert groups[2]["$id"] == "end"
     assert groups[0]["$children"][0]["$id"] == "button-0"
-    assert groups[2]["$children"][0]["$id"] == "widget-1"
+    # widget variant 直接返回 View 实例（不再包装 html.div）
+    assert isinstance(groups[2]["$children"][0], View)
     assert groups[2]["$children"][1]["$id"] == "split-2"
 
 
@@ -200,8 +201,8 @@ def test_action_toolbar_renders_dropdown_with_arrow() -> None:
     block = toolbar.render()
     dropdown = block.items[0]["$children"][2]["$children"][0]
     assert dropdown["$id"] == "dropdown-0"
-    assert dropdown["$children"][-1]["$id"] == "arrow"
-    assert dropdown["$children"][-1]["children"] == "▾"
+    # 箭头由前端组件内部渲染，Python 端只传 arrow prop
+    assert dropdown["arrow"] == "▾"
 
 
 def test_action_registry_class_level_defaults_do_not_instantiate_for_lookup() -> None:
@@ -474,8 +475,12 @@ def test_action_toolbar_icon_only_hides_text_when_icon_exists() -> None:
 
     block = toolbar.render()
     start_children = block.items[0]["$children"][0]["$children"]
-    assert start_children[0]["children"] == "I"
-    assert start_children[1]["children"] == "纯文字"
+    # icon-only 模式：有图标时只传 icon 不传 label 文字内容
+    assert start_children[0]["icon"] == "I"
+    assert start_children[0]["label"] == "图文"
+    # 无图标时回退到显示文字
+    assert start_children[1]["icon"] is None
+    assert start_children[1]["label"] == "纯文字"
 
 
 def test_action_toolbar_default_label_mode_keeps_icon_and_text() -> None:
@@ -486,8 +491,11 @@ def test_action_toolbar_default_label_mode_keeps_icon_and_text() -> None:
 
     block = toolbar.render()
     start_children = block.items[0]["$children"][0]["$children"]
-    assert [child["children"] for child in start_children[0]["$children"]] == ["I", "图文"]
-    assert start_children[0]["title"] == "图文提示 (Ctrl+I)"
+    btn = start_children[0]
+    assert btn["icon"] == "I"
+    assert btn["label"] == "图文"
+    assert btn["tooltip"] == "图文提示"
+    assert btn["shortcut"] == "Ctrl+I"
 
 
 def test_dockpanel_action_wire_carries_group_name() -> None:

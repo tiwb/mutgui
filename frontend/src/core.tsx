@@ -12,6 +12,15 @@ import { VirtualList } from './components/virtual-list';
 import { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
 import { Menu, MenuDivider, MenuItem } from './components/menu';
 import {
+  Toolbar,
+  ToolbarSection,
+  ToolbarSpacer,
+  ToolbarButton,
+  ToolbarSplitButton,
+  ToolbarDropdown,
+  ToolbarDivider,
+} from './components/toolbar';
+import {
   ConnectionProvider,
   type MutguiConnection,
   type RenderCallback,
@@ -26,6 +35,13 @@ registerComponents({
   Menu,
   'Menu.Item': MenuItem,
   'Menu.Divider': MenuDivider,
+  Toolbar,
+  'Toolbar.Section': ToolbarSection,
+  'Toolbar.Spacer': ToolbarSpacer,
+  'Toolbar.Button': ToolbarButton,
+  'Toolbar.SplitButton': ToolbarSplitButton,
+  'Toolbar.Dropdown': ToolbarDropdown,
+  'Toolbar.Divider': ToolbarDivider,
   VirtualList,
 });
 
@@ -222,3 +238,12 @@ export type { ViewPath, MutguiConnection, RenderCallback } from './core/context'
 export { resolvePath } from './core/resolve-path';
 export { VirtualList } from './components/virtual-list';
 export { DockPanel, DockPanelSplit, DockPanelTabSet } from './components/dock-panel';
+export {
+  Toolbar,
+  ToolbarSection,
+  ToolbarSpacer,
+  ToolbarButton,
+  ToolbarSplitButton,
+  ToolbarDropdown,
+  ToolbarDivider,
+} from './components/toolbar';

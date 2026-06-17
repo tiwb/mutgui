@@ -9,4 +9,5 @@
 @import "./core/base.css";
 @import "./components/menu.css";
 @import "./components/dock-panel.css";
+@import "./components/toolbar.css";
 @import "./components/virtual-list.css";

@@ -1,0 +1,98 @@
+/**
+ * Toolbar 组件样式
+ *
+ * 结构：flex 布局、尺寸、间距 —— 必需
+ * 视觉：background/border/color 用 token
+ * 状态：hover/active/disabled/checked/focus-visible 通过 color-mix 从 --mutgui-accent 派生
+ */
+@layer mutgui.components {
+  /* ── 容器 ── */
+  .mutgui-toolbar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: var(--mutgui-toolbar-gap, 6px);
+  }
+
+  .mutgui-toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: var(--mutgui-toolbar-gap, 6px);
+    flex-wrap: wrap;
+  }
+
+  .mutgui-toolbar-spacer {
+    flex: 1;
+  }
+
+  /* ── 按钮 ── */
+  .mutgui-toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--mutgui-border);
+    border-radius: 6px;
+    background: var(--mutgui-bg);
+    color: var(--mutgui-text);
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 150ms ease;
+    outline: none;
+  }
+
+  .mutgui-toolbar-button:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--mutgui-accent) 8%, var(--mutgui-bg));
+  }
+
+  .mutgui-toolbar-button:active:not(:disabled) {
+    background: color-mix(in oklch, var(--mutgui-accent) 12%, var(--mutgui-bg));
+  }
+
+  .mutgui-toolbar-button:focus-visible {
+    outline: 2px solid var(--mutgui-accent);
+    outline-offset: 1px;
+  }
+
+  .mutgui-toolbar-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .mutgui-toolbar-button.checked {
+    background: color-mix(in oklch, var(--mutgui-accent) 22%, var(--mutgui-bg));
+  }
+
+  .mutgui-toolbar-button.checked:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--mutgui-accent) 28%, var(--mutgui-bg));
+  }
+
+  /* 半边圆角（SplitButton 内部使用） */
+  .mutgui-toolbar-button.no-left-radius {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .mutgui-toolbar-button.no-right-radius {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* ── 分隔线 ── */
+  .mutgui-toolbar-divider {
+    width: 1px;
+    height: 20px;
+    align-self: center;
+    background: var(--mutgui-border);
+  }
+
+  /* ── 分离按钮 ── */
+  .mutgui-toolbar-split {
+    display: inline-flex;
+    align-items: stretch;
+  }
+}
