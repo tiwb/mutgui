@@ -635,12 +635,11 @@ export function VirtualList({
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
-      const el = containerRef.current;
-      if (!el || !USER_SCROLL_KEYS.has(event.key)) return;
-      const activeElement = document.activeElement;
-      if (activeElement && activeElement !== el && !el.contains(activeElement)) {
-        return;
-      }
+      if (!USER_SCROLL_KEYS.has(event.key)) return;
+      // 不检查 activeElement：VirtualList item 为非 focusable 的 div，
+      // document.activeElement 始终为 body，el.contains(body) 永远为 false。
+      // 误设 flag 的副作用轻微：flag 只在 handleScroll 触发时消费，
+      // 且 isProgrammaticScroll 有更高优先级，不会干扰贴底逻辑。
       pendingUserScrollIntentRef.current = true;
     };
     const clearPointerDragging = () => {
