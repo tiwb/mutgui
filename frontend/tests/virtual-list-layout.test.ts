@@ -126,24 +126,35 @@ describe('virtual list layout helpers', () => {
       isProgrammaticScroll: false,
       hasPendingUserIntent: true,
       isPointerDragging: false,
+      isUserScrolling: false,
     })).toBe('USER');
 
     expect(resolveScrollCause({
       isProgrammaticScroll: false,
       hasPendingUserIntent: false,
       isPointerDragging: true,
+      isUserScrolling: false,
     })).toBe('USER');
 
     expect(resolveScrollCause({
       isProgrammaticScroll: false,
       hasPendingUserIntent: false,
       isPointerDragging: false,
+      isUserScrolling: true,
+    })).toBe('USER');
+
+    expect(resolveScrollCause({
+      isProgrammaticScroll: false,
+      hasPendingUserIntent: false,
+      isPointerDragging: false,
+      isUserScrolling: false,
     })).toBe('LAYOUT_OR_PROGRAMMATIC');
 
     expect(resolveScrollCause({
       isProgrammaticScroll: true,
       hasPendingUserIntent: true,
       isPointerDragging: true,
+      isUserScrolling: true,
     })).toBe('LAYOUT_OR_PROGRAMMATIC');
   });
 

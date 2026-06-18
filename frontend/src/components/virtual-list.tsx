@@ -1,11 +1,11 @@
 /**
- * VirtualList — 虚拟滚动列表组件。
+ * VirtualList - 虚拟滚动列表组件。
  *
- * 后端控制可见 item 列表（通过 onViewport 事件），
+ * 后端控制可见 item 列表(通过 onViewport 事件),
  * 前端负责滚动容器、高度估算、viewport 计算和防抖。
  * children 由框架从 $children 渲染为 MutguiView 列表。
  */
-import { useRef, useState, useCallback, useEffect, useMemo, Children } from 'react';
+import { useRef, useState, useCallback, useEffect, useLayoutEffect, useMemo, Children } from 'react';
 
 const DEFAULT_ITEM_HEIGHT = 32;
 const DEFAULT_OVERSCAN = 5;
@@ -43,6 +43,7 @@ export interface ScrollCauseInput {
   isProgrammaticScroll: boolean;
   hasPendingUserIntent: boolean;
   isPointerDragging: boolean;
+  isUserScrolling: boolean;
 }
 
 export interface VirtualLayoutInput {
@@ -258,7 +259,7 @@ export function resolveScrollCause(params: ScrollCauseInput): ScrollCause {
   if (params.isProgrammaticScroll) {
     return 'LAYOUT_OR_PROGRAMMATIC';
   }
-  if (params.hasPendingUserIntent || params.isPointerDragging) {
+  if (params.hasPendingUserIntent || params.isPointerDragging || params.isUserScrolling) {
     return 'USER';
   }
   return 'LAYOUT_OR_PROGRAMMATIC';
@@ -391,15 +392,6 @@ export function VirtualList({
 
     if (updates.size === 0) return;
 
-    const el = containerRef.current;
-    if (stickToBottom && followStateRef.current === 'FOLLOWING' && el) {
-      const targetScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-      if (Math.abs(el.scrollTop - targetScrollTop) >= 1) {
-        isProgrammaticScrollRef.current = true;
-        el.scrollTop = targetScrollTop;
-      }
-    }
-
     if (userScrollingRef.current && followStateRef.current !== 'FOLLOWING') {
       for (const [itemId, nextHeight] of updates) {
         stagedHeightUpdatesRef.current.set(itemId, nextHeight);
@@ -415,8 +407,10 @@ export function VirtualList({
     const changed = applyMeasuredHeightUpdates(updates);
     if (!changed) return;
 
+    // 锚底由 useLayoutEffect 在 React 更新 spacer 后统一执行，
+    // 此时 el.scrollHeight 已反映正确值，避免读旧 spacer 高度。
     setLayoutVersion((version) => version + 1);
-  }, [applyMeasuredHeightUpdates, stickToBottom]);
+  }, [applyMeasuredHeightUpdates]);
 
   const scheduleMeasuredHeightsFlush = useCallback(() => {
     if (measureRafRef.current != null) return;
@@ -426,27 +420,44 @@ export function VirtualList({
   const calculateViewport = useCallback(() => {
     const el = containerRef.current;
     if (!el || !onViewport) return;
-    const nextRange = calculateViewportRange({
-      itemCount,
-      scrollTop: el.scrollTop,
-      clientHeight: el.clientHeight,
-      overscan,
-      viewportStart,
-      visibleItemIds: itemIds,
-      indexToId: indexToIdRef.current,
-      heightMap: heightMapRef.current,
-      estimatedItemHeight: getEstimatedItemHeight(
-        measuredHeightSumRef.current,
-        measuredCountRef.current,
-        estimatedItemHeight,
-      ),
-    });
+
+    const estHeight = getEstimatedItemHeight(
+      measuredHeightSumRef.current,
+      measuredCountRef.current,
+      estimatedItemHeight,
+    );
+
+    let nextRange: { start: number; end: number };
+
+    if (stickToBottom && followStateRef.current === 'FOLLOWING') {
+      // FOLLOWING 时已知在底部，不读 scrollTop，直接用 itemCount 算底部范围。
+      // 避免 force-to-bottom → scroll 事件 → scrollTop 微变 → viewport 范围
+      // 偏移 → item 创建/销毁 → ResizeObserver → 回路。
+      const visibleCount = Math.ceil(el.clientHeight / Math.max(1, estHeight));
+      nextRange = {
+        start: Math.max(0, itemCount - visibleCount - overscan),
+        end: itemCount,
+      };
+    } else {
+      nextRange = calculateViewportRange({
+        itemCount,
+        scrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+        overscan,
+        viewportStart,
+        visibleItemIds: itemIds,
+        indexToId: indexToIdRef.current,
+        heightMap: heightMapRef.current,
+        estimatedItemHeight: estHeight,
+      });
+    }
+
     const prev = sentViewportRef.current;
     if (prev.start === nextRange.start && prev.end === nextRange.end) return;
 
     sentViewportRef.current = { start: nextRange.start, end: nextRange.end };
     onViewport({ start: nextRange.start, end: nextRange.end });
-  }, [estimatedItemHeight, itemCount, itemIds, layoutVersion, onViewport, overscan, viewportStart]);
+  }, [estimatedItemHeight, itemCount, itemIds, layoutVersion, onViewport, overscan, viewportStart, stickToBottom]);
 
   const scheduleUserScrollIdle = useCallback(() => {
     userScrollingRef.current = true;
@@ -471,15 +482,18 @@ export function VirtualList({
     const el = containerRef.current;
     if (!el) return;
 
+    // 在 resolveScrollCause 之前启动 userScrolling 锁存,
+    // 确保同一个用户手势的后续动量 scroll 事件也能判为 USER
+    if (pendingUserScrollIntentRef.current || pointerDraggingRef.current) {
+      scheduleUserScrollIdle();
+    }
+
     const scrollCause = resolveScrollCause({
       isProgrammaticScroll: isProgrammaticScrollRef.current,
       hasPendingUserIntent: pendingUserScrollIntentRef.current,
       isPointerDragging: pointerDraggingRef.current,
+      isUserScrolling: userScrollingRef.current,
     });
-
-    if (scrollCause === 'USER') {
-      scheduleUserScrollIdle();
-    }
 
     if (stickToBottom) {
       followStateRef.current = resolveFollowStateOnScroll({
@@ -510,6 +524,7 @@ export function VirtualList({
     if (onScrollHandler && !isProgrammaticScrollRef.current) {
       onScrollHandler({ scrollTop: el.scrollTop });
     }
+
     pendingUserScrollIntentRef.current = false;
     isProgrammaticScrollRef.current = false;
   }, [calculateViewport, onScrollHandler, scheduleUserScrollIdle, stickToBottom]);
@@ -589,7 +604,25 @@ export function VirtualList({
     };
   }, [scheduleMeasuredHeightsFlush]);
 
+  // F1：post-render 同步锚底。flush 内 setLayoutVersion 触发 React
+  // 重渲染更新 spacer 高度，useLayoutEffect 在 DOM 提交后、paint 前
+  // 同步执行，此时 el.scrollHeight 已反映正确的新内容下界。
+  useLayoutEffect(() => {
+    if (!stickToBottom || followStateRef.current !== 'FOLLOWING') return;
+    const el = containerRef.current;
+    if (!el) return;
+    const target = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (Math.abs(el.scrollTop - target) < 1) return;
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = target;
+    lastScrollTopRef.current = target;
+  }, [layoutVersion, stickToBottom]);
+
   useEffect(() => {
+    // F2：仅作为 ResizeObserver 不会触发的兜底路径（item 删除等）。
+    // 流式高度变化的锚底已由 useLayoutEffect (F1) 在 post-render 阶段完成，
+    // 此处不再依赖 layoutVersion，避免 "flush → layoutVersion++ → effect
+    // 异步跨帧读不同 scrollHeight → 二次 force" 的振荡回路。
     if (!stickToBottom || followStateRef.current !== 'FOLLOWING') return;
     const el = containerRef.current;
     if (!el) return;
@@ -598,10 +631,7 @@ export function VirtualList({
     isProgrammaticScrollRef.current = true;
     el.scrollTop = targetScrollTop;
     lastScrollTopRef.current = targetScrollTop;
-    calculateViewport();
-    // 依赖 layoutVersion：流式追加内容只改变同一 item 高度，itemCount/itemIds 不变，
-    // 必须靠 layoutVersion 触发，否则 spacer 长高后 scrollTop 不会被回推到新底部。
-  }, [calculateViewport, itemCount, itemIds, stickToBottom, layoutVersion]);
+  }, [itemCount, itemIds, stickToBottom]);
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
