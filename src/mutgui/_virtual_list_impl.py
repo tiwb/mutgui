@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import mutobj
 from mutobj import impl
 
@@ -28,6 +30,7 @@ class VirtualListRuntime(mutobj.Extension[VirtualList]):
     rendered_viewport_ids: dict[int, list[ViewId]] = mutobj.field(default_factory=dict)
     visible_ids: list[ViewId] = mutobj.field(default_factory=list)
     scroll_top: float = 0.0
+    viewport_seqs: dict[int, int] = mutobj.field(default_factory=dict)
 
 
 def _vl_ext(self: VirtualList) -> VirtualListRuntime:
@@ -68,20 +71,9 @@ def virtual_list_init(
     self: VirtualList,
     id: str,
     adapter: VirtualListItemAdapter,
-    *,
-    sync_scroll: bool = False,
-    stick_to_bottom: bool = False,
-    estimated_item_height: int = 32,
+    **kwargs: Any,
 ) -> None:
-    if sync_scroll and stick_to_bottom:
-        raise ValueError(
-            "VirtualList sync_scroll 和 stick_to_bottom 不能同时为 True",
-        )
-    self.id = id
-    self.adapter = adapter
-    self.sync_scroll = sync_scroll
-    self.stick_to_bottom = stick_to_bottom
-    self.estimated_item_height = estimated_item_height
+    super(VirtualList, self).__init__(id=id, adapter=adapter, **kwargs)
     adapter.virtual_lists.append(self)
     ext = _vl_ext(self)
     ext.item_views = {}
@@ -91,6 +83,7 @@ def virtual_list_init(
     ext.rendered_viewport_ids = {}
     ext.visible_ids = []
     ext.scroll_top = 0.0
+    ext.viewport_seqs = {}
 
 
 @impl(VirtualList.get_item_view)
@@ -110,11 +103,14 @@ def virtual_list_render(self: VirtualList) -> ViewBlock:
         "itemCount": self.adapter.item_count,
         "stickToBottom": self.stick_to_bottom,
         "estimatedItemHeight": self.estimated_item_height,
+        "bufferScreens": self.buffer_screens,
+        "deadzoneScreens": self.deadzone_screens,
         "onViewport": Callback(
             _virtual_list_on_viewport,
             self,
             start=Expr.wire("$0.start"),
             end=Expr.wire("$0.end"),
+            seq=Expr.wire("$0.seq"),
             viewport_id=Expr.host("event.viewport_id"),
         ),
     }
@@ -139,19 +135,23 @@ def _vl_for_vp(
     children: RenderTree = [
         ext.item_views[iid] for iid in item_ids if iid in ext.item_views
     ]
+    seq = ext.viewport_seqs.get(vid, 0)
     return {
         **common,
         "itemIds": list(item_ids),
         "viewportStart": viewport_start,
+        "viewportSeq": seq,
         "$children": children,
     }
 
 
 def _virtual_list_on_viewport(
-    self: VirtualList, *, start: int, end: int, viewport_id: int,
+    self: VirtualList, *, start: int, end: int, seq: int = 0, viewport_id: int,
 ) -> None:
     """Callback 回调：前端 viewport 变化时更新 per-VP viewport range。"""
-    _vl_ext(self).viewport_ranges[viewport_id] = (start, end)
+    ext = _vl_ext(self)
+    ext.viewport_ranges[viewport_id] = (start, end)
+    ext.viewport_seqs[viewport_id] = seq
     self.invalidate()
 
 

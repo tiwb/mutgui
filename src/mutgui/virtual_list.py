@@ -9,6 +9,8 @@ View 不碰数据，只管 count + ID + item View 生命周期。
 
 from __future__ import annotations
 
+from typing import Any
+
 import mutobj
 
 from .view import View, ViewBlock, ViewId
@@ -60,18 +62,17 @@ class VirtualList(View):
     render 取并集，push 时按 VP 裁剪 $children。
     """
     adapter: VirtualListItemAdapter
-    sync_scroll: bool
-    stick_to_bottom: bool
-    estimated_item_height: int
+    sync_scroll: bool = False
+    stick_to_bottom: bool = False
+    estimated_item_height: int = 32
+    buffer_screens: float = 1.0
+    deadzone_screens: float = 0.5
 
     def __init__(
         self,
         id: str,
         adapter: VirtualListItemAdapter,
-        *,
-        sync_scroll: bool = False,
-        stick_to_bottom: bool = False,
-        estimated_item_height: int = 32,
+        **kwargs: Any,
     ) -> None: ...
 
     def get_item_view(self, item_id: ViewId) -> View | None:

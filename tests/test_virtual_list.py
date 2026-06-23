@@ -494,22 +494,18 @@ def test_virtual_list_custom_props_render() -> None:
     assert props["estimatedItemHeight"] == 120
 
 
-def test_sync_scroll_and_stick_to_bottom_are_mutually_exclusive() -> None:
-    """sync_scroll 与 stick_to_bottom 同开时抛清晰错误。"""
+def test_sync_scroll_and_stick_to_bottom_can_coexist() -> None:
+    """sync_scroll 与 stick_to_bottom 可同时开启，语义不冲突。"""
     adapter = SimpleAdapter([f"row-{i}" for i in range(10)])
 
-    try:
-        VirtualList(
-            id="list",
-            adapter=adapter,
-            sync_scroll=True,
-            stick_to_bottom=True,
-        )
-    except ValueError as exc:
-        assert "sync_scroll" in str(exc)
-        assert "stick_to_bottom" in str(exc)
-    else:
-        raise AssertionError("expected ValueError")
+    vl = VirtualList(
+        id="list",
+        adapter=adapter,
+        sync_scroll=True,
+        stick_to_bottom=True,
+    )
+    assert vl.sync_scroll is True
+    assert vl.stick_to_bottom is True
 
 
 def test_sync_scroll_disabled_no_props() -> None:

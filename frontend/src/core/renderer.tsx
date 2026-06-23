@@ -89,7 +89,7 @@ export function MutguiView({ viewId }: { viewId?: string | number }) {
 
   return (
     <ScopeProvider value={fullPath}>
-      {tree === null ? null : renderTree(tree)}
+      {renderTree(tree)}
     </ScopeProvider>
   );
 }
