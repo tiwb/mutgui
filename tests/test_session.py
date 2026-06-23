@@ -23,7 +23,12 @@ class MockChannel(Channel):
 
     @property
     def last_tree(self) -> list[dict[str, Any]]:
-        return self.last["tree"]
+        # 新格式：render 消息包含 frames 数组，根帧的 viewId 为 []
+        msg = self.last
+        for f in msg.get("frames", []):
+            if f.get("viewId") == []:
+                return f["tree"]
+        return msg["frames"][0]["tree"]  # fallback：取第一帧
 
 
 # ---------------------------------------------------------------------------
@@ -48,10 +53,13 @@ def test_initialize_sends_render() -> None:
         assert len(channel.messages) == 1
         msg = channel.last
         assert msg["type"] == "render"
-        assert msg["viewId"] == []
-        assert len(msg["tree"]) == 1
-        assert msg["tree"][0]["$component"] == "Input"
-        assert msg["tree"][0]["value"] == "hello"
+        frames = msg["frames"]
+        assert len(frames) == 1
+        root = frames[0]
+        assert root["viewId"] == []
+        assert len(root["tree"]) == 1
+        assert root["tree"][0]["$component"] == "Input"
+        assert root["tree"][0]["value"] == "hello"
 
     asyncio.run(_test())
 

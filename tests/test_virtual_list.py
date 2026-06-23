@@ -27,7 +27,13 @@ class MockChannel(Channel):
         self.messages.append(message)
 
     def messages_for(self, view_id: list[str | int]) -> list[dict[str, Any]]:
-        return [m for m in self.messages if m.get("viewId") == view_id]
+        result: list[dict[str, Any]] = []
+        for m in self.messages:
+            if m.get("type") == "render":
+                for frame in m.get("frames", []):
+                    if frame.get("viewId") == view_id:
+                        result.append(frame)
+        return result
 
 
 # ---------------------------------------------------------------------------

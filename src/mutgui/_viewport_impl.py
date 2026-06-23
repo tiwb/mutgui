@@ -230,8 +230,15 @@ def _filter_overlays_by_channel(
     return result
 
 
-async def vp_push_render(vp: ViewPort) -> None:
-    """推送 View 的缓存 wire_tree 到 ViewPort 的 Channel。"""
+def vp_collect_frames(
+    vp: ViewPort, frames: list[tuple[list[str | int], WireTree]],
+) -> None:
+    """递归收集 ViewPort 树的 wire_tree 帧（父帧先于子帧）。
+
+    不发送任何消息，由调用方决定如何下发。
+
+    管理子 ViewPort 生命周期：创建/复用/销毁。
+    """
     ext = _ext(vp)
     view = ext.view
     assert view is not None
@@ -251,7 +258,7 @@ async def vp_push_render(vp: ViewPort) -> None:
         except Exception:
             import logging
             logging.getLogger("mutgui.render").exception(
-                "Render failed during vp_push_render fallback for %s",
+                "Render failed during vp_collect_frames for %s",
                 type(view).__name__,
             )
             return
@@ -267,11 +274,7 @@ async def vp_push_render(vp: ViewPort) -> None:
     wire_tree = _filter_overlays_by_channel(wire_tree, render_state.children, channel_id)
     allowed = _extract_view_refs(wire_tree)
 
-    await ext.channel.send({
-        "type": "render",
-        "viewId": ext.path,
-        "tree": wire_tree,
-    })
+    frames.append((list(ext.path), wire_tree))
 
     # 子 ViewPort reconciliation（只包含 wire tree 中引用的 View）
     children = {k: v for k, v in render_state.children.items() if k in allowed}
@@ -288,12 +291,24 @@ async def vp_push_render(vp: ViewPort) -> None:
             child_vp = ViewPort(child_view, ext.channel, _path=child_path)
         ext.child_viewports[child_id] = child_vp
 
-        # 递归推送子 View 的 wire_tree
-        await vp_push_render(child_vp)
+        # 递归收集子 View 的帧
+        vp_collect_frames(child_vp, frames)
 
     # detach 被移除的子 ViewPort
     for old_vp in old_child_vps.values():
         old_vp.detach()
+
+
+async def vp_push_render(vp: ViewPort) -> None:
+    """推送 ViewPort 树的全部帧为一条 render 消息。"""
+    ext = _ext(vp)
+    assert ext.channel is not None
+    frames: list[tuple[list[str | int], WireTree]] = []
+    vp_collect_frames(vp, frames)
+    await ext.channel.send({
+        "type": "render",
+        "frames": [{"viewId": vid, "tree": tree} for vid, tree in frames],
+    })
 
 
 def vp_child_viewport(vp: ViewPort, child_id: ViewId) -> ViewPort | None:

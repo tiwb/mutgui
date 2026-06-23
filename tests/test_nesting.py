@@ -16,7 +16,13 @@ class MockChannel(Channel):
         self.messages.append(message)
 
     def messages_for(self, view_id: list[str | int]) -> list[dict[str, Any]]:
-        return [m for m in self.messages if m.get("viewId") == view_id]
+        result: list[dict[str, Any]] = []
+        for m in self.messages:
+            if m.get("type") == "render":
+                for f in m.get("frames", []):
+                    if f.get("viewId") == view_id:
+                        result.append(f)
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -67,16 +73,18 @@ def test_nested_render_produces_view_and_child_messages() -> None:
         await vp.initialize()
         await view.rendered()
 
-        assert len(channel.messages) == 2
+        assert len(channel.messages) == 1
+        frames = channel.messages[0]["frames"]
+        assert len(frames) == 2
 
         # 父 View：viewId=[], tree 包含 $view 引用
-        parent_msg = channel.messages[0]
+        parent_msg = frames[0]
         assert parent_msg["viewId"] == []
         assert parent_msg["tree"][0]["$component"] == "Text"
         assert parent_msg["tree"][1] == {"$view": "child"}
 
         # 子 View：viewId=["child"]
-        child_msg = channel.messages[1]
+        child_msg = frames[1]
         assert child_msg["viewId"] == ["child"]
         assert child_msg["tree"][0]["$component"] == "InputNumber"
         assert child_msg["tree"][0]["value"] == 0
@@ -207,11 +215,13 @@ def test_deeply_nested_event_routing() -> None:
         await vp.initialize()
         await view.rendered()
 
-        # 3 层 → 3 条消息
-        assert len(channel.messages) == 3
-        assert channel.messages[0]["viewId"] == []
-        assert channel.messages[1]["viewId"] == ["middle"]
-        assert channel.messages[2]["viewId"] == ["middle", "inner"]
+        # 3 层 → 1 条 render 消息，3 帧
+        assert len(channel.messages) == 1
+        frames = channel.messages[0]["frames"]
+        assert len(frames) == 3
+        assert frames[0]["viewId"] == []
+        assert frames[1]["viewId"] == ["middle"]
+        assert frames[2]["viewId"] == ["middle", "inner"]
 
         # 事件路由到最内层
         await vp.handle_event({
@@ -261,15 +271,17 @@ def test_child_invalidate_no_parent_render() -> None:
         await vp.initialize()
         await view.rendered()
 
-        initial_count = len(channel.messages)  # 2 (parent + child)
+        initial_count = len(channel.messages)  # 1
 
         view.child.invalidate()
         await view.child.rendered()
 
-        # 只有子 View 重新 render（1 条新消息）
+        # 只有子 View 重新 render（1 条新消息，含 1 帧）
         assert len(channel.messages) == initial_count + 1
         last_msg = channel.messages[-1]
-        assert last_msg["viewId"] == ["child"]
+        frames = last_msg["frames"]
+        assert len(frames) == 1
+        assert frames[0]["viewId"] == ["child"]
 
     asyncio.run(_test())
 
@@ -310,13 +322,14 @@ def test_view_inside_children() -> None:
         await view.rendered()
 
         # 父 View 的 tree 中 $children 包含 $view 引用
-        parent_tree = channel.messages[0]["tree"]
+        frames = channel.messages[0]["frames"]
+        parent_tree = frames[0]["tree"]
         tab_pane = parent_tree[0]["$children"][0]
         assert tab_pane["$children"] == [{"$view": "panel"}]
 
-        # 子 View 独立推送
-        assert channel.messages[1]["viewId"] == ["panel"]
-        assert channel.messages[1]["tree"][0]["$component"] == "Text"
+        # 子 View 独立推送（同一 render 消息的不同帧）
+        assert frames[1]["viewId"] == ["panel"]
+        assert frames[1]["tree"][0]["$component"] == "Text"
 
     asyncio.run(_test())
 
@@ -352,8 +365,9 @@ def test_dynamic_view_add_remove() -> None:
         await vp.initialize()
         await view.rendered()
 
-        # 初始：parent + child = 2 消息
-        assert len(channel.messages) == 2
+        # 初始：parent + child = 1 条 render 消息，2 帧
+        assert len(channel.messages) == 1
+        assert len(channel.messages[0]["frames"]) == 2
 
         # 隐藏 child → re-render parent
         view.show_child = False
@@ -361,8 +375,9 @@ def test_dynamic_view_add_remove() -> None:
         await view.rendered()
 
         # parent re-rendered, child 不在 tree 中
-        parent_msgs = [m for m in channel.messages if m["viewId"] == []]
-        last_parent = parent_msgs[-1]
+        parent_frames = [f for m in channel.messages if m.get("type") == "render"
+                         for f in m.get("frames", []) if f["viewId"] == []]
+        last_parent = parent_frames[-1]
         assert len(last_parent["tree"]) == 1  # 只有 Text
 
         # child 的 ViewPort 已 detach（ViewObservers 中不再有该 ViewPort）
@@ -406,7 +421,8 @@ def test_multi_client_invalidate_notifies_all() -> None:
         # 两个 channel 都收到更新，无需手动 flush
         assert len(ch_a.messages) == 2
         assert len(ch_b.messages) == 2
-        assert ch_b.messages[-1]["tree"][0]["value"] == 99
+        ch_b_frames = ch_b.messages[-1]["frames"]
+        assert any(f["tree"][0]["value"] == 99 for f in ch_b_frames)
 
     asyncio.run(_test())
 

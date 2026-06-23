@@ -24,6 +24,8 @@ export type RenderCallback = (tree: unknown[]) => void;
 export interface MutguiConnection {
   send(data: string): void;
   subscribe(viewId: ViewPath, callback: RenderCallback): () => void;
+  /** 同步读取已缓存的渲染树（始终返回数组，未命中返回 []）。 */
+  readCache(viewId: ViewPath): unknown[];
   /** 可选：连接销毁时调用，用于解绑全局事件监听器。 */
   teardown?(): void;
 }

@@ -138,7 +138,7 @@ def test_command_messages_keep_order_and_do_not_break_render_flow() -> None:
             "url": "https://example.com/1",
             "replace": False,
         }
-        assert channel.messages[1]["tree"][0]["children"] == "Clicks: 1"
+        assert channel.messages[1]["frames"][0]["tree"][0]["children"] == "Clicks: 1"
 
         channel.messages.clear()
         await vp.send_command("mutgui.redirect", url="https://example.com/a")

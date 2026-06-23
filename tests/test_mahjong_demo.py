@@ -270,7 +270,8 @@ def test_all_view_renders_table_and_four_player_views() -> None:
         await vp.initialize()
         await all_view.rendered()
 
-        paths = [message.get("viewId") for message in channel.messages]
+        paths = [f.get("viewId") for m in channel.messages
+                 for f in m.get("frames", [])]
         assert [] in paths
         assert ["table"] in paths
         assert ["all-east"] in paths

@@ -62,7 +62,7 @@ registerCommands({
 });
 
 type InboundMessage =
-  | { type: 'render'; viewId?: ViewPath; tree: unknown[] }
+  | { type: 'render'; frames: Array<{ viewId?: ViewPath; tree: unknown[] }> }
   | { type: 'command'; viewId?: ViewPath; name: string; args?: Record<string, unknown> };
 
 export interface RuntimeConnection extends MutguiConnection {
@@ -77,11 +77,16 @@ export function createConnection(sendRaw: (data: string) => void): RuntimeConnec
   const handleMessage = (message: unknown) => {
     const msg = message as Partial<InboundMessage>;
     if (msg.type === 'render') {
-      const viewId: ViewPath = msg.viewId ?? [];
-      const key = JSON.stringify(viewId);
-      cache.set(key, msg.tree ?? []);
-      const cb = subs.get(key);
-      if (cb) cb(msg.tree ?? []);
+      const frames = msg.frames;
+      if (!frames) return;
+      // 先全写 cache，再统一通知 subscriber（React 18 自动批处理 setState）
+      for (const { viewId, tree } of frames) {
+        cache.set(JSON.stringify(viewId ?? []), tree ?? []);
+      }
+      for (const { viewId, tree } of frames) {
+        const cb = subs.get(JSON.stringify(viewId ?? []));
+        if (cb) cb(tree ?? []);
+      }
       return;
     }
 
@@ -105,6 +110,22 @@ export function createConnection(sendRaw: (data: string) => void): RuntimeConnec
       const cached = cache.get(key);
       if (cached) callback(cached);
       return () => subs.delete(key);
+    },
+    readCache: (viewId: ViewPath): unknown[] => {
+      const key = JSON.stringify(viewId);
+      const cached = cache.get(key);
+      if (cached === undefined) {
+        // 根 View（viewId=[]）在 WebSocket 首条 render 到达前 mount 是正常行为，
+        // 此后端 bug 才会导致非根路径 miss（$view ref 的帧漏发）。
+        if (viewId.length > 0) {
+          console.error(
+            `[mutgui] readCache miss for viewId=${key}. ` +
+            `Backend bug: $view ref has no matching frame in the render batch.`,
+          );
+        }
+        return [];
+      }
+      return cached;
     },
     teardown: () => {
       teardownSystemEvents();

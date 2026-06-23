@@ -42,14 +42,14 @@ export interface ComponentSchema {
  * 3. 渲染 — 用 renderTree 渲染自己的组件树
  */
 export function MutguiView({ viewId }: { viewId?: string | number }) {
-  // tree state 语义：
-  //   null  = 未收到首帧（初始状态）
-  //   []    = 已收到首帧，但后端合法返回空 tree
-  //   [...] = 正常内容
-  // 菜单分支靠这个区分来避免“在 children=[] 时跳完整布局”的首帧 flip bug。
-  const [tree, setTree] = useState<ComponentSchema[] | null>(null);
+  // tree state 语义：[] = 空树（初始或后端合法返回空），[...] = 正常内容。
+  // readCache 保证永不返回 undefined，故无需 null 状态。
   const conn = useConnection();
   const parentScope = useScope();
+  const [tree, setTree] = useState<ComponentSchema[]>(() => {
+    const path: ViewPath = viewId !== undefined ? [...parentScope, viewId] : [];
+    return conn.readCache(path) as ComponentSchema[];
+  });
 
   // 菜单分支：看到 menu viewId 那一刻同步 take 走 pendingTrigger，
   // 避免 Menu mount 被 received gating 延后后被后续 trigger 覆盖
@@ -72,7 +72,7 @@ export function MutguiView({ viewId }: { viewId?: string | number }) {
   // 菜单 View — 用 Menu 容器包装并 portal 渲染
   // 首帧 tree 未到之前不挂载 Menu，避免在空 children 上跳 useLayoutEffect 布局。
   if (isMenuViewId(viewId)) {
-    if (tree === null) return null;
+    if (tree.length === 0) return null;
     return (
       <ScopeProvider value={fullPath}>
         <Menu

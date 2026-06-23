@@ -142,16 +142,18 @@ def test_trigger_creates_and_pushes_menu() -> None:
         await page.rendered()
 
         # 根 View 重新 push，含菜单 $view 引用
-        root_msgs = [m for m in chan.messages if m["viewId"] == []]
+        root_msgs = [f for m in chan.messages if m.get("type") == "render"
+                     for f in m.get("frames", []) if f["viewId"] == []]
         assert len(root_msgs) == 1
         assert any(node.get("$view", "").startswith("$menu:")
                    for node in root_msgs[0]["tree"])
 
         # 菜单 View 也 push 了
-        menu_msgs = [m for m in chan.messages
-                     if isinstance(m["viewId"], list) and m["viewId"]
-                     and isinstance(m["viewId"][0], str)
-                     and m["viewId"][0].startswith("$menu:")]
+        menu_msgs = [f for m in chan.messages if m.get("type") == "render"
+                     for f in m.get("frames", [])
+                     if isinstance(f["viewId"], list) and f["viewId"]
+                     and isinstance(f["viewId"][0], str)
+                     and f["viewId"][0].startswith("$menu:")]
         assert len(menu_msgs) == 1
         # 菜单内容包含正确 item_id
         items = menu_msgs[0]["tree"]
@@ -231,7 +233,8 @@ def test_close_event_removes_menu() -> None:
         assert len(state.overlay_children) == 0
 
         # 根 View 重新 push 不含菜单引用
-        root_msgs = [m for m in chan.messages if m["viewId"] == []]
+        root_msgs = [f for m in chan.messages if m.get("type") == "render"
+                     for f in m.get("frames", []) if f["viewId"] == []]
         assert len(root_msgs) >= 1
         last = root_msgs[-1]
         assert not any(
@@ -326,10 +329,14 @@ def test_direct_kwarg_passes_through_to_factory() -> None:
 # ---------------------------------------------------------------------------
 
 def _root_render_msg(chan: MockChannel) -> dict[str, Any] | None:
-    """取最后一条发往根 View 的 render 消息。"""
-    msgs = [m for m in chan.messages
-            if m.get("type") == "render" and m.get("viewId") == []]
-    return msgs[-1] if msgs else None
+    """取最后一条发往根 View 的 render 消息的根帧 tree。"""
+    for m in reversed(chan.messages):
+        if m.get("type") != "render":
+            continue
+        for f in m.get("frames", []):
+            if f.get("viewId") == []:
+                return f["tree"]
+    return None
 
 
 def _menu_refs(tree: list[dict[str, Any]]) -> list[str]:
@@ -364,22 +371,26 @@ def test_menu_only_renders_on_origin_viewport() -> None:
         # A 看到菜单 $view
         a_root = _root_render_msg(chan_a)
         assert a_root is not None
-        assert _menu_refs(a_root["tree"])
+        assert _menu_refs(a_root)
 
         # B 也被重推（overlay_children 变化 → invalidate）但不包含菜单节点
         b_root = _root_render_msg(chan_b)
         assert b_root is not None
-        assert _menu_refs(b_root["tree"]) == []
+        assert _menu_refs(b_root) == []
 
         # 菜单 push 只在 A 的 channel上发生
         a_menu_msgs = [m for m in chan_a.messages
-                       if isinstance(m.get("viewId"), list) and m["viewId"]
-                       and isinstance(m["viewId"][0], str)
-                       and m["viewId"][0].startswith("$menu:")]
+                       if m.get("type") == "render"
+                       and any(isinstance(f.get("viewId"), list) and f["viewId"]
+                               and isinstance(f["viewId"][0], str)
+                               and f["viewId"][0].startswith("$menu:")
+                               for f in m.get("frames", []))]
         b_menu_msgs = [m for m in chan_b.messages
-                       if isinstance(m.get("viewId"), list) and m["viewId"]
-                       and isinstance(m["viewId"][0], str)
-                       and m["viewId"][0].startswith("$menu:")]
+                       if m.get("type") == "render"
+                       and any(isinstance(f.get("viewId"), list) and f["viewId"]
+                               and isinstance(f["viewId"][0], str)
+                               and f["viewId"][0].startswith("$menu:")
+                               for f in m.get("frames", []))]
         assert len(a_menu_msgs) == 1
         assert len(b_menu_msgs) == 0
 
@@ -431,8 +442,8 @@ def test_two_viewports_open_independent_menus() -> None:
         a_root = _root_render_msg(chan_a)
         b_root = _root_render_msg(chan_b)
         assert a_root is not None and b_root is not None
-        a_refs = _menu_refs(a_root["tree"])
-        b_refs = _menu_refs(b_root["tree"])
+        a_refs = _menu_refs(a_root)
+        b_refs = _menu_refs(b_root)
         assert a_refs == [menu_a_id]
         assert len(b_refs) == 1 and b_refs[0] != menu_a_id
 
